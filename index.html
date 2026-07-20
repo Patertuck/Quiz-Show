@@ -1,0 +1,864 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quiz Show</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: Verdana, Arial, Helvetica, sans-serif;
+      --blue: #2537a4;
+      --blue-dark: #142477;
+      --yellow: #fff45c;
+      --white: #fff;
+      --black: #050505;
+      --scoreboard-height: 132px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      background: var(--blue);
+      color: var(--white);
+    }
+
+    button, input { font: inherit; }
+
+    button {
+      border: 0;
+      border-radius: 0.4rem;
+      cursor: pointer;
+    }
+
+    .screen[hidden] { display: none !important; }
+
+    #loading-screen,
+    #start-screen,
+    #error-screen {
+      display: grid;
+      min-height: 100vh;
+      place-items: center;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    .panel {
+      width: min(42rem, 100%);
+      padding: clamp(1.5rem, 5vw, 3rem);
+      border-radius: 1rem;
+      background: var(--white);
+      color: #17206a;
+      box-shadow: 0 1rem 3rem rgb(0 0 0 / 35%);
+    }
+
+    .panel h1 { margin-top: 0; }
+
+    #team-preview {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.65rem;
+      margin: 1.5rem 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    #team-preview li {
+      padding: 0.55rem 0.9rem;
+      border-radius: 999px;
+      background: #e9ecff;
+      font-weight: bold;
+    }
+
+    .primary-button {
+      padding: 0.75rem 1.75rem;
+      background: var(--blue);
+      color: var(--white);
+      font-weight: bold;
+    }
+
+    .primary-button:hover,
+    .primary-button:focus-visible { background: var(--blue-dark); }
+
+    .secondary-button {
+      padding: 0.75rem 1.75rem;
+      border: 2px solid var(--blue);
+      background: var(--white);
+      color: var(--blue);
+      font-weight: bold;
+    }
+
+    .start-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.75rem;
+    }
+
+    #start-message {
+      min-height: 1.3rem;
+      color: #4a4f78;
+    }
+
+    #error-message {
+      padding: 1rem;
+      border-radius: 0.5rem;
+      background: #ffe9e9;
+      color: #8b1111;
+      text-align: left;
+      white-space: pre-wrap;
+    }
+
+    #game-screen {
+      min-height: 100vh;
+      padding-bottom: var(--scoreboard-height);
+      background: var(--black);
+    }
+
+    #game-title {
+      margin: 0;
+      padding: 0.55rem 1rem;
+      background: var(--blue-dark);
+      color: var(--white);
+      font-size: clamp(1.15rem, 2.5vw, 2rem);
+      text-align: center;
+    }
+
+    #board {
+      display: grid;
+      min-height: calc(100vh - var(--scoreboard-height) - 3.5rem);
+      gap: 0.3rem;
+      padding: 0.3rem;
+      background: var(--black);
+    }
+
+    .category,
+    .tile {
+      display: grid;
+      min-width: 0;
+      place-items: center;
+      padding: clamp(0.35rem, 1.2vw, 0.9rem);
+      background: var(--blue);
+      color: var(--yellow);
+      text-align: center;
+      overflow-wrap: anywhere;
+    }
+
+    .category {
+      font-size: clamp(0.72rem, 1.65vw, 1.3rem);
+      font-weight: bold;
+    }
+
+    .tile {
+      border: 3px solid transparent;
+      border-radius: 0;
+      font-size: clamp(1.1rem, 3vw, 2.2rem);
+      font-weight: bold;
+    }
+
+    .tile:not(:disabled):hover,
+    .tile:not(:disabled):focus-visible { border-color: var(--yellow); }
+
+    .tile:disabled {
+      cursor: default;
+      color: transparent;
+    }
+
+    #scoreboard {
+      position: fixed;
+      z-index: 5;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      display: flex;
+      height: var(--scoreboard-height);
+      gap: 0.6rem;
+      align-items: stretch;
+      padding: 0.6rem;
+      overflow-x: auto;
+      background: var(--white);
+      color: #111;
+      box-shadow: 0 -0.3rem 1rem rgb(0 0 0 / 25%);
+    }
+
+    #scoreboard[hidden] { display: none; }
+
+    .team {
+      display: grid;
+      min-width: 10rem;
+      flex: 1 0 10rem;
+      grid-template-columns: 2.5rem 1fr 2.5rem;
+      grid-template-rows: auto 1fr;
+      gap: 0.25rem;
+      align-items: center;
+    }
+
+    .team-name {
+      grid-column: 1 / -1;
+      width: 100%;
+      border: 0;
+      border-bottom: 1px solid #ccc;
+      background: transparent;
+      color: #111;
+      font-size: 1rem;
+      font-weight: bold;
+      text-align: center;
+    }
+
+    .score {
+      font-size: clamp(1.3rem, 3vw, 2rem);
+      font-weight: bold;
+      text-align: center;
+    }
+
+    .score-button {
+      width: 2.3rem;
+      height: 2.3rem;
+      border-radius: 50%;
+      background: #e8e8e8;
+      font-size: 1.5rem;
+      font-weight: bold;
+    }
+
+    .score-button.add { color: #287b16; }
+    .score-button.subtract { color: #c51d1d; }
+    .score-button:hover,
+    .score-button:focus-visible { background: #d5d5d5; }
+
+    #question-screen {
+      display: grid;
+      min-height: 100vh;
+      grid-template-rows: 1fr auto;
+      place-items: center;
+      gap: 1.5rem;
+      padding: clamp(1rem, 4vw, 3rem);
+      padding-bottom: calc(var(--scoreboard-height) + 1rem);
+      background: var(--blue);
+      text-align: center;
+    }
+
+    #card-content {
+      display: grid;
+      width: min(70rem, 100%);
+      gap: 1.5rem;
+      place-items: center;
+    }
+
+    .media-block {
+      display: grid;
+      gap: 1rem;
+      place-items: center;
+      font-size: clamp(1.6rem, 4.5vw, 3.8rem);
+      font-weight: bold;
+      line-height: 1.2;
+      white-space: pre-wrap;
+    }
+
+    .media-block.answer {
+      padding-top: 1.5rem;
+      border-top: 2px solid rgb(255 255 255 / 45%);
+      color: var(--yellow);
+    }
+
+    .media-block img {
+      display: block;
+      width: auto;
+      max-width: min(90vw, 60rem);
+      max-height: 52vh;
+      border-radius: 0.6rem;
+      object-fit: contain;
+      box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 30%);
+    }
+
+    .image-error {
+      padding: 0.75rem;
+      border: 2px solid #ffbaba;
+      color: #ffdddd;
+      font-size: 1rem;
+    }
+
+    #question-controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.75rem;
+    }
+
+    #question-controls button {
+      padding: 0.75rem 1.15rem;
+      background: var(--white);
+      color: var(--blue-dark);
+      font-weight: bold;
+    }
+
+    @media (max-width: 650px) {
+      :root { --scoreboard-height: 118px; }
+      #board { gap: 0.15rem; padding: 0.15rem; }
+      .category, .tile { padding: 0.25rem; }
+      #scoreboard { gap: 0.35rem; padding: 0.4rem; }
+      .team { min-width: 8rem; flex-basis: 8rem; grid-template-columns: 2rem 1fr 2rem; }
+      .score-button { width: 2rem; height: 2rem; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section id="loading-screen" class="screen" aria-live="polite">
+      <div class="panel"><h1>Loading quiz…</h1></div>
+    </section>
+
+    <section id="error-screen" class="screen" hidden>
+      <div class="panel">
+        <h1>Quiz configuration error</h1>
+        <p id="error-message"></p>
+        <p>Correct <strong>config.json</strong>, then reload this page.</p>
+      </div>
+    </section>
+
+    <section id="start-screen" class="screen" hidden>
+      <div class="panel">
+        <h1 id="start-title"></h1>
+        <p>Playing today:</p>
+        <ul id="team-preview"></ul>
+        <p id="start-message"></p>
+        <div class="start-actions">
+          <button id="start-button" class="primary-button" type="button">Start</button>
+          <button id="resume-button" class="primary-button" type="button" hidden>Resume game</button>
+          <button id="new-game-button" class="secondary-button" type="button" hidden>New game</button>
+        </div>
+        <p><small>Press F11 for full-screen mode.</small></p>
+      </div>
+    </section>
+
+    <section id="game-screen" class="screen" hidden>
+      <h1 id="game-title"></h1>
+      <div id="board" aria-label="Jeopardy board"></div>
+    </section>
+
+    <aside id="scoreboard" aria-label="Team scores" hidden></aside>
+
+    <section id="question-screen" class="screen" hidden>
+      <div id="card-content">
+        <div id="question-content" class="media-block"></div>
+        <div id="answer-content" class="media-block answer" hidden></div>
+      </div>
+      <div id="question-controls">
+        <button id="reveal-button" type="button">Show answer</button>
+        <button id="continue-button" type="button">Continue →</button>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    "use strict";
+
+    const state = {
+      config: null,
+      configFingerprint: "",
+      teams: [],
+      usedTiles: new Set(),
+      activeTile: null,
+      activeValue: 0,
+      activeQuestion: null,
+      gameStarted: false,
+      savedState: null,
+      saveChain: Promise.resolve(),
+      nameSaveTimer: null,
+      revision: 0
+    };
+
+    const elements = {
+      loading: document.querySelector("#loading-screen"),
+      error: document.querySelector("#error-screen"),
+      errorMessage: document.querySelector("#error-message"),
+      start: document.querySelector("#start-screen"),
+      startTitle: document.querySelector("#start-title"),
+      teamPreview: document.querySelector("#team-preview"),
+      startMessage: document.querySelector("#start-message"),
+      startButton: document.querySelector("#start-button"),
+      resumeButton: document.querySelector("#resume-button"),
+      newGameButton: document.querySelector("#new-game-button"),
+      game: document.querySelector("#game-screen"),
+      gameTitle: document.querySelector("#game-title"),
+      board: document.querySelector("#board"),
+      scoreboard: document.querySelector("#scoreboard"),
+      questionScreen: document.querySelector("#question-screen"),
+      questionContent: document.querySelector("#question-content"),
+      answerContent: document.querySelector("#answer-content"),
+      revealButton: document.querySelector("#reveal-button"),
+      continueButton: document.querySelector("#continue-button")
+    };
+
+    function showScreen(target) {
+      document.querySelectorAll(".screen").forEach((screen) => {
+        screen.hidden = screen !== target;
+      });
+    }
+
+    function requireNonEmptyString(value, path) {
+      if (typeof value !== "string" || value.trim() === "") {
+        throw new Error(`${path} must be a non-empty string.`);
+      }
+    }
+
+    function validateOptionalText(value, path) {
+      if (value !== undefined && typeof value !== "string") {
+        throw new Error(`${path} must be a string when provided.`);
+      }
+    }
+
+    function validateImage(image, path) {
+      if (image === undefined) return;
+      if (!image || typeof image !== "object" || Array.isArray(image)) {
+        throw new Error(`${path} must be an object with src and alt fields.`);
+      }
+      requireNonEmptyString(image.src, `${path}.src`);
+      requireNonEmptyString(image.alt, `${path}.alt`);
+      const src = image.src.replaceAll("\\", "/");
+      const segments = src.split("/");
+      if (!src.startsWith("assets/") || segments.includes("..") || /^[a-z]+:/i.test(src)) {
+        throw new Error(`${path}.src must be a relative path beneath assets/.`);
+      }
+    }
+
+    function validateSide(item, textKey, imageKey, path) {
+      validateOptionalText(item[textKey], `${path}.${textKey}`);
+      validateImage(item[imageKey], `${path}.${imageKey}`);
+      const hasText = typeof item[textKey] === "string" && item[textKey].trim() !== "";
+      if (!hasText && item[imageKey] === undefined) {
+        throw new Error(`${path} needs ${textKey} text, ${imageKey}, or both.`);
+      }
+    }
+
+    function validateConfig(config) {
+      if (!config || typeof config !== "object" || Array.isArray(config)) {
+        throw new Error("The root of config.json must be an object.");
+      }
+      requireNonEmptyString(config.title, "title");
+
+      if (!Array.isArray(config.teams) || config.teams.length === 0) {
+        throw new Error("teams must contain at least one team.");
+      }
+      config.teams.forEach((team, index) => {
+        if (!team || typeof team !== "object" || Array.isArray(team)) {
+          throw new Error(`teams[${index}] must be an object.`);
+        }
+        requireNonEmptyString(team.name, `teams[${index}].name`);
+        if (!Number.isInteger(team.startingScore)) {
+          throw new Error(`teams[${index}].startingScore must be an integer.`);
+        }
+      });
+
+      if (!Array.isArray(config.values) || config.values.length === 0) {
+        throw new Error("values must contain at least one point value.");
+      }
+      config.values.forEach((value, index) => {
+        if (!Number.isInteger(value) || value <= 0) {
+          throw new Error(`values[${index}] must be a positive integer.`);
+        }
+      });
+
+      if (!Array.isArray(config.categories) || config.categories.length === 0) {
+        throw new Error("categories must contain at least one category.");
+      }
+      config.categories.forEach((category, categoryIndex) => {
+        const categoryPath = `categories[${categoryIndex}]`;
+        if (!category || typeof category !== "object" || Array.isArray(category)) {
+          throw new Error(`${categoryPath} must be an object.`);
+        }
+        requireNonEmptyString(category.name, `${categoryPath}.name`);
+        if (!Array.isArray(category.questions) || category.questions.length !== config.values.length) {
+          throw new Error(`${categoryPath}.questions must contain exactly ${config.values.length} entries.`);
+        }
+        category.questions.forEach((item, questionIndex) => {
+          const itemPath = `${categoryPath}.questions[${questionIndex}]`;
+          if (!item || typeof item !== "object" || Array.isArray(item)) {
+            throw new Error(`${itemPath} must be an object.`);
+          }
+          validateSide(item, "question", "questionImage", itemPath);
+          validateSide(item, "answer", "answerImage", itemPath);
+        });
+      });
+      return config;
+    }
+
+    function canonicalJson(value) {
+      if (Array.isArray(value)) {
+        return `[${value.map(canonicalJson).join(",")}]`;
+      }
+      if (value && typeof value === "object") {
+        return `{${Object.keys(value).sort().map((key) =>
+          `${JSON.stringify(key)}:${canonicalJson(value[key])}`
+        ).join(",")}}`;
+      }
+      return JSON.stringify(value);
+    }
+
+    async function fingerprintConfig(config) {
+      const bytes = new TextEncoder().encode(canonicalJson(config));
+      const digest = await crypto.subtle.digest("SHA-256", bytes);
+      return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+    }
+
+    function validateSavedState(saved) {
+      if (!saved || typeof saved !== "object" || saved.version !== 1) {
+        throw new Error("The saved game has an unsupported format.");
+      }
+      if (typeof saved.configFingerprint !== "string" || typeof saved.gameStarted !== "boolean") {
+        throw new Error("The saved game is missing required fields.");
+      }
+      if (!Number.isInteger(saved.revision) || saved.revision < 1) {
+        throw new Error("The saved game has an invalid revision.");
+      }
+      if (!Array.isArray(saved.teams) || saved.teams.length !== state.config.teams.length) {
+        throw new Error("The saved game has a different number of teams.");
+      }
+      saved.teams.forEach((team) => {
+        if (!team || typeof team.name !== "string" || !Number.isInteger(team.score)) {
+          throw new Error("The saved game contains an invalid team.");
+        }
+      });
+      if (!Array.isArray(saved.usedTiles)) {
+        throw new Error("The saved game has invalid used questions.");
+      }
+      saved.usedTiles.forEach((tileId) => {
+        if (typeof tileId !== "string" || !/^\d+:\d+$/.test(tileId)) {
+          throw new Error("The saved game contains an invalid question identifier.");
+        }
+        const [categoryIndex, rowIndex] = tileId.split(":").map(Number);
+        if (categoryIndex >= state.config.categories.length || rowIndex >= state.config.values.length) {
+          throw new Error("The saved game refers to a question that no longer exists.");
+        }
+      });
+      if (saved.activeQuestion !== null) {
+        const active = saved.activeQuestion;
+        if (!active || !Number.isInteger(active.categoryIndex) || !Number.isInteger(active.rowIndex)
+            || typeof active.answerRevealed !== "boolean"
+            || active.categoryIndex < 0 || active.categoryIndex >= state.config.categories.length
+            || active.rowIndex < 0 || active.rowIndex >= state.config.values.length) {
+          throw new Error("The saved game contains an invalid active question.");
+        }
+      }
+      return saved;
+    }
+
+    function stateSnapshot() {
+      return {
+        version: 1,
+        configFingerprint: state.configFingerprint,
+        updatedAt: new Date().toISOString(),
+        revision: ++state.revision,
+        gameStarted: state.gameStarted,
+        teams: state.teams.map(({ name, score }) => ({ name, score })),
+        usedTiles: Array.from(state.usedTiles).sort(),
+        activeQuestion: state.activeQuestion ? { ...state.activeQuestion } : null
+      };
+    }
+
+    function saveState() {
+      if (!state.gameStarted) return state.saveChain;
+      const snapshot = stateSnapshot();
+      state.saveChain = state.saveChain.catch(() => undefined).then(async () => {
+        const response = await fetch("/api/state", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(snapshot)
+        });
+        if (!response.ok) {
+          const detail = await response.json().catch(() => ({}));
+          throw new Error(detail.error || `HTTP ${response.status}`);
+        }
+      }).catch((error) => {
+        console.error("Could not save quiz state:", error);
+        throw error;
+      });
+      return state.saveChain;
+    }
+
+    function scheduleNameSave() {
+      window.clearTimeout(state.nameSaveTimer);
+      state.nameSaveTimer = window.setTimeout(() => { saveState().catch(() => undefined); }, 350);
+    }
+
+    function resetRuntimeState() {
+      state.teams = state.config.teams.map((team) => ({ name: team.name, score: team.startingScore }));
+      state.usedTiles = new Set();
+      state.activeTile = null;
+      state.activeValue = 0;
+      state.activeQuestion = null;
+      state.gameStarted = true;
+      state.revision = 0;
+    }
+
+    function renderStartScreen() {
+      document.title = state.config.title;
+      elements.startTitle.textContent = state.config.title;
+      elements.gameTitle.textContent = state.config.title;
+      elements.teamPreview.replaceChildren();
+      state.config.teams.forEach((team) => {
+        const item = document.createElement("li");
+        item.textContent = team.name;
+        elements.teamPreview.append(item);
+      });
+    }
+
+    function configureStartActions(mode, message = "") {
+      elements.startMessage.textContent = message;
+      elements.startButton.hidden = mode !== "new";
+      elements.resumeButton.hidden = mode !== "resume";
+      elements.newGameButton.hidden = mode === "new";
+    }
+
+    function renderBoard() {
+      const { categories, values } = state.config;
+      elements.board.replaceChildren();
+      elements.board.style.gridTemplateColumns = `repeat(${categories.length}, minmax(0, 1fr))`;
+      elements.board.style.gridTemplateRows = `minmax(4rem, auto) repeat(${values.length}, minmax(4rem, 1fr))`;
+
+      categories.forEach((category) => {
+        const heading = document.createElement("div");
+        heading.className = "category";
+        heading.textContent = category.name;
+        elements.board.append(heading);
+      });
+
+      values.forEach((value, rowIndex) => {
+        categories.forEach((category, categoryIndex) => {
+          const tile = document.createElement("button");
+          tile.type = "button";
+          tile.className = "tile";
+          tile.textContent = value.toLocaleString();
+          tile.dataset.row = rowIndex;
+          tile.dataset.category = categoryIndex;
+          tile.disabled = state.usedTiles.has(`${categoryIndex}:${rowIndex}`);
+          tile.setAttribute("aria-label", `${category.name} for ${value} points`);
+          tile.addEventListener("click", () => openQuestion(tile, categoryIndex, rowIndex));
+          elements.board.append(tile);
+        });
+      });
+    }
+
+    function renderScoreboard() {
+      elements.scoreboard.replaceChildren();
+      state.teams.forEach((team, index) => {
+        const wrapper = document.createElement("section");
+        wrapper.className = "team";
+
+        const name = document.createElement("input");
+        name.className = "team-name";
+        name.value = team.name;
+        name.setAttribute("aria-label", `Name for team ${index + 1}`);
+        name.addEventListener("input", () => {
+          team.name = name.value;
+          scheduleNameSave();
+        });
+
+        const subtract = document.createElement("button");
+        subtract.type = "button";
+        subtract.className = "score-button subtract";
+        subtract.textContent = "−";
+        subtract.setAttribute("aria-label", `Subtract points from ${team.name}`);
+        subtract.addEventListener("click", () => changeScore(index, -state.activeValue));
+
+        const score = document.createElement("output");
+        score.className = "score";
+        score.id = `team-score-${index}`;
+        score.textContent = team.score.toLocaleString();
+        score.setAttribute("aria-label", `${team.name} score`);
+
+        const add = document.createElement("button");
+        add.type = "button";
+        add.className = "score-button add";
+        add.textContent = "+";
+        add.setAttribute("aria-label", `Add points to ${team.name}`);
+        add.addEventListener("click", () => changeScore(index, state.activeValue));
+
+        wrapper.append(name, subtract, score, add);
+        elements.scoreboard.append(wrapper);
+      });
+    }
+
+    function renderMedia(container, text, image) {
+      container.replaceChildren();
+      if (typeof text === "string" && text.trim() !== "") {
+        const textElement = document.createElement("div");
+        textElement.textContent = text;
+        container.append(textElement);
+      }
+      if (image) {
+        const imageElement = document.createElement("img");
+        imageElement.src = image.src;
+        imageElement.alt = image.alt;
+        imageElement.addEventListener("error", () => {
+          const error = document.createElement("div");
+          error.className = "image-error";
+          error.textContent = `Could not load image: ${image.src}`;
+          imageElement.replaceWith(error);
+        }, { once: true });
+        container.append(imageElement);
+      }
+    }
+
+    function displayActiveQuestion() {
+      const { categoryIndex, rowIndex, answerRevealed } = state.activeQuestion;
+      const item = state.config.categories[categoryIndex].questions[rowIndex];
+      renderMedia(elements.questionContent, item.question, item.questionImage);
+      renderMedia(elements.answerContent, item.answer, item.answerImage);
+      elements.answerContent.hidden = !answerRevealed;
+      elements.revealButton.hidden = answerRevealed;
+      showScreen(elements.questionScreen);
+    }
+
+    function openQuestion(tile, categoryIndex, rowIndex) {
+      const tileId = `${categoryIndex}:${rowIndex}`;
+      state.activeTile = tile;
+      state.activeValue = state.config.values[rowIndex];
+      state.activeQuestion = { categoryIndex, rowIndex, answerRevealed: false };
+      state.usedTiles.add(tileId);
+      tile.disabled = true;
+      displayActiveQuestion();
+      saveState().catch(() => undefined);
+    }
+
+    function changeScore(teamIndex, amount) {
+      if (!state.activeTile || state.activeValue === 0) return;
+      const team = state.teams[teamIndex];
+      team.score += amount;
+      document.querySelector(`#team-score-${teamIndex}`).textContent = team.score.toLocaleString();
+      saveState().catch(() => undefined);
+    }
+
+    function revealAnswer() {
+      elements.answerContent.hidden = false;
+      elements.revealButton.hidden = true;
+      if (state.activeQuestion) state.activeQuestion.answerRevealed = true;
+      saveState().catch(() => undefined);
+    }
+
+    function continueGame() {
+      state.activeTile = null;
+      state.activeValue = 0;
+      state.activeQuestion = null;
+      showScreen(elements.game);
+      saveState().catch(() => undefined);
+    }
+
+    function startGame() {
+      resetRuntimeState();
+      renderBoard();
+      renderScoreboard();
+      elements.scoreboard.hidden = false;
+      showScreen(elements.game);
+      saveState().catch(() => undefined);
+    }
+
+    function resumeGame() {
+      const saved = state.savedState;
+      state.teams = saved.teams.map((team) => ({ ...team }));
+      state.usedTiles = new Set(saved.usedTiles);
+      state.activeQuestion = saved.activeQuestion ? { ...saved.activeQuestion } : null;
+      state.gameStarted = saved.gameStarted;
+      state.revision = saved.revision;
+      renderBoard();
+      renderScoreboard();
+      elements.scoreboard.hidden = false;
+      if (state.activeQuestion) {
+        const { categoryIndex, rowIndex } = state.activeQuestion;
+        state.activeTile = elements.board.querySelector(
+          `.tile[data-category="${categoryIndex}"][data-row="${rowIndex}"]`
+        );
+        state.activeValue = state.config.values[rowIndex];
+        displayActiveQuestion();
+      } else {
+        state.activeTile = null;
+        state.activeValue = 0;
+        showScreen(elements.game);
+      }
+    }
+
+    async function newGame() {
+      if (state.savedState && !window.confirm("Delete the saved game and start again? This cannot be undone.")) {
+        return;
+      }
+      const response = await fetch("/api/state", { method: "DELETE" });
+      if (!response.ok) {
+        const detail = await response.json().catch(() => ({}));
+        window.alert(`Could not delete the saved game: ${detail.error || `HTTP ${response.status}`}`);
+        return;
+      }
+      state.savedState = null;
+      startGame();
+    }
+
+    async function loadSavedState() {
+      const response = await fetch("/api/state", { cache: "no-store" });
+      if (response.status === 404) return null;
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        return {
+          invalid: true,
+          configFingerprint: "",
+          error: payload.error || `Could not load saved game (HTTP ${response.status}).`
+        };
+      }
+      try {
+        return validateSavedState(payload);
+      } catch (error) {
+        return { invalid: true, configFingerprint: "", error: error.message };
+      }
+    }
+
+    async function loadConfig() {
+      try {
+        const response = await fetch("config.json", { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error(`Could not load config.json (HTTP ${response.status}).`);
+        }
+        state.config = validateConfig(await response.json());
+        state.configFingerprint = await fingerprintConfig(state.config);
+        renderStartScreen();
+        state.savedState = await loadSavedState();
+        if (!state.savedState) {
+          configureStartActions("new", "No saved game found.");
+        } else if (state.savedState.invalid) {
+          configureStartActions("incompatible", `The saved game cannot be resumed: ${state.savedState.error} Start a new game to replace it.`);
+        } else if (state.savedState.configFingerprint !== state.configFingerprint) {
+          configureStartActions("incompatible", "The quiz configuration changed. Start a new game to replace the incompatible save.");
+        } else {
+          const savedTime = new Date(state.savedState.updatedAt);
+          const description = Number.isNaN(savedTime.valueOf())
+            ? "Saved progress is available."
+            : `Saved progress from ${savedTime.toLocaleString()} is available.`;
+          configureStartActions("resume", description);
+        }
+        showScreen(elements.start);
+      } catch (error) {
+        elements.errorMessage.textContent = error instanceof SyntaxError
+          ? `config.json contains invalid JSON. ${error.message}`
+          : error.message;
+        showScreen(elements.error);
+      }
+    }
+
+    elements.startButton.addEventListener("click", startGame);
+    elements.resumeButton.addEventListener("click", resumeGame);
+    elements.newGameButton.addEventListener("click", newGame);
+    elements.revealButton.addEventListener("click", revealAnswer);
+    elements.continueButton.addEventListener("click", continueGame);
+    window.addEventListener("pagehide", () => {
+      if (!state.gameStarted) return;
+      fetch("/api/state", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(stateSnapshot()),
+        keepalive: true
+      }).catch(() => undefined);
+    });
+    loadConfig();
+  </script>
+</body>
+</html>
