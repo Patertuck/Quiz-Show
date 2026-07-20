@@ -74,9 +74,46 @@
     }
 
     #team-preview li {
+      display: flex;
+      gap: 0.4rem;
+      align-items: center;
       padding: 0.55rem 0.9rem;
       border-radius: 999px;
       background: #e9ecff;
+      font-weight: bold;
+    }
+
+    .team-name-editor {
+      width: 10rem;
+      max-width: 100%;
+      border: 0;
+      border-bottom: 2px solid #aab2ea;
+      background: transparent;
+      color: #17206a;
+      font-weight: bold;
+      text-align: center;
+    }
+
+    .remove-team-button {
+      width: 1.8rem;
+      height: 1.8rem;
+      padding: 0;
+      border-radius: 50%;
+      background: #d7daf3;
+      color: #831919;
+      font-weight: bold;
+    }
+
+    .remove-team-button:disabled {
+      cursor: not-allowed;
+      opacity: 0.35;
+    }
+
+    #add-team-button {
+      margin-bottom: 1.25rem;
+      padding: 0.5rem 1rem;
+      background: #e9ecff;
+      color: #17206a;
       font-weight: bold;
     }
 
@@ -340,6 +377,7 @@
         <h1 id="start-title"></h1>
         <p>Playing today:</p>
         <ul id="team-preview"></ul>
+        <button id="add-team-button" type="button">+ Add team</button>
         <p id="start-message"></p>
         <div class="start-actions">
           <button id="start-button" class="primary-button" type="button">Start</button>
@@ -384,8 +422,8 @@
       gameStarted: false,
       savedState: null,
       saveChain: Promise.resolve(),
-      nameSaveTimer: null,
-      revision: 0
+      revision: 0,
+      startTeams: []
     };
 
     const elements = {
@@ -395,6 +433,7 @@
       start: document.querySelector("#start-screen"),
       startTitle: document.querySelector("#start-title"),
       teamPreview: document.querySelector("#team-preview"),
+      addTeamButton: document.querySelector("#add-team-button"),
       startMessage: document.querySelector("#start-message"),
       startButton: document.querySelector("#start-button"),
       resumeButton: document.querySelector("#resume-button"),
@@ -535,8 +574,8 @@
       if (!Number.isInteger(saved.revision) || saved.revision < 1) {
         throw new Error("The saved game has an invalid revision.");
       }
-      if (!Array.isArray(saved.teams) || saved.teams.length !== state.config.teams.length) {
-        throw new Error("The saved game has a different number of teams.");
+      if (!Array.isArray(saved.teams) || saved.teams.length === 0) {
+        throw new Error("The saved game must contain at least one team.");
       }
       saved.teams.forEach((team) => {
         if (!team || typeof team.name !== "string" || !Number.isInteger(team.score)) {
@@ -600,13 +639,8 @@
       return state.saveChain;
     }
 
-    function scheduleNameSave() {
-      window.clearTimeout(state.nameSaveTimer);
-      state.nameSaveTimer = window.setTimeout(() => { saveState().catch(() => undefined); }, 350);
-    }
-
-    function resetRuntimeState() {
-      state.teams = state.config.teams.map((team) => ({ name: team.name, score: team.startingScore }));
+    function resetRuntimeState(teams) {
+      state.teams = teams.map((team) => ({ ...team }));
       state.usedTiles = new Set();
       state.activeTile = null;
       state.activeValue = 0;
@@ -619,12 +653,64 @@
       document.title = state.config.title;
       elements.startTitle.textContent = state.config.title;
       elements.gameTitle.textContent = state.config.title;
+      renderTeamEditors(state.config.teams);
+    }
+
+    function renderTeamEditors(teams) {
       elements.teamPreview.replaceChildren();
-      state.config.teams.forEach((team) => {
+      state.startTeams = teams.map((team) => ({
+        name: team.name,
+        score: Number.isInteger(team.score) ? team.score : (team.startingScore ?? 0)
+      }));
+      state.startTeams.forEach((team, index) => {
         const item = document.createElement("li");
-        item.textContent = team.name;
+        const input = document.createElement("input");
+        input.className = "team-name-editor";
+        input.type = "text";
+        input.value = team.name;
+        input.required = true;
+        input.setAttribute("aria-label", `Name for team ${index + 1}`);
+        input.addEventListener("input", () => { state.startTeams[index].name = input.value; });
+
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "remove-team-button";
+        remove.textContent = "×";
+        remove.disabled = state.startTeams.length === 1;
+        remove.setAttribute("aria-label", `Remove ${team.name || `team ${index + 1}`}`);
+        remove.addEventListener("click", () => {
+          state.startTeams.splice(index, 1);
+          renderTeamEditors(state.startTeams);
+        });
+
+        item.append(input, remove);
         elements.teamPreview.append(item);
       });
+    }
+
+    function validateStartTeams() {
+      const inputs = Array.from(elements.teamPreview.querySelectorAll(".team-name-editor"));
+      const names = inputs.map((input) => input.value.trim());
+      const emptyIndex = names.findIndex((name) => name === "");
+      if (emptyIndex !== -1) {
+        window.alert("Every team needs a name before the game can start.");
+        inputs[emptyIndex].focus();
+        return null;
+      }
+      state.startTeams.forEach((team, index) => { team.name = names[index]; });
+      return state.startTeams.map((team) => ({ ...team }));
+    }
+
+    function addTeam() {
+      const existingNames = new Set(state.startTeams.map((team) => team.name.trim().toLowerCase()));
+      let teamNumber = 1;
+      while (existingNames.has(`team ${teamNumber}`)) teamNumber += 1;
+      const teams = [...state.startTeams, { name: `Team ${teamNumber}`, score: 0 }];
+      renderTeamEditors(teams);
+      const inputs = elements.teamPreview.querySelectorAll(".team-name-editor");
+      const newestInput = inputs[inputs.length - 1];
+      newestInput.focus();
+      newestInput.select();
     }
 
     function configureStartActions(mode, message = "") {
@@ -716,14 +802,9 @@
         const wrapper = document.createElement("section");
         wrapper.className = "team";
 
-        const name = document.createElement("input");
+        const name = document.createElement("div");
         name.className = "team-name";
-        name.value = team.name;
-        name.setAttribute("aria-label", `Name for team ${index + 1}`);
-        name.addEventListener("input", () => {
-          team.name = name.value;
-          scheduleNameSave();
-        });
+        name.textContent = team.name;
 
         const subtract = document.createElement("button");
         subtract.type = "button";
@@ -817,7 +898,9 @@
     }
 
     function startGame() {
-      resetRuntimeState();
+      const teams = validateStartTeams();
+      if (!teams) return;
+      resetRuntimeState(teams);
       renderBoard();
       renderScoreboard();
       elements.scoreboard.hidden = false;
@@ -827,8 +910,10 @@
     }
 
     function resumeGame() {
+      const teams = validateStartTeams();
+      if (!teams) return;
       const saved = state.savedState;
-      state.teams = saved.teams.map((team) => ({ ...team }));
+      state.teams = teams;
       state.usedTiles = new Set(saved.usedTiles);
       state.activeQuestion = saved.activeQuestion ? { ...saved.activeQuestion } : null;
       state.gameStarted = saved.gameStarted;
@@ -849,9 +934,11 @@
         showScreen(elements.game);
         requestAnimationFrame(fitBoardToViewport);
       }
+      saveState().catch(() => undefined);
     }
 
     async function newGame() {
+      if (!validateStartTeams()) return;
       if (state.savedState && !window.confirm("Delete the saved game and start again? This cannot be undone.")) {
         return;
       }
@@ -862,6 +949,9 @@
         return;
       }
       state.savedState = null;
+      state.startTeams.forEach((team, index) => {
+        team.score = state.config.teams[index]?.startingScore ?? 0;
+      });
       startGame();
     }
 
@@ -900,6 +990,7 @@
         } else if (state.savedState.configFingerprint !== state.configFingerprint) {
           configureStartActions("incompatible", "The quiz configuration changed. Start a new game to replace the incompatible save.");
         } else {
+          renderTeamEditors(state.savedState.teams);
           const savedTime = new Date(state.savedState.updatedAt);
           const description = Number.isNaN(savedTime.valueOf())
             ? "Saved progress is available."
@@ -916,6 +1007,7 @@
     }
 
     elements.startButton.addEventListener("click", startGame);
+    elements.addTeamButton.addEventListener("click", addTeam);
     elements.resumeButton.addEventListener("click", resumeGame);
     elements.newGameButton.addEventListener("click", newGame);
     elements.revealButton.addEventListener("click", revealAnswer);
