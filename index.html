@@ -18,8 +18,15 @@
 
     * { box-sizing: border-box; }
 
+    html,
     body {
-      min-height: 100vh;
+      width: 100%;
+      height: 100%;
+    }
+
+    body.game-active { overflow: hidden; }
+
+    body {
       margin: 0;
       background: var(--blue);
       color: var(--white);
@@ -113,12 +120,18 @@
     }
 
     #game-screen {
-      min-height: 100vh;
-      padding-bottom: var(--scoreboard-height);
+      display: flex;
+      height: calc(100vh - var(--scoreboard-height));
+      height: calc(100dvh - var(--scoreboard-height));
+      min-height: 0;
+      flex-direction: column;
+      padding-bottom: 0;
+      overflow: hidden;
       background: var(--black);
     }
 
     #game-title {
+      flex: 0 0 auto;
       margin: 0;
       padding: 0.55rem 1rem;
       background: var(--blue-dark);
@@ -129,9 +142,13 @@
 
     #board {
       display: grid;
-      min-height: calc(100vh - var(--scoreboard-height) - 3.5rem);
-      gap: 0.3rem;
-      padding: 0.3rem;
+      width: 100%;
+      min-width: 0;
+      min-height: 0;
+      flex: 1 1 auto;
+      gap: var(--board-gap, 0.3rem);
+      padding: var(--board-gap, 0.3rem);
+      overflow: hidden;
       background: var(--black);
     }
 
@@ -140,22 +157,24 @@
       display: grid;
       min-width: 0;
       place-items: center;
-      padding: clamp(0.35rem, 1.2vw, 0.9rem);
+      padding: var(--cell-padding, clamp(0.35rem, 1.2vw, 0.9rem));
       background: var(--blue);
       color: var(--yellow);
       text-align: center;
+      line-height: 1.08;
+      overflow: hidden;
       overflow-wrap: anywhere;
     }
 
     .category {
-      font-size: clamp(0.72rem, 1.65vw, 1.3rem);
+      font-size: var(--category-font-size, clamp(0.65rem, 1.65vw, 1.3rem));
       font-weight: bold;
     }
 
     .tile {
       border: 3px solid transparent;
       border-radius: 0;
-      font-size: clamp(1.1rem, 3vw, 2.2rem);
+      font-size: var(--tile-font-size, clamp(0.8rem, 3vw, 2.2rem));
       font-weight: bold;
     }
 
@@ -296,8 +315,6 @@
 
     @media (max-width: 650px) {
       :root { --scoreboard-height: 118px; }
-      #board { gap: 0.15rem; padding: 0.15rem; }
-      .category, .tile { padding: 0.25rem; }
       #scoreboard { gap: 0.35rem; padding: 0.4rem; }
       .team { min-width: 8rem; flex-basis: 8rem; grid-template-columns: 2rem 1fr 2rem; }
       .score-button { width: 2rem; height: 2rem; }
@@ -397,6 +414,10 @@
       document.querySelectorAll(".screen").forEach((screen) => {
         screen.hidden = screen !== target;
       });
+      document.body.classList.toggle(
+        "game-active",
+        target === elements.game || target === elements.questionScreen
+      );
     }
 
     function requireNonEmptyString(value, path) {
@@ -616,8 +637,10 @@
     function renderBoard() {
       const { categories, values } = state.config;
       elements.board.replaceChildren();
+      elements.board.style.setProperty("--category-count", categories.length);
+      elements.board.style.setProperty("--row-count", values.length);
       elements.board.style.gridTemplateColumns = `repeat(${categories.length}, minmax(0, 1fr))`;
-      elements.board.style.gridTemplateRows = `minmax(4rem, auto) repeat(${values.length}, minmax(4rem, 1fr))`;
+      elements.board.style.gridTemplateRows = `minmax(0, 1.1fr) repeat(${values.length}, minmax(0, 1fr))`;
 
       categories.forEach((category) => {
         const heading = document.createElement("div");
@@ -640,6 +663,26 @@
           elements.board.append(tile);
         });
       });
+    }
+
+    function fitBoardToViewport() {
+      const categoryCount = state.config?.categories.length || 1;
+      const rowCount = state.config?.values.length || 1;
+      const width = elements.board.clientWidth;
+      const height = elements.board.clientHeight;
+      if (width === 0 || height === 0) return;
+
+      const columnWidth = width / categoryCount;
+      const rowHeight = height / (rowCount + 1.1);
+      const categoryFont = Math.max(6, Math.min(21, columnWidth * 0.15, rowHeight * 0.32));
+      const tileFont = Math.max(8, Math.min(35, columnWidth * 0.27, rowHeight * 0.48));
+      const gap = Math.max(1, Math.min(5, columnWidth * 0.02, rowHeight * 0.04));
+      const padding = Math.max(1, Math.min(12, columnWidth * 0.05, rowHeight * 0.1));
+
+      elements.board.style.setProperty("--category-font-size", `${categoryFont}px`);
+      elements.board.style.setProperty("--tile-font-size", `${tileFont}px`);
+      elements.board.style.setProperty("--board-gap", `${gap}px`);
+      elements.board.style.setProperty("--cell-padding", `${padding}px`);
     }
 
     function renderScoreboard() {
@@ -744,6 +787,7 @@
       state.activeValue = 0;
       state.activeQuestion = null;
       showScreen(elements.game);
+      requestAnimationFrame(fitBoardToViewport);
       saveState().catch(() => undefined);
     }
 
@@ -753,6 +797,7 @@
       renderScoreboard();
       elements.scoreboard.hidden = false;
       showScreen(elements.game);
+      requestAnimationFrame(fitBoardToViewport);
       saveState().catch(() => undefined);
     }
 
@@ -777,6 +822,7 @@
         state.activeTile = null;
         state.activeValue = 0;
         showScreen(elements.game);
+        requestAnimationFrame(fitBoardToViewport);
       }
     }
 
@@ -858,6 +904,7 @@
         keepalive: true
       }).catch(() => undefined);
     });
+    new ResizeObserver(fitBoardToViewport).observe(elements.board);
     loadConfig();
   </script>
 </body>
