@@ -178,11 +178,11 @@
       font-weight: bold;
     }
 
-    .tile:not(:disabled):hover,
-    .tile:not(:disabled):focus-visible { border-color: var(--yellow); }
+    .tile:not(.used):hover,
+    .tile:not(.used):focus-visible { border-color: var(--yellow); }
 
-    .tile:disabled {
-      cursor: default;
+    .tile.used {
+      cursor: context-menu;
       color: transparent;
     }
 
@@ -657,12 +657,37 @@
           tile.textContent = value.toLocaleString();
           tile.dataset.row = rowIndex;
           tile.dataset.category = categoryIndex;
-          tile.disabled = state.usedTiles.has(`${categoryIndex}:${rowIndex}`);
-          tile.setAttribute("aria-label", `${category.name} for ${value} points`);
-          tile.addEventListener("click", () => openQuestion(tile, categoryIndex, rowIndex));
+          tile.dataset.availableLabel = `${category.name} for ${value} points`;
+          setTileUsedState(tile, state.usedTiles.has(`${categoryIndex}:${rowIndex}`));
+          tile.addEventListener("click", () => {
+            if (!tile.classList.contains("used")) openQuestion(tile, categoryIndex, rowIndex);
+          });
+          tile.addEventListener("contextmenu", (event) => {
+            if (!tile.classList.contains("used")) return;
+            event.preventDefault();
+            restoreUsedQuestion(tile, categoryIndex, rowIndex);
+          });
           elements.board.append(tile);
         });
       });
+    }
+
+    function setTileUsedState(tile, isUsed) {
+      tile.classList.toggle("used", isUsed);
+      tile.setAttribute("aria-disabled", String(isUsed));
+      if (isUsed) {
+        tile.title = "Right-click to restore this question";
+        tile.setAttribute("aria-label", `${tile.dataset.availableLabel}, used. Right-click to restore.`);
+      } else {
+        tile.removeAttribute("title");
+        tile.setAttribute("aria-label", tile.dataset.availableLabel);
+      }
+    }
+
+    function restoreUsedQuestion(tile, categoryIndex, rowIndex) {
+      state.usedTiles.delete(`${categoryIndex}:${rowIndex}`);
+      setTileUsedState(tile, false);
+      saveState().catch(() => undefined);
     }
 
     function fitBoardToViewport() {
@@ -762,7 +787,7 @@
       state.activeValue = state.config.values[rowIndex];
       state.activeQuestion = { categoryIndex, rowIndex, answerRevealed: false };
       state.usedTiles.add(tileId);
-      tile.disabled = true;
+      setTileUsedState(tile, true);
       displayActiveQuestion();
       saveState().catch(() => undefined);
     }
