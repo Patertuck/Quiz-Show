@@ -263,18 +263,26 @@
       gap: 0.2rem 0.35rem;
       align-items: center;
       padding: 0.45rem 0.55rem;
-      border: 2px solid color-mix(in srgb, var(--team-accent) 70%, white 15%);
+      border: 2px solid #5264bd;
       border-radius: 0.75rem;
-      background:
-        linear-gradient(135deg, color-mix(in srgb, var(--team-accent) 18%, transparent), transparent 55%),
-        linear-gradient(180deg, #263ca3 0%, #18287d 100%);
+      background: linear-gradient(180deg, #263ca3 0%, #18287d 100%);
       box-shadow: 0 0.35rem 0.8rem rgb(0 0 0 / 28%);
       transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
     }
 
-    .team.leader {
+    .team.rank-first {
       border-color: #ffd84d;
       box-shadow: 0 0 0.75rem rgb(255 216 77 / 45%), 0 0.35rem 0.8rem rgb(0 0 0 / 32%);
+    }
+
+    .team.rank-second {
+      border-color: #d8deea;
+      box-shadow: 0 0 0.65rem rgb(216 222 234 / 38%), 0 0.35rem 0.8rem rgb(0 0 0 / 32%);
+    }
+
+    .team.rank-third {
+      border-color: #cd8b52;
+      box-shadow: 0 0 0.65rem rgb(205 139 82 / 38%), 0 0.35rem 0.8rem rgb(0 0 0 / 32%);
     }
 
     .team-name {
@@ -862,7 +870,6 @@
         const wrapper = document.createElement("section");
         wrapper.className = "team";
         wrapper.dataset.teamIndex = index;
-        wrapper.style.setProperty("--team-accent", `hsl(${(index * 67 + 38) % 360} 78% 68%)`);
 
         const name = document.createElement("div");
         name.className = "team-name";
@@ -897,11 +904,13 @@
     }
 
     function updateStandings() {
-      const highestScore = Math.max(...state.teams.map((team) => team.score));
       elements.scoreboard.querySelectorAll(".team").forEach((card) => {
         const index = Number(card.dataset.teamIndex);
         const team = state.teams[index];
-        card.classList.toggle("leader", team.score === highestScore);
+        const rank = 1 + state.teams.filter((candidate) => candidate.score > team.score).length;
+        card.classList.toggle("rank-first", rank === 1);
+        card.classList.toggle("rank-second", rank === 2);
+        card.classList.toggle("rank-third", rank === 3);
       });
     }
 
