@@ -1,0 +1,4 @@
+#ordering-view { position: relative; display: grid; place-items: center; padding: clamp(4rem, 8vw, 7rem) clamp(1rem, 5vw, 4rem) 2rem; background: radial-gradient(circle at 50% 20%, #a65ad7 0%, #552582 45%, #250e40 100%); text-align: center; }
+.ordering-placeholder { width: min(48rem, 100%); }
+.ordering-placeholder h1 { margin: 0 0 1rem; font-size: clamp(2.2rem, 7vw, 5.5rem); text-shadow: 0 0.2rem 0 #321050, 0 0 1.3rem rgb(228 180 255 / 30%); }
+.ordering-placeholder p { margin: 0; color: #f1dcff; font-size: clamp(1rem, 2.4vw, 1.5rem); }

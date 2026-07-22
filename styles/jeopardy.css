@@ -1,0 +1,17 @@
+.game-header { position: relative; display: grid; min-height: 3.4rem; flex: 0 0 auto; grid-template-columns: 3.2rem 1fr 3.2rem; align-items: center; padding: 0.3rem 0.45rem; background: var(--blue-dark); }
+.game-header h1 { grid-column: 2; margin: 0; font-size: clamp(1.15rem, 2.5vw, 2rem); text-align: center; }
+#jeopardy-board-view { display: flex; height: 100%; min-height: 0; flex-direction: column; overflow: hidden; background: #000; }
+#board { display: grid; width: 100%; min-width: 0; min-height: 0; flex: 1 1 auto; gap: var(--board-gap, 0.3rem); padding: var(--board-gap, 0.3rem); overflow: hidden; background: #000; }
+.category, .tile { display: grid; min-width: 0; place-items: center; padding: var(--cell-padding, 0.5rem); overflow: hidden; background: var(--blue); color: var(--yellow); line-height: 1.08; text-align: center; overflow-wrap: anywhere; }
+.category { font-size: var(--category-font-size, 1.1rem); font-weight: bold; }
+.tile { border: 3px solid transparent; border-radius: 0; font-size: var(--tile-font-size, 2rem); font-weight: bold; }
+.tile:not(.used):hover, .tile:not(.used):focus-visible { border-color: var(--yellow); }
+.tile.used { cursor: context-menu; color: transparent; }
+#jeopardy-question-view { position: relative; display: grid; height: 100%; grid-template-rows: 1fr auto; place-items: center; gap: 1.5rem; padding: clamp(3.8rem, 7vw, 5rem) clamp(1rem, 4vw, 3rem) 1rem; background: var(--blue); text-align: center; }
+#card-content { display: grid; width: min(70rem, 100%); gap: 1.5rem; place-items: center; }
+.media-block { display: grid; gap: 1rem; place-items: center; font-size: clamp(1.6rem, 4.5vw, 3.8rem); font-weight: bold; line-height: 1.2; white-space: pre-wrap; }
+.media-block.answer { padding-top: 1.5rem; border-top: 2px solid rgb(255 255 255 / 45%); color: var(--yellow); }
+.media-block img { display: block; width: auto; max-width: min(90vw, 60rem); max-height: 45vh; border-radius: 0.6rem; object-fit: contain; box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 30%); }
+.image-error { padding: 0.75rem; border: 2px solid #ffbaba; color: #ffdddd; font-size: 1rem; }
+#question-controls { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.75rem; }
+#question-controls button { padding: 0.75rem 1.15rem; background: #fff; color: var(--blue-dark); font-weight: bold; }

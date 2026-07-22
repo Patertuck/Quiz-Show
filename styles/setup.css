@@ -1,0 +1,8 @@
+.setup-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.75rem; }
+#setup-message { min-height: 1.3rem; color: #4a4f78; }
+#team-editors { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.65rem; margin: 1.5rem 0; padding: 0; list-style: none; }
+#team-editors li { display: flex; gap: 0.4rem; align-items: center; padding: 0.55rem 0.9rem; border-radius: 999px; background: #e9ecff; font-weight: bold; }
+.team-name-editor { width: 10rem; max-width: 100%; border: 0; border-bottom: 2px solid #aab2ea; background: transparent; color: #17206a; font-weight: bold; text-align: center; }
+.remove-team-button { width: 1.8rem; height: 1.8rem; padding: 0; border-radius: 50%; background: #d7daf3; color: #831919; font-weight: bold; }
+.remove-team-button:disabled { cursor: not-allowed; opacity: 0.35; }
+#add-team-button { margin-bottom: 1.25rem; padding: 0.5rem 1rem; background: #e9ecff; color: #17206a; font-weight: bold; }

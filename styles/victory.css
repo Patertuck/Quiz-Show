@@ -1,0 +1,23 @@
+#victory-view { position: relative; display: grid; height: 100vh; height: 100dvh; min-height: 0; grid-template-rows: auto minmax(5rem, auto) 1fr; gap: clamp(1rem, 3vh, 2rem); align-items: center; justify-items: center; padding: clamp(1.5rem, 5vw, 4rem); overflow: hidden; background: radial-gradient(circle at 50% 15%, #4258d2 0%, var(--blue-dark) 42%, #080d38 100%); cursor: pointer; text-align: center; }
+#victory-view > h1 { z-index: 1; margin: 0; color: var(--yellow); font-size: clamp(2rem, 6vw, 5rem); letter-spacing: 0.05em; text-shadow: 0 0.2rem 0 #10194f, 0 0 1.25rem rgb(255 244 92 / 45%); }
+#standing-reveals { z-index: 1; display: grid; width: min(46rem, 100%); gap: 0.6rem; }
+.standing-reveal, .podium-place { opacity: 0; transform: translateY(1.5rem) scale(0.96); }
+.standing-reveal.is-revealed, .podium-place.is-revealed { animation: victory-reveal 600ms cubic-bezier(.2, .8, .2, 1) forwards; }
+.standing-reveal { padding: 0.6rem 1rem; border: 2px solid rgb(255 255 255 / 30%); border-radius: 0.7rem; background: rgb(8 15 53 / 72%); font-size: clamp(1rem, 2.6vw, 1.6rem); font-weight: bold; }
+.standing-score, .podium-score { color: var(--yellow); font-variant-numeric: tabular-nums; }
+#podium { z-index: 1; display: flex; width: min(64rem, 100%); min-height: min(42vh, 25rem); align-items: end; justify-content: center; gap: clamp(0.35rem, 1.5vw, 1.25rem); }
+.podium-place { display: grid; width: min(31%, 19rem); min-width: 0; align-content: end; gap: 0.45rem; padding: 1rem clamp(0.35rem, 1.2vw, 1rem); border-radius: 0.75rem 0.75rem 0 0; color: #10194f; box-shadow: 0 -0.45rem 1.25rem rgb(0 0 0 / 28%); }
+.podium-place.rank-1 { order: 2; min-height: min(38vh, 23rem); background: linear-gradient(135deg, #fff6a5, #e5ad26); }
+.podium-place.rank-2 { order: 1; min-height: min(29vh, 17rem); background: linear-gradient(135deg, #fff, #aeb9ca); }
+.podium-place.rank-3 { order: 3; min-height: min(21vh, 12rem); background: linear-gradient(135deg, #e8b785, #a95e31); }
+.podium-rank { font-size: clamp(2rem, 6vw, 4.5rem); font-weight: 900; line-height: 1; }
+.podium-names { overflow-wrap: anywhere; font-size: clamp(0.85rem, 2.2vw, 1.4rem); font-weight: 900; }
+.podium-score { color: #593800; font-size: clamp(0.8rem, 1.8vw, 1.2rem); font-weight: bold; }
+#confetti { position: absolute; inset: 0; pointer-events: none; }
+.confetti-piece { position: absolute; top: -8vh; left: var(--confetti-left); width: var(--confetti-size); height: calc(var(--confetti-size) * 1.7); background: hsl(var(--confetti-hue) 90% 62%); animation: confetti-fall var(--confetti-duration) linear var(--confetti-delay) infinite; }
+@keyframes victory-reveal { to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes confetti-fall { to { transform: translate(var(--confetti-drift), 115vh) rotate(720deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .standing-reveal.is-revealed, .podium-place.is-revealed { animation: none; opacity: 1; transform: none; }
+  .confetti-piece { display: none; }
+}

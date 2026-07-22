@@ -1,0 +1,24 @@
+#scoreboard { position: fixed; z-index: 5; right: 0; bottom: 0; left: 0; display: flex; height: var(--scoreboard-height); gap: 0.65rem; align-items: stretch; padding: 0.65rem; overflow-x: auto; overflow-y: hidden; background: linear-gradient(180deg, #101b59, #080f35); color: #fff; box-shadow: 0 -0.35rem 1.2rem rgb(0 0 0 / 38%); scrollbar-color: #5262b5 #080f35; scrollbar-width: thin; }
+#scoreboard::-webkit-scrollbar { height: 0.45rem; }
+#scoreboard::-webkit-scrollbar-track { background: #080f35; }
+#scoreboard::-webkit-scrollbar-thumb { border-radius: 999px; background: #5262b5; }
+.team { display: grid; min-width: 12.5rem; flex: 1 0 12.5rem; grid-template-columns: 3.5rem minmax(4rem, 1fr) 3.5rem; grid-template-rows: 1.7rem 1fr; gap: 0.2rem 0.35rem; align-items: center; padding: 0.45rem 0.55rem; border: 2px solid #5264bd; border-radius: 0.75rem; background: linear-gradient(180deg, #263ca3, #18287d); box-shadow: 0 0.35rem 0.8rem rgb(0 0 0 / 28%); }
+.team.rank-first { border-color: #ffd84d; box-shadow: 0 0 0.75rem rgb(255 216 77 / 45%), 0 0.35rem 0.8rem rgb(0 0 0 / 32%); }
+.team.rank-second { border-color: #d8deea; box-shadow: 0 0 0.65rem rgb(216 222 234 / 38%), 0 0.35rem 0.8rem rgb(0 0 0 / 32%); }
+.team.rank-third { border-color: #cd8b52; box-shadow: 0 0 0.65rem rgb(205 139 82 / 38%), 0 0.35rem 0.8rem rgb(0 0 0 / 32%); }
+.team-name { grid-column: 1 / -1; grid-row: 1; width: 100%; overflow: hidden; color: #f8f9ff; font-size: 0.9rem; font-weight: 800; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
+.score { grid-column: 2; grid-row: 2; color: var(--yellow); font-size: clamp(1.35rem, 2.7vw, 2rem); font-variant-numeric: tabular-nums; font-weight: 900; text-align: center; text-shadow: 0 0.12rem 0 #10194f, 0 0 0.55rem rgb(255 244 92 / 24%); }
+.score-button { width: 3.5rem; height: 2.15rem; grid-row: 2; padding: 0 0.3rem; border: 1px solid rgb(255 255 255 / 25%); border-radius: 999px; color: #fff; font-size: 0.78rem; font-variant-numeric: tabular-nums; font-weight: 900; }
+.score-button.subtract { grid-column: 1; background: linear-gradient(#b6384b, #7f1f30); }
+.score-button.add { grid-column: 3; background: linear-gradient(#3a9b65, #216a44); }
+.score-button:hover, .score-button:focus-visible { filter: brightness(1.18); transform: translateY(-1px); }
+.score-button:disabled { cursor: default; filter: grayscale(0.8); opacity: 0.32; transform: none; }
+#scoreboard.standings-only .score-button { display: none; }
+#scoreboard.standings-only .team { grid-template-columns: 1fr; }
+#scoreboard.standings-only .score { grid-column: 1; }
+@media (max-width: 650px) {
+  :root { --scoreboard-height: 118px; }
+  #scoreboard { gap: 0.35rem; padding: 0.4rem; }
+  .team { min-width: 10.5rem; flex-basis: 10.5rem; grid-template-columns: 3rem minmax(3.5rem, 1fr) 3rem; padding: 0.35rem; }
+  .score-button { width: 3rem; height: 1.9rem; font-size: 0.68rem; }
+}
