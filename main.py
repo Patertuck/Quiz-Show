@@ -67,6 +67,16 @@ LAN_ADDRESS = find_lan_address()
 JOIN_URL = f"http://{LAN_ADDRESS}:{PORT}/buzzer"
 
 
+def current_join_info() -> dict:
+    """Re-evaluate the address after a Wi-Fi or hotspot change."""
+    address = find_lan_address()
+    return {
+        "joinUrl": f"http://{address}:{PORT}/buzzer",
+        "localUrl": f"http://127.0.0.1:{PORT}/buzzer",
+        "lanAvailable": address != "127.0.0.1",
+    }
+
+
 def validate_state(state: object) -> dict:
     """Validate the stable portion of the browser-to-server state contract."""
     if not isinstance(state, dict):
@@ -738,7 +748,7 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
                 pass
             return
         if self.request_path == "/api/buzzer/info":
-            self.send_json(200, {"joinUrl": JOIN_URL, "lanAvailable": LAN_ADDRESS != "127.0.0.1"})
+            self.send_json(200, current_join_info())
             return
         if self.request_path == "/api/buzzer/state":
             self.send_json(200, BUZZER.snapshot())

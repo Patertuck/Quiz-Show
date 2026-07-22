@@ -9,6 +9,7 @@ export function mount(root, { navigate }) {
   const buzzerDialog = root.querySelector("#buzzer-dialog");
   const qrContainer = root.querySelector("#buzzer-qr");
   const buzzerUrl = root.querySelector("#buzzer-url");
+  const buzzerLocalUrl = root.querySelector("#buzzer-local-url");
   publishStandby().catch(() => undefined);
 
   audienceButton.addEventListener("click", () => {
@@ -18,13 +19,14 @@ export function mount(root, { navigate }) {
 
   buzzerButton.addEventListener("click", async () => {
     buzzerDialog.showModal();
-    if (buzzerUrl.href) return;
+    qrContainer.textContent = "Generating QR code…";
     try {
       const response = await fetch("/api/buzzer/info", { cache: "no-store" });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const { joinUrl, lanAvailable } = await response.json();
+      const { joinUrl, localUrl, lanAvailable } = await response.json();
       buzzerUrl.href = joinUrl;
       buzzerUrl.textContent = joinUrl;
+      buzzerLocalUrl.href = localUrl;
       if (!lanAvailable) {
         qrContainer.textContent = "No local-network address was detected. Set QUIZ_HOST_IP to this computer's Wi-Fi IPv4 address and restart the server.";
         return;
