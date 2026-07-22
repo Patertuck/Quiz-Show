@@ -28,11 +28,13 @@ h1 { margin: 0; color: #fff45c; font-size: clamp(1.45rem, 7vw, 2.25rem); }
 .ordering-phone h2 { margin-bottom: .35rem; color: #f1c8ff; }
 #ordering-prompt { margin: 0 0 .6rem; text-align: center; line-height: 1.35; }
 #ordering-countdown { display: block; width: 3.7rem; margin: .35rem auto .7rem; padding: .4rem; border: 2px solid #ffe16d; border-radius: 999px; color: #ffe16d; font-size: 1.35rem; font-weight: bold; text-align: center; }
-.ordering-phone-list { display: grid; gap: .5rem; margin: 0; padding: 0; list-style: none; counter-reset: order; touch-action: none; }
-.ordering-phone-item { display: grid; min-height: 3.25rem; grid-template-columns: 2rem 1fr 2.4rem; align-items: center; gap: .4rem; padding: .35rem; border: 2px solid #ffffff40; border-radius: .65rem; background: #fff; color: #321347; counter-increment: order; box-shadow: 0 .25rem .6rem #0004; }
+.ordering-phone-list { display: grid; gap: .5rem; margin: 0; padding: 0; list-style: none; counter-reset: order; }
+.ordering-phone-item { display: grid; min-height: 3.25rem; grid-template-columns: 2rem 1fr; align-items: center; gap: .4rem; padding: .55rem .75rem .55rem .35rem; border: 2px solid #ffffff40; border-radius: .65rem; background: #fff; color: #321347; counter-increment: order; cursor: grab; touch-action: none; box-shadow: 0 .25rem .6rem #0004; transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease; }
 .ordering-phone-item::before { content: counter(order); font-weight: bold; text-align: center; }
-.ordering-phone-item.dragging { opacity: .65; border-color: #ffe16d; }
+.ordering-phone-item:hover { border-color: #d9aaff; }
+.ordering-phone-item.drag-placeholder { border: 2px dashed #ffe16d; background: #ffffff18; box-shadow: inset 0 0 0 .15rem #ffe16d22; }
+.ordering-phone-item.drag-placeholder > *, .ordering-phone-item.drag-placeholder::before { visibility: hidden; }
+.ordering-phone-item.drag-ghost { position: fixed; z-index: 1000; margin: 0; border-color: #ffe16d; cursor: grabbing; pointer-events: none; box-shadow: 0 1rem 2rem #0008; transform: scale(1.025) rotate(.5deg); transition: none; }
+.ordering-phone-list.saving, .ordering-phone-list.locked-pending { pointer-events: none; opacity: .72; }
+.ordering-is-dragging { cursor: grabbing; user-select: none; -webkit-user-select: none; }
 .ordering-item-text { font-weight: bold; }
-.ordering-moves { display: grid; grid-template-rows: 1fr 1fr; gap: .15rem; }
-.ordering-moves button { min-height: 1.2rem; border-radius: .25rem; background: #60328a; color: #fff; font-size: .8rem; }
-.ordering-moves button:disabled { opacity: .3; }

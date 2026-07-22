@@ -19,6 +19,8 @@ let selectedTeamIndex = null;
 let submitting = false;
 let orderingEvents;
 let orderingTimer;
+let activeDrag = null;
+let deferredOrderingState = null;
 const newDeviceId = () => crypto.randomUUID?.()
   || Array.from(crypto.getRandomValues(new Uint32Array(4)), (value) => value.toString(16).padStart(8, "0")).join("");
 const deviceId = localStorage.getItem("quiz-buzzer-device") || newDeviceId();
@@ -30,6 +32,7 @@ function savedSelection() {
 }
 
 function showTeamSelection() {
+  cancelDrag(false);
   selectedTeamIndex = null;
   localStorage.removeItem("quiz-buzzer-team");
   teamStep.hidden = false;
@@ -115,6 +118,103 @@ function moveOrder(order, from, to) {
   return result;
 }
 
+function applyDeferredOrderingState() {
+  if (!deferredOrderingState) return;
+  orderingState = deferredOrderingState;
+  deferredOrderingState = null;
+}
+
+function cleanUpDrag(drag) {
+  window.removeEventListener("pointermove", drag.onMove);
+  window.removeEventListener("pointerup", drag.onEnd);
+  window.removeEventListener("pointercancel", drag.onCancel);
+  if (drag.row.hasPointerCapture?.(drag.pointerId)) drag.row.releasePointerCapture(drag.pointerId);
+  drag.row.classList.remove("drag-placeholder");
+  drag.row.style.removeProperty("height");
+  drag.ghost?.remove();
+  document.body.classList.remove("ordering-is-dragging");
+  if (activeDrag === drag) activeDrag = null;
+}
+
+function cancelDrag(renderAfter = true) {
+  if (activeDrag) cleanUpDrag(activeDrag);
+  applyDeferredOrderingState();
+  if (renderAfter) render();
+}
+
+function startPointerDrag(event, row, startIndex, order) {
+  if (activeDrag || submitting || (event.pointerType === "mouse" && event.button !== 0)) return;
+  event.preventDefault();
+  const drag = {
+    row, startIndex, order: [...order], pointerId: event.pointerId,
+    startX: event.clientX, startY: event.clientY, offsetY: 0,
+    started: false, ghost: null, onMove: null, onEnd: null, onCancel: null
+  };
+  activeDrag = drag;
+
+  const begin = () => {
+    const bounds = row.getBoundingClientRect();
+    drag.started = true;
+    drag.offsetY = Math.max(0, Math.min(bounds.height, drag.startY - bounds.top));
+    drag.ghost = row.cloneNode(true);
+    drag.ghost.classList.add("drag-ghost");
+    drag.ghost.setAttribute("aria-hidden", "true");
+    drag.ghost.style.left = `${bounds.left}px`;
+    drag.ghost.style.top = `${bounds.top}px`;
+    drag.ghost.style.width = `${bounds.width}px`;
+    drag.ghost.style.height = `${bounds.height}px`;
+    row.style.height = `${bounds.height}px`;
+    row.classList.add("drag-placeholder");
+    document.body.append(drag.ghost);
+    document.body.classList.add("ordering-is-dragging");
+    orderingStatus.textContent = "Move the item, then release to save.";
+  };
+
+  drag.onMove = (moveEvent) => {
+    if (moveEvent.pointerId !== drag.pointerId) return;
+    const distance = Math.hypot(moveEvent.clientX - drag.startX, moveEvent.clientY - drag.startY);
+    if (!drag.started && distance < 6) return;
+    if (!drag.started) begin();
+    moveEvent.preventDefault();
+    drag.ghost.style.top = `${moveEvent.clientY - drag.offsetY}px`;
+
+    const siblings = Array.from(orderingList.children).filter((item) => item !== row);
+    const before = siblings.find((item) => {
+      const bounds = item.getBoundingClientRect();
+      return moveEvent.clientY < bounds.top + bounds.height / 2;
+    });
+    orderingList.insertBefore(row, before || null);
+
+    const edge = 65;
+    if (moveEvent.clientY < edge) window.scrollBy(0, -12);
+    else if (moveEvent.clientY > window.innerHeight - edge) window.scrollBy(0, 12);
+  };
+
+  drag.onEnd = (upEvent) => {
+    if (upEvent.pointerId !== drag.pointerId) return;
+    const finalIndex = Array.from(orderingList.children).indexOf(row);
+    const wasStarted = drag.started;
+    cleanUpDrag(drag);
+    if (!wasStarted || finalIndex === startIndex) {
+      applyDeferredOrderingState();
+      render();
+      return;
+    }
+    deferredOrderingState = null;
+    orderingList.classList.add("saving");
+    submitOrder(moveOrder(order, startIndex, finalIndex));
+  };
+
+  drag.onCancel = (cancelEvent) => {
+    if (cancelEvent.pointerId !== drag.pointerId) return;
+    cancelDrag();
+  };
+  window.addEventListener("pointermove", drag.onMove, { passive: false });
+  window.addEventListener("pointerup", drag.onEnd);
+  window.addEventListener("pointercancel", drag.onCancel);
+  row.setPointerCapture(event.pointerId);
+}
+
 async function submitOrder(order) {
   const round = orderingState?.round;
   if (!round || selectedTeamIndex === null || round.phase !== "active") return;
@@ -146,9 +246,12 @@ function renderOrdering() {
   orderingCountdown.hidden = !active;
   orderingList.hidden = !active;
   if (!active) {
+    if (activeDrag) cancelDrag(false);
     orderingStatus.textContent = "Time is up. Your answer is locked.";
     return;
   }
+  if (activeDrag) return;
+  orderingList.classList.remove("saving", "locked-pending");
   orderingCountdown.dataset.deadline = round.deadlineAt;
   orderingCountdown.textContent = Math.max(0, Math.ceil((round.deadlineAt - Date.now()) / 1000));
   const order = round.teamOrder || round.shuffledItems.map((item) => item.id);
@@ -158,25 +261,10 @@ function renderOrdering() {
     const row = document.createElement("li");
     row.className = "ordering-phone-item";
     row.dataset.index = index;
+    row.setAttribute("aria-label", `${text.get(id)}. Drag to reorder.`);
     const label = document.createElement("span"); label.className = "ordering-item-text"; label.textContent = text.get(id);
-    const controls = document.createElement("span"); controls.className = "ordering-moves";
-    const up = document.createElement("button"); up.type = "button"; up.textContent = "▲"; up.disabled = index === 0; up.setAttribute("aria-label", `Move ${text.get(id)} up`);
-    const down = document.createElement("button"); down.type = "button"; down.textContent = "▼"; down.disabled = index === order.length - 1; down.setAttribute("aria-label", `Move ${text.get(id)} down`);
-    up.addEventListener("click", () => submitOrder(moveOrder(order, index, index - 1)));
-    down.addEventListener("click", () => submitOrder(moveOrder(order, index, index + 1)));
-    controls.append(up, down); row.append(label, controls); orderingList.append(row);
-    row.addEventListener("pointerdown", (event) => {
-      if (event.target.closest("button")) return;
-      row.setPointerCapture(event.pointerId); row.classList.add("dragging");
-      const start = index;
-      const finish = (upEvent) => {
-        row.classList.remove("dragging");
-        const target = document.elementFromPoint(upEvent.clientX, upEvent.clientY)?.closest(".ordering-phone-item");
-        if (target) submitOrder(moveOrder(order, start, Number(target.dataset.index)));
-      };
-      row.addEventListener("pointerup", finish, { once: true });
-      row.addEventListener("pointercancel", () => row.classList.remove("dragging"), { once: true });
-    });
+    row.append(label); orderingList.append(row);
+    row.addEventListener("pointerdown", (event) => startPointerDrag(event, row, index, order));
   });
 }
 
@@ -185,8 +273,18 @@ function connectOrderingEvents() {
   const query = selectedTeamIndex === null ? "" : `?teamIndex=${selectedTeamIndex}`;
   orderingEvents = new EventSource(`/api/ordering/events${query}`);
   orderingEvents.addEventListener("state", (event) => {
-    orderingState = JSON.parse(event.data);
+    const nextState = JSON.parse(event.data);
+    if (activeDrag) {
+      deferredOrderingState = nextState;
+      if (nextState.round?.id !== orderingState?.round?.id || nextState.round?.phase !== "active") cancelDrag();
+      return;
+    }
+    orderingState = nextState;
     render();
+  });
+  orderingEvents.addEventListener("error", () => {
+    if (activeDrag) cancelDrag();
+    orderingStatus.textContent = "Connection lost. Reconnecting…";
   });
 }
 
@@ -248,5 +346,13 @@ loadState().catch(() => {
 connectOrderingEvents();
 orderingTimer = setInterval(() => {
   if (!orderingState?.round || orderingState.round.phase !== "active") return;
-  orderingCountdown.textContent = Math.max(0, Math.ceil((orderingState.round.deadlineAt - Date.now()) / 1000));
+  const seconds = Math.max(0, Math.ceil((orderingState.round.deadlineAt - Date.now()) / 1000));
+  orderingCountdown.textContent = seconds;
+  if (seconds === 0 && activeDrag) {
+    cancelDrag();
+    orderingList.classList.add("locked-pending");
+    orderingStatus.textContent = "Time is up. Locking your answer…";
+  }
 }, 200);
+
+window.addEventListener("pagehide", () => cancelDrag(false));
