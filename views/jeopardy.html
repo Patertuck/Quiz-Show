@@ -8,9 +8,20 @@
   </div>
   <div id="jeopardy-question-view" hidden>
     <a class="back-to-hub floating-back" href="#/hub" aria-label="Back to game hub">←</a>
-    <div id="card-content">
-      <div id="question-content" class="media-block"></div>
-      <div id="answer-content" class="media-block answer" hidden></div>
+    <div id="question-layout">
+      <div id="card-content">
+        <div id="question-content" class="media-block"></div>
+        <div id="answer-content" class="media-block answer" hidden></div>
+      </div>
+      <aside id="buzzer-panel" aria-label="Buzzer order">
+        <div class="buzzer-panel-heading">
+          <h2>Buzzers</h2>
+          <span id="buzzer-connection" title="Buzzer connection status">Connecting…</span>
+        </div>
+        <p id="buzzer-host-status">Open the buzzers when the players are ready.</p>
+        <ol id="buzz-order"></ol>
+        <button id="buzzer-control-button" type="button">Open buzzers</button>
+      </aside>
     </div>
     <div id="question-controls">
       <button id="reveal-button" type="button">Show answer</button>

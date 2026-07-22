@@ -1,5 +1,6 @@
 import { state, saveState } from "../store.js";
 import { updateScoreControls } from "../scoreboard.js";
+import { connectToBuzzer, controlBuzzer } from "../buzzer-client.js";
 
 export function mount(root) {
   const boardView = root.querySelector("#jeopardy-board-view");
@@ -8,7 +9,88 @@ export function mount(root) {
   const questionContent = root.querySelector("#question-content");
   const answerContent = root.querySelector("#answer-content");
   const revealButton = root.querySelector("#reveal-button");
+  const buzzerConnection = root.querySelector("#buzzer-connection");
+  const buzzerStatus = root.querySelector("#buzzer-host-status");
+  const buzzOrder = root.querySelector("#buzz-order");
+  const buzzerControl = root.querySelector("#buzzer-control-button");
+  let buzzerState = null;
   root.querySelector("#jeopardy-title").textContent = state.config.title;
+
+  function activeQuestionId() {
+    return state.activeQuestion ? `${state.activeQuestion.categoryIndex}:${state.activeQuestion.rowIndex}` : null;
+  }
+
+  function currentRound() {
+    return buzzerState?.round.questionId === activeQuestionId() ? buzzerState.round : null;
+  }
+
+  function renderBuzzer() {
+    buzzOrder.replaceChildren();
+    const round = currentRound();
+    const activePosition = round
+      ? round.buzzes.findIndex((buzz) => buzz.teamIndex === round.activeTeamIndex)
+      : -1;
+    (round?.buzzes || []).forEach((buzz, index) => {
+      const item = document.createElement("li");
+      item.textContent = buzz.teamName;
+      item.classList.toggle("active", index === activePosition);
+      item.classList.toggle("answered", activePosition === -1 ? round.buzzes.length > 0 : index < activePosition);
+      buzzOrder.append(item);
+    });
+    if (!round?.open) {
+      buzzerStatus.textContent = "Open the buzzers when the players are ready.";
+      buzzerControl.textContent = "Open buzzers";
+    } else if (!round.buzzes.length) {
+      buzzerStatus.textContent = "Buzzers are open. Waiting for a team…";
+      buzzerControl.textContent = "Reset buzzers";
+    } else if (activePosition !== -1) {
+      buzzerStatus.textContent = `${round.buzzes[activePosition].teamName} is answering.`;
+      buzzerControl.textContent = "Reset buzzers";
+    } else {
+      buzzerStatus.textContent = "No teams are currently waiting.";
+      buzzerControl.textContent = "Reset buzzers";
+    }
+  }
+
+  function setBuzzerConnection(connected) {
+    buzzerConnection.textContent = connected ? "Connected" : "Reconnecting…";
+    buzzerConnection.classList.toggle("connected", connected);
+  }
+
+  const disconnectBuzzer = connectToBuzzer((nextState) => {
+    buzzerState = nextState;
+    renderBuzzer();
+  }, setBuzzerConnection);
+
+  buzzerControl.addEventListener("click", async () => {
+    const questionId = activeQuestionId();
+    if (!questionId) return;
+    buzzerControl.disabled = true;
+    try {
+      const action = currentRound()?.open ? "reset" : "open";
+      buzzerState = await controlBuzzer(action, { questionId });
+      renderBuzzer();
+    } catch (error) {
+      buzzerStatus.textContent = `Buzzer error: ${error.message}`;
+    } finally {
+      buzzerControl.disabled = false;
+    }
+  });
+
+  async function handleScoreChange(event) {
+    const round = currentRound();
+    if (!round?.open || round.activeTeamIndex !== event.detail.teamIndex) return;
+    try {
+      buzzerState = await controlBuzzer("advance", {
+        questionId: activeQuestionId(),
+        teamIndex: event.detail.teamIndex
+      });
+      renderBuzzer();
+    } catch (error) {
+      buzzerStatus.textContent = `Could not advance the buzzer order: ${error.message}`;
+    }
+  }
+  window.addEventListener("quiz-score-changed", handleScoreChange);
 
   function setTileUsed(tile, used) {
     tile.classList.toggle("used", used);
@@ -118,6 +200,7 @@ export function mount(root) {
   });
 
   root.querySelector("#continue-button").addEventListener("click", () => {
+    if (currentRound()?.open) controlBuzzer("close").catch(() => undefined);
     state.activeQuestion = null;
     state.activeValue = 0;
     updateScoreControls();
@@ -139,5 +222,17 @@ export function mount(root) {
     updateScoreControls();
     requestAnimationFrame(fitBoard);
   }
-  return () => observer.disconnect();
+  return () => {
+    if (currentRound()?.open) {
+      fetch("/api/buzzer/control", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "close" }),
+        keepalive: true
+      }).catch(() => undefined);
+    }
+    observer.disconnect();
+    disconnectBuzzer();
+    window.removeEventListener("quiz-score-changed", handleScoreChange);
+  };
 }

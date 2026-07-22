@@ -1,4 +1,9 @@
 <section id="hub-view" class="viewport-above-scoreboard">
+  <button id="buzzer-join-button" class="hub-corner-button" type="button" aria-label="Show player buzzer QR code" title="Player buzzer">
+    <svg aria-hidden="true" viewBox="0 0 24 24">
+      <path d="M3 3h8v8H3V3Zm2 2v4h4V5H5Zm8-2h8v8h-8V3Zm2 2v4h4V5h-4ZM3 13h8v8H3v-8Zm2 2v4h4v-4H5Zm8-2h3v3h-3v-3Zm5 0h3v5h-2v3h-3v-5h-2v3h-2v-3h3v-3h2Zm1 6h2v2h-2v-2Z"/>
+    </svg>
+  </button>
   <button id="team-setup-button" type="button" aria-label="Team setup" title="Team setup">
     <svg aria-hidden="true" viewBox="0 0 24 24">
       <path d="M12 8.25a3.75 3.75 0 1 0 0 7.5 3.75 3.75 0 0 0 0-7.5Zm9.25 4.86v-2.22l-2.45-.68a7.2 7.2 0 0 0-.72-1.73l1.25-2.22-1.57-1.57-2.22 1.25a7.2 7.2 0 0 0-1.73-.72L13.11 2h-2.22l-.68 2.45a7.2 7.2 0 0 0-1.73.72L6.26 3.92 4.69 5.49l1.25 2.22a7.2 7.2 0 0 0-.72 1.73L2.77 10.1v2.22l2.45.68c.17.61.41 1.19.72 1.73l-1.25 2.22 1.57 1.57 2.22-1.25c.54.31 1.12.55 1.73.72l.68 2.45h2.22l.68-2.45a7.2 7.2 0 0 0 1.73-.72l2.22 1.25 1.57-1.57-1.25-2.22c.31-.54.55-1.12.72-1.73l2.45-.68Z"/>
@@ -9,4 +14,12 @@
     <a class="game-card jeopardy-card" href="#/jeopardy"><h2>Jeopardy</h2></a>
     <a class="game-card ordering-card" href="#/ordering"><h2>Put It in Order</h2></a>
   </div>
+  <dialog id="buzzer-dialog" aria-labelledby="buzzer-dialog-title">
+    <form method="dialog"><button class="dialog-close" aria-label="Close">&times;</button></form>
+    <h2 id="buzzer-dialog-title">Join the buzzer</h2>
+    <p>Connect your phone to the same Wi-Fi, then scan this code.</p>
+    <div id="buzzer-qr" aria-live="polite">Generating QR code…</div>
+    <a id="buzzer-url" target="_blank" rel="noopener"></a>
+    <p class="buzzer-dialog-note">If the page does not open, allow Python through the Windows firewall and check that the Wi-Fi allows devices to communicate.</p>
+  </dialog>
 </section>

@@ -51,6 +51,7 @@ function changeScore(teamIndex, amount) {
   container.querySelector(`#team-score-${teamIndex}`).textContent = team.score.toLocaleString();
   updateStandings();
   saveState().catch(() => undefined);
+  window.dispatchEvent(new CustomEvent("quiz-score-changed", { detail: { teamIndex, amount } }));
 }
 
 export function updateStandings() {
