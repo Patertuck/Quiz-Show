@@ -1,7 +1,9 @@
 import { state, startRuntime, resumeRuntime, saveState, deleteSavedState } from "../store.js";
 import { renderScoreboard } from "../scoreboard.js";
+import { publishStandby } from "../presentation-host.js";
 
 export function mount(root, { navigate }) {
+  publishStandby().catch(() => undefined);
   const title = root.querySelector("#setup-title");
   const list = root.querySelector("#team-editors");
   const message = root.querySelector("#setup-message");

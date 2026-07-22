@@ -1,12 +1,20 @@
 import { saveState } from "../store.js";
+import { publishStandby } from "../presentation-host.js";
 import qrcode from "../../assets/vendor/qrcode.js";
 
 export function mount(root, { navigate }) {
   const setupButton = root.querySelector("#team-setup-button");
+  const audienceButton = root.querySelector("#audience-display-button");
   const buzzerButton = root.querySelector("#buzzer-join-button");
   const buzzerDialog = root.querySelector("#buzzer-dialog");
   const qrContainer = root.querySelector("#buzzer-qr");
   const buzzerUrl = root.querySelector("#buzzer-url");
+  publishStandby().catch(() => undefined);
+
+  audienceButton.addEventListener("click", () => {
+    const display = window.open("/display", "quiz-audience-display");
+    if (!display) window.alert("The browser blocked the audience display window. Allow pop-ups and try again.");
+  });
 
   buzzerButton.addEventListener("click", async () => {
     buzzerDialog.showModal();

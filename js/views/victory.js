@@ -1,4 +1,5 @@
 import { state, saveState } from "../store.js";
+import { publishVictory } from "../presentation-host.js";
 
 export async function mount(root) {
   await saveState().catch((error) => console.error("Could not save before final standings:", error));
@@ -23,6 +24,7 @@ export async function mount(root) {
     byRank.get(team.rank).push(team);
   });
   const steps = [];
+  const presentationSteps = [];
 
   [...byRank.entries()].filter(([rank]) => rank > 3).sort(([a], [b]) => b - a).forEach(([rank, teams]) => {
     const row = document.createElement("div");
@@ -36,6 +38,7 @@ export async function mount(root) {
     row.append(score);
     reveals.append(row);
     steps.push(row);
+    presentationSteps.push({ kind: "standing", rank, names, score: teams[0].score });
   });
 
   [3, 2, 1].forEach((rank) => {
@@ -56,6 +59,9 @@ export async function mount(root) {
     place.append(number, names, score);
     podium.append(place);
     steps.push(place);
+    presentationSteps.push({
+      kind: "podium", rank, names: teams.map((team) => team.name).join(" & "), score: teams[0].score
+    });
   });
 
   let stepIndex = 0;
@@ -80,8 +86,10 @@ export async function mount(root) {
     if (!step) return;
     step.classList.add("is-revealed");
     stepIndex += 1;
+    publishVictory(presentationSteps, stepIndex).catch(() => undefined);
     if (step.dataset.rank === "1") createConfetti();
   }
+  publishVictory(presentationSteps, 0).catch(() => undefined);
   view.addEventListener("click", advance);
   return () => view.removeEventListener("click", advance);
 }

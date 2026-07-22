@@ -1,6 +1,7 @@
 import { state, saveState } from "../store.js";
 import { updateScoreControls } from "../scoreboard.js";
 import { connectToBuzzer, controlBuzzer } from "../buzzer-client.js";
+import { publishJeopardy } from "../presentation-host.js";
 
 export function mount(root) {
   const boardView = root.querySelector("#jeopardy-board-view");
@@ -78,6 +79,7 @@ export function mount(root) {
   });
 
   async function handleScoreChange(event) {
+    publishJeopardy().catch(() => undefined);
     const round = currentRound();
     if (!round?.open || round.activeTeamIndex !== event.detail.teamIndex) return;
     try {
@@ -133,6 +135,7 @@ export function mount(root) {
         state.usedTiles.delete(`${categoryIndex}:${rowIndex}`);
         setTileUsed(tile, false);
         saveState().catch(() => undefined);
+        publishJeopardy().catch(() => undefined);
       });
       board.append(tile);
     }));
@@ -190,6 +193,7 @@ export function mount(root) {
     updateScoreControls();
     displayQuestion();
     saveState().catch(() => undefined);
+    publishJeopardy().catch(() => undefined);
   }
 
   revealButton.addEventListener("click", () => {
@@ -197,6 +201,7 @@ export function mount(root) {
     revealButton.hidden = true;
     state.activeQuestion.answerRevealed = true;
     saveState().catch(() => undefined);
+    publishJeopardy().catch(() => undefined);
   });
 
   root.querySelector("#continue-button").addEventListener("click", () => {
@@ -208,6 +213,7 @@ export function mount(root) {
     boardView.hidden = false;
     requestAnimationFrame(fitBoard);
     saveState().catch(() => undefined);
+    publishJeopardy().catch(() => undefined);
   });
 
   renderBoard();
@@ -222,6 +228,7 @@ export function mount(root) {
     updateScoreControls();
     requestAnimationFrame(fitBoard);
   }
+  publishJeopardy().catch(() => undefined);
   return () => {
     if (currentRound()?.open) {
       fetch("/api/buzzer/control", {

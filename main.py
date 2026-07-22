@@ -28,6 +28,8 @@ MAX_STATE_BYTES = 1_000_000
 STATE_LOCK = threading.Lock()
 TILE_ID_PATTERN = re.compile(r"^\d+:\d+$")
 MAX_BUZZER_BODY_BYTES = 16_384
+MAX_PRESENTATION_BODY_BYTES = 262_144
+PRESENTATION_SCREENS = {"standby", "jeopardy-board", "jeopardy-question", "ordering", "victory"}
 
 
 def find_lan_address() -> str:
@@ -221,6 +223,124 @@ class BuzzerState:
 BUZZER = BuzzerState()
 
 
+def validate_presentation_image(image: object, field: str) -> dict | None:
+    if image is None:
+        return None
+    if not isinstance(image, dict) or not isinstance(image.get("src"), str) or not isinstance(image.get("alt"), str):
+        raise ValueError(f"{field} must contain src and alt strings.")
+    src = image["src"].replace("\\", "/")
+    if not src.startswith("assets/") or ".." in src.split("/") or re.match(r"^[a-z]+:", src, re.I):
+        raise ValueError(f"{field}.src must be beneath assets/.")
+    return {"src": src, "alt": image["alt"]}
+
+
+def validate_presentation(payload: object) -> dict:
+    if not isinstance(payload, dict) or payload.get("screen") not in PRESENTATION_SCREENS:
+        raise ValueError("Presentation screen is invalid.")
+    title = payload.get("title")
+    if not isinstance(title, str) or not title.strip():
+        raise ValueError("Presentation title is required.")
+    teams = payload.get("teams", [])
+    if not isinstance(teams, list):
+        raise ValueError("Presentation teams must be an array.")
+    clean_teams = []
+    for team in teams:
+        if not isinstance(team, dict) or not isinstance(team.get("name"), str):
+            raise ValueError("Each presentation team needs a name.")
+        score = team.get("score")
+        if not isinstance(score, int) or isinstance(score, bool):
+            raise ValueError("Each presentation team needs an integer score.")
+        clean_teams.append({"name": team["name"], "score": score})
+
+    clean: dict = {"screen": payload["screen"], "title": title, "teams": clean_teams}
+    if payload["screen"] == "jeopardy-board":
+        board = payload.get("board")
+        if not isinstance(board, dict):
+            raise ValueError("Jeopardy board data is required.")
+        categories = board.get("categories")
+        values = board.get("values")
+        used_tiles = board.get("usedTiles")
+        if (not isinstance(categories, list) or not categories
+                or any(not isinstance(item, str) for item in categories)):
+            raise ValueError("Board categories are invalid.")
+        if (not isinstance(values, list) or not values
+                or any(not isinstance(item, int) or isinstance(item, bool) for item in values)):
+            raise ValueError("Board values are invalid.")
+        if (not isinstance(used_tiles, list)
+                or any(not isinstance(item, str) or not TILE_ID_PATTERN.fullmatch(item) for item in used_tiles)):
+            raise ValueError("Board usedTiles are invalid.")
+        clean["board"] = {"categories": categories, "values": values, "usedTiles": used_tiles}
+    elif payload["screen"] == "jeopardy-question":
+        question = payload.get("question")
+        if not isinstance(question, dict) or not isinstance(question.get("id"), str) or not TILE_ID_PATTERN.fullmatch(question["id"]):
+            raise ValueError("Current question data is invalid.")
+        revealed = question.get("answerRevealed")
+        if not isinstance(revealed, bool):
+            raise ValueError("answerRevealed must be a boolean.")
+        question_text = question.get("question")
+        answer_text = question.get("answer")
+        if question_text is not None and not isinstance(question_text, str):
+            raise ValueError("Question text must be a string or null.")
+        if answer_text is not None and not isinstance(answer_text, str):
+            raise ValueError("Answer text must be a string or null.")
+        question_image = validate_presentation_image(question.get("questionImage"), "questionImage")
+        answer_image = validate_presentation_image(question.get("answerImage"), "answerImage")
+        if not revealed and (answer_text is not None or answer_image is not None):
+            raise ValueError("An unrevealed presentation must not contain an answer.")
+        clean["question"] = {
+            "id": question["id"], "question": question_text, "questionImage": question_image,
+            "answerRevealed": revealed, "answer": answer_text if revealed else None,
+            "answerImage": answer_image if revealed else None,
+        }
+    elif payload["screen"] == "victory":
+        steps = payload.get("steps")
+        revealed_count = payload.get("revealedCount")
+        if not isinstance(steps, list) or not isinstance(revealed_count, int) or isinstance(revealed_count, bool):
+            raise ValueError("Victory reveal data is invalid.")
+        clean_steps = []
+        for step in steps:
+            if (not isinstance(step, dict) or step.get("kind") not in {"standing", "podium"}
+                    or not isinstance(step.get("rank"), int) or isinstance(step.get("rank"), bool)
+                    or not isinstance(step.get("names"), str)
+                    or not isinstance(step.get("score"), int) or isinstance(step.get("score"), bool)):
+                raise ValueError("A victory step is invalid.")
+            clean_steps.append({"kind": step["kind"], "rank": step["rank"], "names": step["names"], "score": step["score"]})
+        clean["steps"] = clean_steps
+        clean["revealedCount"] = max(0, min(revealed_count, len(clean_steps)))
+    return clean
+
+
+class PresentationState:
+    def __init__(self) -> None:
+        self.condition = threading.Condition()
+        self.version = 0
+        self.payload = {"screen": "standby", "title": "Quiz Show", "teams": []}
+
+    def update(self, payload: object) -> dict:
+        clean = validate_presentation(payload)
+        with self.condition:
+            self.version += 1
+            self.payload = clean
+            self.condition.notify_all()
+            return self._snapshot_unlocked()
+
+    def _snapshot_unlocked(self) -> dict:
+        return {"version": self.version, **self.payload}
+
+    def snapshot(self) -> dict:
+        with self.condition:
+            return self._snapshot_unlocked()
+
+    def wait_for_change(self, version: int, timeout: float = 15) -> dict | None:
+        with self.condition:
+            if self.version == version:
+                self.condition.wait(timeout)
+            return self._snapshot_unlocked() if self.version != version else None
+
+
+PRESENTATION = PresentationState()
+
+
 def load_current_state() -> dict | None:
     with STATE_LOCK:
         if not STATE_FILE.exists():
@@ -278,6 +398,29 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(body)
 
     def do_GET(self) -> None:  # noqa: N802 - required by BaseHTTPRequestHandler
+        if self.request_path == "/api/presentation/state":
+            self.send_json(200, PRESENTATION.snapshot())
+            return
+        if self.request_path == "/api/presentation/events":
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Connection", "keep-alive")
+            self.end_headers()
+            version = -1
+            try:
+                while True:
+                    state = PRESENTATION.wait_for_change(version)
+                    if state is None:
+                        self.wfile.write(b": heartbeat\n\n")
+                    else:
+                        version = state["version"]
+                        data = json.dumps(state, ensure_ascii=False, separators=(",", ":"))
+                        self.wfile.write(f"event: state\nid: {version}\ndata: {data}\n\n".encode("utf-8"))
+                    self.wfile.flush()
+            except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+                pass
+            return
         if self.request_path == "/api/buzzer/info":
             self.send_json(200, {"joinUrl": JOIN_URL, "lanAvailable": LAN_ADDRESS != "127.0.0.1"})
             return
@@ -322,20 +465,31 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.send_error(404)
             return
         if not self.is_host:
-            allowed = {"/buzzer", "/buzzer.html", "/styles/buzzer.css", "/js/buzzer.js"}
-            if self.request_path not in allowed:
-                self.send_error(403, "Only the buzzer is available from another device.")
+            allowed = {
+                "/buzzer", "/buzzer.html", "/styles/buzzer.css", "/js/buzzer.js",
+                "/display", "/display.html", "/styles/display.css", "/js/display.js",
+            }
+            if self.request_path not in allowed and not self.request_path.startswith("/assets/"):
+                self.send_error(403, "Only the player buzzer and audience display are available from another device.")
                 return
         if self.request_path == "/buzzer":
             self.path = "/buzzer.html"
+        elif self.request_path == "/display":
+            self.path = "/display.html"
         super().do_GET()
 
     def do_HEAD(self) -> None:  # noqa: N802 - required by BaseHTTPRequestHandler
-        if not self.is_host and self.request_path not in {"/buzzer", "/buzzer.html", "/styles/buzzer.css", "/js/buzzer.js"}:
-            self.send_error(403, "Only the buzzer is available from another device.")
+        allowed = {
+            "/buzzer", "/buzzer.html", "/styles/buzzer.css", "/js/buzzer.js",
+            "/display", "/display.html", "/styles/display.css", "/js/display.js",
+        }
+        if not self.is_host and self.request_path not in allowed and not self.request_path.startswith("/assets/"):
+            self.send_error(403, "Only the player buzzer and audience display are available from another device.")
             return
         if self.request_path == "/buzzer":
             self.path = "/buzzer.html"
+        elif self.request_path == "/display":
+            self.path = "/display.html"
         super().do_HEAD()
 
     def do_POST(self) -> None:  # noqa: N802 - required by BaseHTTPRequestHandler
@@ -361,6 +515,16 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.send_json(404, {"error": "Unknown API endpoint."})
 
     def do_PUT(self) -> None:  # noqa: N802 - required by BaseHTTPRequestHandler
+        if self.request_path == "/api/presentation/state":
+            if not self.require_host():
+                return
+            try:
+                response = PRESENTATION.update(self.read_json(MAX_PRESENTATION_BODY_BYTES))
+            except (UnicodeError, json.JSONDecodeError, ValueError) as error:
+                self.send_json(400, {"error": str(error)})
+                return
+            self.send_json(200, response)
+            return
         if self.request_path != "/api/state":
             self.send_json(404, {"error": "Unknown API endpoint."})
             return
