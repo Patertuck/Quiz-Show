@@ -169,15 +169,132 @@
       background: var(--black);
     }
 
-    #game-title {
+    .game-header {
+      position: relative;
+      display: grid;
+      min-height: 3.4rem;
       flex: 0 0 auto;
-      margin: 0;
-      padding: 0.55rem 1rem;
+      grid-template-columns: 3.2rem 1fr 3.2rem;
+      align-items: center;
+      padding: 0.3rem 0.45rem;
       background: var(--blue-dark);
+    }
+
+    .back-to-hub {
+      position: relative;
+      z-index: 4;
+      display: grid;
+      width: 2.65rem;
+      height: 2.65rem;
+      place-items: center;
+      border: 1px solid rgb(255 255 255 / 32%);
+      border-radius: 50%;
+      background: rgb(255 255 255 / 12%);
+      color: var(--white);
+      font-size: 1.55rem;
+      font-weight: bold;
+    }
+
+    .back-to-hub:hover,
+    .back-to-hub:focus-visible { background: rgb(255 255 255 / 24%); }
+
+    #game-title {
+      grid-column: 2;
+      margin: 0;
       color: var(--white);
       font-size: clamp(1.15rem, 2.5vw, 2rem);
       text-align: center;
     }
+
+    #hub-screen,
+    #ordering-screen {
+      height: calc(100vh - var(--scoreboard-height));
+      height: calc(100dvh - var(--scoreboard-height));
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    #hub-screen {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: clamp(1rem, 3vh, 2rem);
+      padding: clamp(1rem, 4vw, 3rem);
+      background: radial-gradient(circle at 50% 0%, #394dc1 0%, #17277f 42%, #080f35 100%);
+    }
+
+    #hub-title {
+      margin: 0;
+      color: var(--yellow);
+      font-size: clamp(2rem, 5vw, 4rem);
+      text-align: center;
+      text-shadow: 0 0.18rem 0 #10194f, 0 0 1rem rgb(255 244 92 / 28%);
+    }
+
+    #game-cards {
+      display: grid;
+      width: min(68rem, 100%);
+      min-height: 0;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: clamp(1rem, 3vw, 2rem);
+      place-self: center;
+    }
+
+    .game-card {
+      position: relative;
+      display: grid;
+      min-height: min(48vh, 25rem);
+      place-items: center;
+      padding: clamp(1.2rem, 3vw, 2.3rem);
+      overflow: hidden;
+      border: 2px solid rgb(255 255 255 / 30%);
+      border-radius: 1.2rem;
+      color: var(--white);
+      text-align: center;
+      box-shadow: 0 1rem 2.5rem rgb(0 0 0 / 28%);
+      transition: transform 180ms ease, border-color 180ms ease, filter 180ms ease;
+    }
+
+    .game-card:hover,
+    .game-card:focus-visible {
+      border-color: var(--yellow);
+      filter: brightness(1.08);
+      transform: translateY(-0.3rem);
+    }
+
+    .game-card.jeopardy-card {
+      background: linear-gradient(145deg, #334bd0 0%, #142780 58%, #09133f 100%);
+    }
+
+    .game-card.ordering-card {
+      background: linear-gradient(145deg, #9a4ed0 0%, #5a288c 58%, #281044 100%);
+    }
+
+    .game-card h2 { margin: 0; font-size: clamp(1.6rem, 4vw, 3rem); }
+
+    #ordering-screen {
+      position: relative;
+      display: grid;
+      place-items: center;
+      padding: clamp(4rem, 8vw, 7rem) clamp(1rem, 5vw, 4rem) 2rem;
+      background: radial-gradient(circle at 50% 20%, #a65ad7 0%, #552582 45%, #250e40 100%);
+      text-align: center;
+    }
+
+    #ordering-screen .back-to-hub,
+    #question-screen .back-to-hub,
+    #victory-screen .back-to-hub {
+      position: absolute;
+      top: 0.75rem;
+      left: 0.75rem;
+    }
+
+    .ordering-placeholder { width: min(48rem, 100%); }
+    .ordering-placeholder h1 {
+      margin: 0 0 1rem;
+      font-size: clamp(2.2rem, 7vw, 5.5rem);
+      text-shadow: 0 0.2rem 0 #321050, 0 0 1.3rem rgb(228 180 255 / 30%);
+    }
+    .ordering-placeholder p { margin: 0; color: #f1dcff; font-size: clamp(1rem, 2.4vw, 1.5rem); }
 
     #board {
       display: grid;
@@ -253,6 +370,10 @@
     }
 
     #scoreboard[hidden] { display: none; }
+
+    #scoreboard.standings-only .score-button { display: none; }
+    #scoreboard.standings-only .team { grid-template-columns: 1fr; }
+    #scoreboard.standings-only .score { grid-column: 1; }
 
     .team {
       display: grid;
@@ -416,7 +537,9 @@
     #victory-screen {
       position: relative;
       display: grid;
-      min-height: 100vh;
+      height: 100vh;
+      height: 100dvh;
+      min-height: 0;
       grid-template-rows: auto minmax(5rem, auto) 1fr;
       gap: clamp(1rem, 3vh, 2rem);
       align-items: center;
@@ -532,6 +655,16 @@
         padding: 0.35rem;
       }
       .score-button { width: 3rem; height: 1.9rem; font-size: 0.68rem; }
+      #game-cards { grid-template-columns: 1fr; }
+      .game-card { min-height: min(25vh, 12rem); }
+    }
+
+    @media (max-height: 550px) {
+      #hub-screen { gap: 0.5rem; padding: 0.55rem; }
+      #hub-title { font-size: 1.5rem; }
+      #game-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.55rem; }
+      .game-card { min-height: 0; padding: 0.8rem; }
+      .game-card h2 { font-size: 1.35rem; }
     }
   </style>
 </head>
@@ -565,14 +698,30 @@
       </div>
     </section>
 
+    <section id="hub-screen" class="screen" hidden>
+      <h1 id="hub-title">Quiz Show</h1>
+      <div id="game-cards">
+        <button id="open-jeopardy-button" class="game-card jeopardy-card" type="button">
+          <h2>Jeopardy</h2>
+        </button>
+        <button id="open-ordering-button" class="game-card ordering-card" type="button">
+          <h2>Put It in Order</h2>
+        </button>
+      </div>
+    </section>
+
     <section id="game-screen" class="screen" hidden>
-      <h1 id="game-title"></h1>
+      <header class="game-header">
+        <button class="back-to-hub" type="button" aria-label="Back to game hub">←</button>
+        <h1 id="game-title"></h1>
+      </header>
       <div id="board" aria-label="Jeopardy board"></div>
     </section>
 
     <aside id="scoreboard" aria-label="Team scores" hidden></aside>
 
     <section id="question-screen" class="screen" hidden>
+      <button class="back-to-hub" type="button" aria-label="Back to game hub">←</button>
       <div id="card-content">
         <div id="question-content" class="media-block"></div>
         <div id="answer-content" class="media-block answer" hidden></div>
@@ -583,7 +732,16 @@
       </div>
     </section>
 
+    <section id="ordering-screen" class="screen" hidden>
+      <button class="back-to-hub" type="button" aria-label="Back to game hub">←</button>
+      <div class="ordering-placeholder">
+        <h1>Put It in Order</h1>
+        <p>Coming soon—players will scan a QR code, join by phone, and arrange the items themselves.</p>
+      </div>
+    </section>
+
     <section id="victory-screen" class="screen" aria-live="polite" hidden>
+      <button class="back-to-hub" type="button" aria-label="Back to game hub">←</button>
       <div id="confetti" aria-hidden="true"></div>
       <h1 id="victory-title">Final standings</h1>
       <div id="standing-reveals"></div>
@@ -625,6 +783,9 @@
       startButton: document.querySelector("#start-button"),
       resumeButton: document.querySelector("#resume-button"),
       newGameButton: document.querySelector("#new-game-button"),
+      hub: document.querySelector("#hub-screen"),
+      openJeopardyButton: document.querySelector("#open-jeopardy-button"),
+      openOrderingButton: document.querySelector("#open-ordering-button"),
       game: document.querySelector("#game-screen"),
       gameTitle: document.querySelector("#game-title"),
       board: document.querySelector("#board"),
@@ -634,6 +795,7 @@
       answerContent: document.querySelector("#answer-content"),
       revealButton: document.querySelector("#reveal-button"),
       continueButton: document.querySelector("#continue-button"),
+      ordering: document.querySelector("#ordering-screen"),
       victory: document.querySelector("#victory-screen"),
       standingReveals: document.querySelector("#standing-reveals"),
       podium: document.querySelector("#podium"),
@@ -646,7 +808,7 @@
       });
       document.body.classList.toggle(
         "game-active",
-        target === elements.game || target === elements.questionScreen || target === elements.victory
+        [elements.hub, elements.game, elements.questionScreen, elements.ordering, elements.victory].includes(target)
       );
     }
 
@@ -1054,6 +1216,44 @@
       });
     }
 
+    function setScoreboardMode(mode) {
+      elements.scoreboard.classList.toggle("standings-only", mode === "standings");
+      updateScoreControls();
+    }
+
+    function showHub() {
+      state.activeValue = 0;
+      elements.scoreboard.hidden = false;
+      setScoreboardMode("standings");
+      showScreen(elements.hub);
+    }
+
+    function showOrderingGame() {
+      state.activeValue = 0;
+      elements.scoreboard.hidden = false;
+      setScoreboardMode("standings");
+      showScreen(elements.ordering);
+    }
+
+    function showJeopardyGame() {
+      setScoreboardMode("game");
+      if (state.activeQuestion) {
+        const { categoryIndex, rowIndex } = state.activeQuestion;
+        state.activeTile = elements.board.querySelector(
+          `.tile[data-category="${categoryIndex}"][data-row="${rowIndex}"]`
+        );
+        state.activeValue = state.config.values[rowIndex];
+        updateScoreControls();
+        displayActiveQuestion();
+        return;
+      }
+      state.activeTile = null;
+      state.activeValue = 0;
+      updateScoreControls();
+      showScreen(elements.game);
+      requestAnimationFrame(fitBoardToViewport);
+    }
+
     function renderMedia(container, text, image) {
       container.replaceChildren();
       if (typeof text === "string" && text.trim() !== "") {
@@ -1216,16 +1416,21 @@
     }
 
     async function showVictory() {
-      if (state.victoryOpening) return;
+      if (state.victoryOpening || !elements.victory.hidden) return;
       state.victoryOpening = true;
       try {
         await saveState();
       } catch (error) {
         console.error("Could not save before showing final standings:", error);
       }
-      elements.scoreboard.hidden = true;
-      renderVictory();
-      showScreen(elements.victory);
+      try {
+        state.activeValue = 0;
+        elements.scoreboard.hidden = true;
+        renderVictory();
+        showScreen(elements.victory);
+      } finally {
+        state.victoryOpening = false;
+      }
     }
 
     function startGame() {
@@ -1235,8 +1440,7 @@
       renderBoard();
       renderScoreboard();
       elements.scoreboard.hidden = false;
-      showScreen(elements.game);
-      requestAnimationFrame(fitBoardToViewport);
+      showHub();
       saveState().catch(() => undefined);
     }
 
@@ -1252,20 +1456,9 @@
       renderBoard();
       renderScoreboard();
       elements.scoreboard.hidden = false;
-      if (state.activeQuestion) {
-        const { categoryIndex, rowIndex } = state.activeQuestion;
-        state.activeTile = elements.board.querySelector(
-          `.tile[data-category="${categoryIndex}"][data-row="${rowIndex}"]`
-        );
-        state.activeValue = state.config.values[rowIndex];
-        updateScoreControls();
-        displayActiveQuestion();
-      } else {
-        state.activeTile = null;
-        state.activeValue = 0;
-        showScreen(elements.game);
-        requestAnimationFrame(fitBoardToViewport);
-      }
+      state.activeTile = null;
+      state.activeValue = 0;
+      showHub();
       saveState().catch(() => undefined);
     }
 
@@ -1342,14 +1535,20 @@
     elements.addTeamButton.addEventListener("click", addTeam);
     elements.resumeButton.addEventListener("click", resumeGame);
     elements.newGameButton.addEventListener("click", newGame);
+    elements.openJeopardyButton.addEventListener("click", showJeopardyGame);
+    elements.openOrderingButton.addEventListener("click", showOrderingGame);
+    document.querySelectorAll(".back-to-hub").forEach((button) => {
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        showHub();
+      });
+    });
     elements.revealButton.addEventListener("click", revealAnswer);
     elements.continueButton.addEventListener("click", continueGame);
     elements.victory.addEventListener("click", advanceVictory);
     window.addEventListener("keydown", (event) => {
-      const gameVisible = !elements.game.hidden;
-      const questionVisible = !elements.questionScreen.hidden;
       if (!event.ctrlKey || !event.shiftKey || event.key.toLowerCase() !== "v"
-          || (!gameVisible && !questionVisible)) return;
+          || !state.gameStarted || !elements.victory.hidden) return;
       event.preventDefault();
       showVictory();
     });
