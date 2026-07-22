@@ -1,3 +1,5 @@
 game-state.json
 .game-state.tmp
+ordering-state.json
+.ordering-state.tmp
 __pycache__/

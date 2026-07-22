@@ -1,7 +1,18 @@
 <section id="ordering-view" class="viewport-above-scoreboard">
   <a class="back-to-hub floating-back" href="#/hub" aria-label="Back to game hub">←</a>
-  <div class="ordering-placeholder">
-    <h1>Put It in Order</h1>
-    <p>Coming soon—players will scan a QR code, join by phone, and arrange the items themselves.</p>
+  <div class="ordering-shell">
+    <header class="ordering-heading">
+      <h1>Put It in Order</h1>
+      <p id="ordering-status" aria-live="polite"></p>
+    </header>
+    <main id="ordering-content"></main>
   </div>
+  <dialog id="ordering-cancel-dialog">
+    <h2>Cancel this round?</h2>
+    <p>All submitted orders for this question will be discarded.</p>
+    <form method="dialog" class="ordering-actions">
+      <button value="keep" class="secondary-button">Keep round</button>
+      <button value="cancel" class="danger-button">Cancel round</button>
+    </form>
+  </dialog>
 </section>

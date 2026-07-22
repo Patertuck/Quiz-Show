@@ -8,7 +8,8 @@ export const state = {
   gameStarted: false,
   savedState: null,
   saveChain: Promise.resolve(),
-  revision: 0
+  revision: 0,
+  appliedAwards: new Set()
 };
 
 function requireString(value, path) {
@@ -60,6 +61,39 @@ export function validateConfig(config) {
       validateSide(item, "answer", "answerImage", itemPath);
     });
   });
+  if (!config.ordering || typeof config.ordering !== "object" || Array.isArray(config.ordering)) {
+    throw new Error("ordering must be an object.");
+  }
+  if (!Number.isInteger(config.ordering.pointsPerCorrect) || config.ordering.pointsPerCorrect <= 0) {
+    throw new Error("ordering.pointsPerCorrect must be a positive integer.");
+  }
+  if (!Array.isArray(config.ordering.questions) || !config.ordering.questions.length) {
+    throw new Error("ordering.questions must contain at least one question.");
+  }
+  const orderingIds = new Set();
+  config.ordering.questions.forEach((question, index) => {
+    const path = `ordering.questions[${index}]`;
+    requireString(question?.id, `${path}.id`);
+    requireString(question?.title, `${path}.title`);
+    requireString(question?.prompt, `${path}.prompt`);
+    if (!/^[a-z0-9][a-z0-9-]*$/i.test(question.id) || orderingIds.has(question.id)) {
+      throw new Error(`${path}.id must be unique and contain only letters, numbers, and hyphens.`);
+    }
+    orderingIds.add(question.id);
+    if (!Number.isInteger(question.timeLimitSeconds) || question.timeLimitSeconds < 5 || question.timeLimitSeconds > 600) {
+      throw new Error(`${path}.timeLimitSeconds must be an integer from 5 to 600.`);
+    }
+    if (!Array.isArray(question.items) || question.items.length < 3 || question.items.length > 7) {
+      throw new Error(`${path}.items must contain 3 to 7 entries in the correct order.`);
+    }
+    const unique = new Set();
+    question.items.forEach((item, itemIndex) => {
+      requireString(item, `${path}.items[${itemIndex}]`);
+      const key = item.trim().toLocaleLowerCase();
+      if (unique.has(key)) throw new Error(`${path}.items must be unique.`);
+      unique.add(key);
+    });
+  });
   return config;
 }
 
@@ -78,7 +112,7 @@ async function fingerprint(config) {
 }
 
 function validateSavedState(saved) {
-  if (!saved || typeof saved !== "object" || saved.version !== 1) throw new Error("The saved game has an unsupported format.");
+  if (!saved || typeof saved !== "object" || ![1, 2].includes(saved.version)) throw new Error("The saved game has an unsupported format.");
   if (typeof saved.configFingerprint !== "string" || typeof saved.gameStarted !== "boolean") throw new Error("The saved game is missing required fields.");
   if (!Number.isInteger(saved.revision) || saved.revision < 1) throw new Error("The saved game has an invalid revision.");
   if (!Array.isArray(saved.teams) || !saved.teams.length) throw new Error("The saved game must contain at least one team.");
@@ -101,6 +135,10 @@ function validateSavedState(saved) {
         || active.rowIndex < 0 || active.rowIndex >= state.config.values.length) {
       throw new Error("The saved game contains an invalid active question.");
     }
+  }
+  if (saved.version === 1) saved = { ...saved, version: 2, appliedAwards: [] };
+  if (!Array.isArray(saved.appliedAwards) || saved.appliedAwards.some((id) => typeof id !== "string" || !id)) {
+    throw new Error("The saved game contains invalid applied awards.");
   }
   return saved;
 }
@@ -125,14 +163,15 @@ export async function loadApplicationData() {
 
 export function stateSnapshot() {
   return {
-    version: 1,
+    version: 2,
     configFingerprint: state.configFingerprint,
     updatedAt: new Date().toISOString(),
     revision: ++state.revision,
     gameStarted: state.gameStarted,
     teams: state.teams.map(({ name, score }) => ({ name, score })),
     usedTiles: Array.from(state.usedTiles).sort(),
-    activeQuestion: state.activeQuestion ? { ...state.activeQuestion } : null
+    activeQuestion: state.activeQuestion ? { ...state.activeQuestion } : null,
+    appliedAwards: Array.from(state.appliedAwards).sort()
   };
 }
 
@@ -168,6 +207,7 @@ export function startRuntime(teams) {
   state.activeQuestion = null;
   state.gameStarted = true;
   state.revision = 0;
+  state.appliedAwards = new Set();
 }
 
 export function resumeRuntime(teams) {
@@ -178,4 +218,18 @@ export function resumeRuntime(teams) {
   state.activeValue = 0;
   state.gameStarted = saved.gameStarted;
   state.revision = saved.revision;
+  state.appliedAwards = new Set(saved.appliedAwards || []);
+}
+
+export function applyAward(awardId, awards) {
+  if (state.appliedAwards.has(awardId)) return false;
+  if (typeof awardId !== "string" || !awardId || !Array.isArray(awards)) throw new Error("The ordering award is invalid.");
+  awards.forEach(({ teamIndex, points }) => {
+    if (!Number.isInteger(teamIndex) || !state.teams[teamIndex] || !Number.isInteger(points) || points < 0) {
+      throw new Error("The ordering award contains invalid team points.");
+    }
+  });
+  awards.forEach(({ teamIndex, points }) => { state.teams[teamIndex].score += points; });
+  state.appliedAwards.add(awardId);
+  return true;
 }

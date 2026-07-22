@@ -1,4 +1,36 @@
-#ordering-view { position: relative; display: grid; place-items: center; padding: clamp(4rem, 8vw, 7rem) clamp(1rem, 5vw, 4rem) 2rem; background: radial-gradient(circle at 50% 20%, #a65ad7 0%, #552582 45%, #250e40 100%); text-align: center; }
-.ordering-placeholder { width: min(48rem, 100%); }
-.ordering-placeholder h1 { margin: 0 0 1rem; font-size: clamp(2.2rem, 7vw, 5.5rem); text-shadow: 0 0.2rem 0 #321050, 0 0 1.3rem rgb(228 180 255 / 30%); }
-.ordering-placeholder p { margin: 0; color: #f1dcff; font-size: clamp(1rem, 2.4vw, 1.5rem); }
+#ordering-view { position: relative; padding: .7rem 1rem 1rem; background: radial-gradient(circle at 50% 10%, #9354c2, #48206d 48%, #210d35); }
+.ordering-shell { display: grid; height: 100%; grid-template-rows: auto 1fr; gap: .55rem; min-height: 0; }
+.ordering-heading { text-align: center; }
+.ordering-heading h1 { margin: 0; font-size: clamp(1.5rem, 3vw, 2.5rem); }
+.ordering-heading p { min-height: 1.25em; margin: .2rem 4rem 0; color: #eddcff; }
+#ordering-content { display: grid; min-height: 0; align-content: center; justify-items: center; gap: .7rem; overflow: hidden; }
+.ordering-question-grid { display: grid; width: min(62rem, 92%); grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 1rem; }
+.ordering-question-card { min-height: 8rem; padding: 1rem; border: 2px solid #d9aaff; background: #63308b; color: #fff; font-size: 1.35rem; font-weight: bold; box-shadow: 0 .5rem 1.5rem #17052280; }
+.ordering-question-card:disabled { border-color: #796486; background: #35283d; color: #a99daf; cursor: not-allowed; }
+.ordering-preview { width: min(38rem, 90%); padding: 1rem 1.4rem; border: 1px solid #ffffff3d; border-radius: .7rem; background: #1e0a2d99; }
+.ordering-preview h2, .ordering-preview p { text-align: center; }
+.ordering-preview li { margin: .25rem 0; }
+.ordering-timer { display: grid; width: clamp(5rem, 8vw, 7rem); aspect-ratio: 1; place-items: center; border: .3rem solid #f6d76b; border-radius: 50%; background: #210d35; font-size: clamp(2rem, 5vw, 4rem); font-weight: bold; }
+.ordering-live-columns { display: flex; width: 100%; min-height: 0; gap: .55rem; justify-content: center; overflow: hidden; }
+.ordering-live-team { flex: 1 1 0; max-width: 18rem; padding: .45rem; border-radius: .6rem; background: #ffffff14; }
+.ordering-live-team h2 { overflow: hidden; margin: 0 0 .35rem; font-size: 1rem; text-overflow: ellipsis; white-space: nowrap; }
+.ordering-live-team ol, .ordering-private-answer ol { margin: 0; padding-left: 1.8rem; }
+.ordering-live-team li { margin: .2rem 0; padding: .3rem; border-radius: .3rem; background: #fff; color: #321347; }
+.ordering-private-answer { padding: .35rem .7rem; border-radius: .4rem; background: #180824; font-size: .8rem; }
+.ordering-actions { display: flex; gap: .6rem; justify-content: center; }
+.danger-button { padding: .75rem 1.25rem; background: #9b263c; color: #fff; font-weight: bold; }
+.ordering-results { display: grid; width: 100%; min-height: 0; grid-template-columns: 1fr minmax(9rem, 15rem) 1fr; gap: .5rem; align-items: stretch; }
+.ordering-result-side { display: flex; min-width: 0; gap: .4rem; }
+.ordering-result-side .ordering-result-column { flex: 1 1 0; }
+.ordering-result-column { display: grid; min-width: 0; grid-template-rows: 2.5rem repeat(var(--ordering-count, 1), minmax(0, 1fr)); gap: .25rem; }
+.ordering-result-column h2 { display: flex; min-width: 0; margin: 0; align-items: center; justify-content: space-between; gap: .3rem; font-size: clamp(.65rem, 1.25vw, 1rem); }
+.ordering-result-column h2 span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ordering-result-column h2 strong { color: #ffe16d; }
+.ordering-result-cell { display: grid; min-height: 2rem; padding: .25rem; place-items: center; border-radius: .35rem; background: #f7f0fb; color: #321347; font-size: clamp(.58rem, 1.1vw, .9rem); text-align: center; }
+.ordering-result-cell.correct { background: #43a86b; color: #fff; }
+.ordering-result-cell.wrong { background: #bb3e54; color: #fff; }
+.ordering-solution .solution-cell { border: 2px dashed #f5d96f; background: #3a1854; color: #fff; }
+.ordering-solution .solution-cell.revealed { border-style: solid; background: #f5d96f; color: #291138; }
+#ordering-cancel-dialog { max-width: 28rem; border: 0; border-radius: .8rem; padding: 1.5rem; color: #321347; }
+#ordering-cancel-dialog::backdrop { background: #10051dcc; }
+@media (max-width: 800px) { .ordering-results { grid-template-columns: 1fr minmax(7rem, 10rem) 1fr; } .ordering-result-side { flex-direction: column; } }

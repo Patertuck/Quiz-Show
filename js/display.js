@@ -2,6 +2,8 @@ const root = document.querySelector("#display-root");
 const connection = document.querySelector("#display-connection");
 let presentation = null;
 let buzzer = null;
+let orderingState = null;
+let orderingTicker;
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -87,9 +89,51 @@ function jeopardyQuestion() {
 
 function ordering() {
   const screen = element("section", "display-screen display-ordering");
-  const content = element("div");
-  content.append(element("h1", "", "Put It in Order"), element("p", "", "Get ready for the next challenge."));
-  screen.append(content);
+  const round = orderingState?.round;
+  if (!round) {
+    const content = element("div");
+    content.append(element("h1", "", "Put It in Order"), element("p", "", "Get ready for the next challenge."));
+    screen.append(content);
+    return screen;
+  }
+  if (round.phase === "active") {
+    const content = element("div", "display-ordering-active");
+    content.append(
+      element("h1", "", round.title),
+      element("p", "display-ordering-prompt", round.prompt),
+      element("output", "display-ordering-timer", String(Math.max(0, Math.ceil((round.deadlineAt - Date.now()) / 1000)))),
+      element("p", "display-ordering-connected", `${orderingState.connectedTeamCount} of ${orderingState.teams.length} teams connected`)
+    );
+    content.querySelector("output").dataset.deadline = round.deadlineAt;
+    screen.append(content);
+    return screen;
+  }
+  const heading = element("header", "display-ordering-heading");
+  heading.append(element("h1", "", round.title), element("p", "", round.prompt));
+  const board = element("div", "display-ordering-results");
+  const split = Math.ceil(orderingState.teams.length / 2);
+  const left = element("div", "display-ordering-side");
+  const right = element("div", "display-ordering-side");
+  const itemNames = new Map(round.shuffledItems.map((item) => [item.id, item.text]));
+  orderingState.teams.forEach((name, teamIndex) => {
+    const column = element("section", "display-ordering-column");
+    column.style.setProperty("--ordering-count", round.teamOrders[teamIndex].length);
+    const title = element("h2");
+    title.append(element("span", "", name), element("strong", "", `+${round.roundPoints[teamIndex]}`));
+    column.append(title);
+    round.teamOrders[teamIndex].forEach((id, slot) => {
+      const revealed = round.revealed.includes(slot);
+      const correct = revealed && id === round.revealedItems[slot]?.id;
+      column.append(element("div", `display-ordering-cell${revealed ? (correct ? " correct" : " wrong") : ""}`, itemNames.get(id)));
+    });
+    (teamIndex < split ? left : right).append(column);
+  });
+  const solution = element("section", "display-ordering-column display-ordering-solution");
+  solution.style.setProperty("--ordering-count", round.revealedItems.length);
+  solution.append(element("h2", "", "Correct order"));
+  round.revealedItems.forEach((item, slot) => solution.append(element("div", `display-ordering-cell${item ? " revealed" : " hidden-answer"}`, item?.text || `Answer ${slot + 1}`)));
+  board.append(left, solution, right);
+  screen.append(heading, board);
   return screen;
 }
 
@@ -177,16 +221,28 @@ buzzerEvents.addEventListener("state", (event) => {
   updateBuzzerBanner();
 });
 
-Promise.all([initialState("/api/presentation/state"), initialState("/api/buzzer/state")])
-  .then(([nextPresentation, nextBuzzer]) => {
+const orderingEvents = new EventSource("/api/ordering/events?role=public");
+orderingEvents.addEventListener("state", (event) => {
+  orderingState = JSON.parse(event.data);
+  if (presentation?.screen === "ordering") render();
+});
+
+Promise.all([initialState("/api/presentation/state"), initialState("/api/buzzer/state"), initialState("/api/ordering/state?role=public")])
+  .then(([nextPresentation, nextBuzzer, nextOrdering]) => {
     if (!presentation || nextPresentation.version >= presentation.version) presentation = nextPresentation;
     if (!buzzer || nextBuzzer.version >= buzzer.version) buzzer = nextBuzzer;
+    orderingState = nextOrdering;
     render();
   })
   .catch(() => {
     connection.textContent = "Waiting for the quiz host…";
     connection.classList.remove("connected");
   });
+
+orderingTicker = setInterval(() => {
+  const timer = root.querySelector(".display-ordering-timer");
+  if (timer) timer.textContent = Math.max(0, Math.ceil((Number(timer.dataset.deadline) - Date.now()) / 1000));
+}, 200);
 
 window.addEventListener("resize", () => {
   const board = root.querySelector(".display-board");

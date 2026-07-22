@@ -56,5 +56,24 @@
         { "question": "What are the irises?", "answer": "These structures define eye color and control how much light enters the eye." }
       ]
     }
-  ]
+  ],
+  "ordering": {
+    "pointsPerCorrect": 100,
+    "questions": [
+      {
+        "id": "planets-from-sun",
+        "title": "The Solar System",
+        "prompt": "Order from closest to farthest from the Sun",
+        "timeLimitSeconds": 60,
+        "items": ["Mercury", "Venus", "Earth", "Mars", "Jupiter"]
+      },
+      {
+        "id": "scientific-method",
+        "title": "The Scientific Method",
+        "prompt": "Put these steps in their usual order",
+        "timeLimitSeconds": 45,
+        "items": ["Observation", "Question", "Hypothesis", "Experiment", "Analysis", "Conclusion"]
+      }
+    ]
+  }
 }

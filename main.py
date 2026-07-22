@@ -9,13 +9,15 @@ import ipaddress
 import json
 import os
 import re
+import random
 import secrets
 import socket
 import socketserver
 import threading
+import time
 import webbrowser
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 
 BIND_HOST = "0.0.0.0"
@@ -24,6 +26,8 @@ PORT = 8000
 PROJECT_DIRECTORY = Path(__file__).resolve().parent
 STATE_FILE = PROJECT_DIRECTORY / "game-state.json"
 STATE_TEMP_FILE = PROJECT_DIRECTORY / ".game-state.tmp"
+ORDERING_FILE = PROJECT_DIRECTORY / "ordering-state.json"
+ORDERING_TEMP_FILE = PROJECT_DIRECTORY / ".ordering-state.tmp"
 MAX_STATE_BYTES = 1_000_000
 STATE_LOCK = threading.Lock()
 TILE_ID_PATTERN = re.compile(r"^\d+:\d+$")
@@ -67,7 +71,7 @@ def validate_state(state: object) -> dict:
     """Validate the stable portion of the browser-to-server state contract."""
     if not isinstance(state, dict):
         raise ValueError("State must be a JSON object.")
-    if state.get("version") != 1:
+    if state.get("version") not in {1, 2}:
         raise ValueError("Unsupported state version.")
     if not isinstance(state.get("configFingerprint"), str) or not state["configFingerprint"]:
         raise ValueError("configFingerprint must be a non-empty string.")
@@ -108,6 +112,11 @@ def validate_state(state: object) -> dict:
                 raise ValueError(f"activeQuestion.{field} must be a non-negative integer.")
         if not isinstance(active.get("answerRevealed"), bool):
             raise ValueError("activeQuestion.answerRevealed must be a boolean.")
+    if state["version"] == 1:
+        state = {**state, "version": 2, "appliedAwards": []}
+    awards = state.get("appliedAwards")
+    if not isinstance(awards, list) or any(not isinstance(item, str) or not item for item in awards):
+        raise ValueError("appliedAwards must contain non-empty strings.")
     return state
 
 
@@ -221,6 +230,271 @@ class BuzzerState:
 
 
 BUZZER = BuzzerState()
+
+
+class OrderingState:
+    """Persistent, server-authoritative state for collaborative ordering rounds."""
+
+    def __init__(self) -> None:
+        self.condition = threading.Condition()
+        self.version = 0
+        self.config_fingerprint = ""
+        self.teams: list[str] = []
+        self.teams_revision = ""
+        self.completed: list[str] = []
+        self.round: dict | None = None
+        self.connections: dict[int, int] = {}
+        self._load()
+
+    def _load(self) -> None:
+        if not ORDERING_FILE.exists():
+            return
+        try:
+            data = json.loads(ORDERING_FILE.read_text(encoding="utf-8"))
+            if not isinstance(data, dict) or data.get("version") != 1:
+                return
+            self.config_fingerprint = data.get("configFingerprint", "")
+            self.teams = data.get("teams", [])
+            self.teams_revision = BuzzerState.team_revision(self.teams)
+            self.completed = data.get("completedQuestionIds", [])
+            self.round = data.get("round")
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            self.round = None
+
+    def _save_unlocked(self) -> None:
+        data = {
+            "version": 1, "configFingerprint": self.config_fingerprint,
+            "teams": self.teams, "completedQuestionIds": self.completed, "round": self.round,
+        }
+        encoded = (json.dumps(data, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+        with ORDERING_TEMP_FILE.open("wb") as handle:
+            handle.write(encoded)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(ORDERING_TEMP_FILE, ORDERING_FILE)
+
+    def _changed_unlocked(self, persist: bool = True) -> None:
+        if persist:
+            self._save_unlocked()
+        self.version += 1
+        self.condition.notify_all()
+
+    def _expire_unlocked(self) -> None:
+        if self.round and self.round.get("phase") == "active" and int(time.time() * 1000) >= self.round["deadlineAt"]:
+            self.round["phase"] = "locked"
+            self._changed_unlocked()
+
+    def reset(self) -> None:
+        with self.condition:
+            self.config_fingerprint = ""
+            self.teams = []
+            self.teams_revision = ""
+            self.completed = []
+            self.round = None
+            ORDERING_FILE.unlink(missing_ok=True)
+            ORDERING_TEMP_FILE.unlink(missing_ok=True)
+            self._changed_unlocked(False)
+
+    def configure(self, fingerprint: str, teams: list[str], question_ids: list[str]) -> None:
+        if not fingerprint or not teams or not question_ids:
+            raise ValueError("Ordering configuration, teams, and questions are required.")
+        revision = BuzzerState.team_revision(teams)
+        with self.condition:
+            if fingerprint != self.config_fingerprint or revision != self.teams_revision:
+                self.completed = []
+                self.round = None
+            self.config_fingerprint = fingerprint
+            self.teams = list(teams)
+            self.teams_revision = revision
+            self.completed = [item for item in self.completed if item in question_ids]
+            self._changed_unlocked()
+
+    @staticmethod
+    def _validate_question(question: object) -> dict:
+        if not isinstance(question, dict):
+            raise ValueError("A question is required.")
+        for field in ("id", "title", "prompt"):
+            if not isinstance(question.get(field), str) or not question[field].strip():
+                raise ValueError(f"Question {field} is required.")
+        items = question.get("items")
+        seconds = question.get("timeLimitSeconds")
+        points = question.get("pointsPerCorrect")
+        if not isinstance(items, list) or not 3 <= len(items) <= 7 or any(not isinstance(item, str) or not item.strip() for item in items):
+            raise ValueError("A question needs 3 to 7 item strings.")
+        if len({item.strip().casefold() for item in items}) != len(items):
+            raise ValueError("Question items must be unique.")
+        if not isinstance(seconds, int) or isinstance(seconds, bool) or not 5 <= seconds <= 600:
+            raise ValueError("timeLimitSeconds must be from 5 to 600.")
+        if not isinstance(points, int) or isinstance(points, bool) or points <= 0:
+            raise ValueError("pointsPerCorrect must be positive.")
+        return question
+
+    def start(self, question: object) -> None:
+        clean = self._validate_question(question)
+        with self.condition:
+            self._expire_unlocked()
+            if not self.teams:
+                raise ValueError("Configure teams before starting an ordering round.")
+            if self.round and self.round.get("phase") != "distributed":
+                raise ValueError("Finish or cancel the current ordering round first.")
+            if clean["id"] in self.completed:
+                raise ValueError("This ordering question is already complete.")
+            correct = [{"id": f"item-{index}", "text": text} for index, text in enumerate(clean["items"])]
+            shuffled = [item.copy() for item in correct]
+            random.SystemRandom().shuffle(shuffled)
+            if [item["id"] for item in shuffled] == [item["id"] for item in correct]:
+                shuffled = shuffled[1:] + shuffled[:1]
+            order = [item["id"] for item in shuffled]
+            self.round = {
+                "id": secrets.token_urlsafe(12), "questionId": clean["id"], "title": clean["title"],
+                "prompt": clean["prompt"], "timeLimitSeconds": clean["timeLimitSeconds"],
+                "pointsPerCorrect": clean["pointsPerCorrect"], "correctItems": correct,
+                "shuffledItems": shuffled, "teamOrders": [order.copy() for _ in self.teams],
+                "deadlineAt": int(time.time() * 1000) + clean["timeLimitSeconds"] * 1000,
+                "phase": "active", "revealed": [],
+            }
+            self._changed_unlocked()
+
+    def update_order(self, payload: dict) -> tuple[int, dict]:
+        team_index = payload.get("teamIndex")
+        order = payload.get("order")
+        with self.condition:
+            self._expire_unlocked()
+            if not self.round or self.round["phase"] != "active" or payload.get("roundId") != self.round["id"]:
+                return 409, {"error": "Time is up or the round changed.", "state": self._snapshot_unlocked("team", team_index)}
+            if payload.get("teamsRevision") != self.teams_revision or not isinstance(team_index, int) or isinstance(team_index, bool) or not 0 <= team_index < len(self.teams):
+                return 409, {"error": "The team list changed. Select your team again.", "state": self._snapshot_unlocked("public")}
+            expected = {item["id"] for item in self.round["shuffledItems"]}
+            if not isinstance(order, list) or len(order) != len(expected) or set(order) != expected:
+                raise ValueError("order must contain every item exactly once.")
+            self.round["teamOrders"][team_index] = list(order)
+            self._changed_unlocked()
+            return 200, {"saved": True, "state": self._snapshot_unlocked("team", team_index)}
+
+    def control(self, payload: dict) -> dict:
+        action = payload.get("action")
+        if action == "configure":
+            teams = payload.get("teams")
+            ids = payload.get("questionIds")
+            if not isinstance(teams, list) or any(not isinstance(x, str) for x in teams) or not isinstance(ids, list) or any(not isinstance(x, str) for x in ids):
+                raise ValueError("Invalid ordering configuration.")
+            self.configure(payload.get("configFingerprint", ""), teams, ids)
+        elif action == "start":
+            self.start(payload.get("question"))
+        else:
+            with self.condition:
+                self._expire_unlocked()
+                if not self.round:
+                    raise ValueError("There is no current ordering round.")
+                if action == "lock":
+                    if self.round["phase"] != "active":
+                        raise ValueError("The round is already locked.")
+                    self.round["phase"] = "locked"
+                elif action == "cancel":
+                    if self.round["revealed"]:
+                        raise ValueError("A round cannot be cancelled after revealing has begun.")
+                    self.round = None
+                elif action == "reveal":
+                    slot = payload.get("slot")
+                    if self.round["phase"] == "active":
+                        raise ValueError("Lock the answers before revealing them.")
+                    if not isinstance(slot, int) or isinstance(slot, bool) or not 0 <= slot < len(self.round["correctItems"]):
+                        raise ValueError("Invalid answer slot.")
+                    if slot not in self.round["revealed"]:
+                        self.round["revealed"].append(slot)
+                        self.round["revealed"].sort()
+                elif action == "confirm-distribution":
+                    if len(self.round["revealed"]) != len(self.round["correctItems"]):
+                        raise ValueError("Reveal every answer before distributing points.")
+                    self.round["phase"] = "distributed"
+                    if self.round["questionId"] not in self.completed:
+                        self.completed.append(self.round["questionId"])
+                elif action == "close":
+                    if self.round["phase"] != "distributed":
+                        raise ValueError("Distribute the points before closing the round.")
+                    self.round = None
+                else:
+                    raise ValueError("Unknown ordering control action.")
+                self._changed_unlocked()
+        return self.snapshot("host")
+
+    def _round_points_unlocked(self, team_index: int) -> int:
+        if not self.round:
+            return 0
+        correct = [item["id"] for item in self.round["correctItems"]]
+        order = self.round["teamOrders"][team_index]
+        return sum(self.round["pointsPerCorrect"] for slot in self.round["revealed"] if order[slot] == correct[slot])
+
+    def awards(self) -> dict:
+        with self.condition:
+            self._expire_unlocked()
+            if not self.round or len(self.round["revealed"]) != len(self.round["correctItems"]):
+                raise ValueError("Reveal every answer before distributing points.")
+            return {
+                "awardId": f"ordering:{self.round['id']}",
+                "awards": [{"teamIndex": index, "points": self._round_points_unlocked(index)} for index in range(len(self.teams))],
+            }
+
+    def _snapshot_unlocked(self, role: str, team_index: int | None = None) -> dict:
+        self._expire_unlocked()
+        result = {
+            "version": self.version, "teams": self.teams, "teamsRevision": self.teams_revision,
+            "completedQuestionIds": self.completed, "connectedTeamCount": len(self.connections), "round": None,
+        }
+        if not self.round:
+            return result
+        round_data = {key: self.round[key] for key in (
+            "id", "questionId", "title", "prompt", "timeLimitSeconds", "pointsPerCorrect",
+            "shuffledItems", "deadlineAt", "phase", "revealed"
+        )}
+        if role == "host":
+            round_data["correctItems"] = self.round["correctItems"]
+            round_data["teamOrders"] = self.round["teamOrders"]
+            round_data["roundPoints"] = [self._round_points_unlocked(index) for index in range(len(self.teams))]
+        elif role == "team":
+            if isinstance(team_index, int) and 0 <= team_index < len(self.teams) and self.round["phase"] == "active":
+                round_data["teamOrder"] = self.round["teamOrders"][team_index]
+        elif self.round["phase"] != "active":
+            round_data["teamOrders"] = self.round["teamOrders"]
+            round_data["revealedItems"] = [
+                self.round["correctItems"][slot] if slot in self.round["revealed"] else None
+                for slot in range(len(self.round["correctItems"]))
+            ]
+            round_data["roundPoints"] = [self._round_points_unlocked(index) for index in range(len(self.teams))]
+        result["round"] = round_data
+        return result
+
+    def snapshot(self, role: str = "public", team_index: int | None = None) -> dict:
+        with self.condition:
+            return self._snapshot_unlocked(role, team_index)
+
+    def wait_for_change(self, version: int, role: str, team_index: int | None, timeout: float = 15) -> dict | None:
+        with self.condition:
+            self._expire_unlocked()
+            wait = timeout
+            if self.round and self.round["phase"] == "active":
+                wait = min(wait, max(0.05, (self.round["deadlineAt"] - int(time.time() * 1000)) / 1000))
+            if self.version == version:
+                self.condition.wait(wait)
+            self._expire_unlocked()
+            return self._snapshot_unlocked(role, team_index) if self.version != version else None
+
+    def connect(self, team_index: int) -> None:
+        with self.condition:
+            if 0 <= team_index < len(self.teams):
+                self.connections[team_index] = self.connections.get(team_index, 0) + 1
+                self._changed_unlocked(False)
+
+    def disconnect(self, team_index: int) -> None:
+        with self.condition:
+            if team_index in self.connections:
+                self.connections[team_index] -= 1
+                if self.connections[team_index] <= 0:
+                    del self.connections[team_index]
+                self._changed_unlocked(False)
+
+
+ORDERING = OrderingState()
 
 
 def validate_presentation_image(image: object, field: str) -> dict | None:
@@ -398,6 +672,48 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(body)
 
     def do_GET(self) -> None:  # noqa: N802 - required by BaseHTTPRequestHandler
+        if self.request_path == "/api/ordering/state":
+            query = parse_qs(urlsplit(self.path).query)
+            try:
+                team_index = int(query.get("teamIndex", [""])[0])
+            except ValueError:
+                team_index = None
+            requested_role = query.get("role", [""])[0]
+            role = "team" if team_index is not None else ("public" if requested_role == "public" else ("host" if self.is_host else "public"))
+            self.send_json(200, ORDERING.snapshot(role, team_index))
+            return
+        if self.request_path == "/api/ordering/events":
+            query = parse_qs(urlsplit(self.path).query)
+            try:
+                team_index = int(query.get("teamIndex", [""])[0])
+            except ValueError:
+                team_index = None
+            requested_role = query.get("role", [""])[0]
+            role = "team" if team_index is not None else ("public" if requested_role == "public" else ("host" if self.is_host else "public"))
+            if role == "team":
+                ORDERING.connect(team_index)
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Connection", "keep-alive")
+            self.end_headers()
+            version = -1
+            try:
+                while True:
+                    state = ORDERING.wait_for_change(version, role, team_index)
+                    if state is None:
+                        self.wfile.write(b": heartbeat\n\n")
+                    else:
+                        version = state["version"]
+                        data = json.dumps(state, ensure_ascii=False, separators=(",", ":"))
+                        self.wfile.write(f"event: state\nid: {version}\ndata: {data}\n\n".encode("utf-8"))
+                    self.wfile.flush()
+            except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+                pass
+            finally:
+                if role == "team":
+                    ORDERING.disconnect(team_index)
+            return
         if self.request_path == "/api/presentation/state":
             self.send_json(200, PRESENTATION.snapshot())
             return
@@ -461,7 +777,7 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
                     return
             self.send_json(200, state)
             return
-        if self.request_path in {"/game-state.json", "/.game-state.tmp"}:
+        if self.request_path in {"/game-state.json", "/.game-state.tmp", "/ordering-state.json", "/.ordering-state.tmp"}:
             self.send_error(404)
             return
         if not self.is_host:
@@ -493,6 +809,25 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
         super().do_HEAD()
 
     def do_POST(self) -> None:  # noqa: N802 - required by BaseHTTPRequestHandler
+        if self.request_path == "/api/ordering/order":
+            try:
+                status, response = ORDERING.update_order(self.read_json(MAX_PRESENTATION_BODY_BYTES))
+            except (UnicodeError, json.JSONDecodeError, ValueError, OSError) as error:
+                self.send_json(400, {"error": str(error)})
+                return
+            self.send_json(status, response)
+            return
+        if self.request_path == "/api/ordering/control":
+            if not self.require_host():
+                return
+            try:
+                payload = self.read_json(MAX_PRESENTATION_BODY_BYTES)
+                response = ORDERING.awards() if payload.get("action") == "awards" else ORDERING.control(payload)
+            except (UnicodeError, json.JSONDecodeError, ValueError, OSError) as error:
+                self.send_json(400, {"error": str(error)})
+                return
+            self.send_json(200, response)
+            return
         if self.request_path == "/api/buzzer/buzz":
             try:
                 status, response = BUZZER.buzz(self.read_json())
@@ -580,6 +915,7 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.send_json(500, {"error": f"Could not delete state: {error}"})
             return
         BUZZER.sync_teams(None)
+        ORDERING.reset()
         self.send_json(200, {"deleted": True})
 
 
