@@ -147,6 +147,7 @@ export function saveState() {
       const detail = await response.json().catch(() => ({}));
       throw new Error(detail.error || `HTTP ${response.status}`);
     }
+    state.savedState = snapshot;
   }).catch((error) => { console.error("Could not save quiz state:", error); throw error; });
   return state.saveChain;
 }

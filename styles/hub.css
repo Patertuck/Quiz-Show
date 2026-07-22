@@ -1,5 +1,9 @@
-#hub-view { display: grid; grid-template-rows: auto 1fr; gap: clamp(1rem, 3vh, 2rem); padding: clamp(1rem, 4vw, 3rem); background: radial-gradient(circle at 50% 0%, #394dc1 0%, #17277f 42%, #080f35 100%); }
+#hub-view { position: relative; display: grid; grid-template-rows: auto 1fr; gap: clamp(1rem, 3vh, 2rem); padding: clamp(1rem, 4vw, 3rem); background: radial-gradient(circle at 50% 0%, #394dc1 0%, #17277f 42%, #080f35 100%); }
 #hub-view > h1 { margin: 0; color: var(--yellow); font-size: clamp(2rem, 5vw, 4rem); text-align: center; text-shadow: 0 0.18rem 0 #10194f, 0 0 1rem rgb(255 244 92 / 28%); }
+#team-setup-button { position: absolute; z-index: 1; top: clamp(0.8rem, 2.5vw, 1.5rem); right: clamp(0.8rem, 2.5vw, 1.5rem); display: grid; width: clamp(2.7rem, 5vw, 3.5rem); aspect-ratio: 1; place-items: center; padding: 0.65rem; border: 2px solid rgb(255 255 255 / 38%); border-radius: 50%; background: rgb(8 15 53 / 58%); color: #fff; box-shadow: 0 0.4rem 1rem rgb(0 0 0 / 22%); transition: border-color 180ms ease, background 180ms ease, transform 180ms ease; }
+#team-setup-button:hover, #team-setup-button:focus-visible { border-color: var(--yellow); background: rgb(25 41 126 / 90%); transform: rotate(20deg); }
+#team-setup-button:disabled { cursor: wait; opacity: 0.6; }
+#team-setup-button svg { width: 100%; height: 100%; fill: currentColor; }
 .game-cards { display: grid; width: min(68rem, 100%); min-height: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(1rem, 3vw, 2rem); place-self: center; }
 .game-card { display: grid; min-height: min(48vh, 25rem); place-items: center; padding: clamp(1.2rem, 3vw, 2.3rem); overflow: hidden; border: 2px solid rgb(255 255 255 / 30%); border-radius: 1.2rem; color: #fff; text-align: center; box-shadow: 0 1rem 2.5rem rgb(0 0 0 / 28%); transition: transform 180ms ease, border-color 180ms ease, filter 180ms ease; }
 .game-card:hover, .game-card:focus-visible { border-color: var(--yellow); filter: brightness(1.08); transform: translateY(-0.3rem); }
