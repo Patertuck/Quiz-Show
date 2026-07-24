@@ -54,8 +54,8 @@ function showNoGameWaiting() {
   selectedTeamIndex = null;
   localStorage.removeItem("quiz-buzzer-team");
   waitingTeamRow.hidden = true;
-  waitingTitle.textContent = "Waiting for a game";
-  waitingStatus.textContent = "The host has not started a game yet. Keep this page open.";
+  waitingTitle.textContent = "Warten auf ein Spiel";
+  waitingStatus.textContent = "Die Spielleitung hat noch kein Spiel gestartet. Lasst diese Seite geöffnet.";
   waitingStep.hidden = false;
   teamStep.hidden = true;
   buzzStep.hidden = true;
@@ -66,8 +66,8 @@ function showNoGameWaiting() {
 function showActivityWaiting() {
   waitingTeam.textContent = currentState.teams[selectedTeamIndex];
   waitingTeamRow.hidden = false;
-  waitingTitle.textContent = "Waiting for the next game";
-  waitingStatus.textContent = "Your team is ready. Waiting for the next game.";
+  waitingTitle.textContent = "Warten auf das nächste Spiel";
+  waitingStatus.textContent = "Euer Team ist bereit. Wartet auf das nächste Spiel.";
   waitingStep.hidden = false;
   teamStep.hidden = true;
   buzzStep.hidden = true;
@@ -140,16 +140,16 @@ function render() {
   buzzButton.classList.toggle("registered", ownBuzzIndex !== -1);
   if (!round.open) {
     buzzButton.disabled = true;
-    buzzButton.textContent = "WAIT";
-    buzzStatus.textContent = "The host has not opened the buzzers yet.";
+    buzzButton.textContent = "WARTEN";
+    buzzStatus.textContent = "Die Spielleitung hat die Buzzer noch nicht freigegeben.";
   } else if (ownBuzzIndex !== -1) {
     buzzButton.disabled = true;
-    buzzButton.textContent = ownBuzzIndex === 0 ? "FIRST!" : `#${ownBuzzIndex + 1}`;
-    buzzStatus.textContent = `Your team is number ${ownBuzzIndex + 1} in the buzz order.`;
+    buzzButton.textContent = ownBuzzIndex === 0 ? "ERSTER!" : `#${ownBuzzIndex + 1}`;
+    buzzStatus.textContent = `Euer Team ist Nummer ${ownBuzzIndex + 1} in der Buzzer-Reihenfolge.`;
   } else {
     buzzButton.disabled = submitting;
-    buzzButton.textContent = submitting ? "SENDING" : "BUZZ";
-    buzzStatus.textContent = "Buzzers are open!";
+    buzzButton.textContent = submitting ? "WIRD GESENDET" : "BUZZ";
+    buzzStatus.textContent = "Die Buzzer sind offen!";
   }
 }
 
@@ -210,7 +210,7 @@ function startPointerDrag(event, row, startIndex, order) {
     row.classList.add("drag-placeholder");
     document.body.append(drag.ghost);
     document.body.classList.add("ordering-is-dragging");
-    orderingStatus.textContent = "Move the item, then release to save.";
+    orderingStatus.textContent = "Verschiebt das Element und lasst es los, um zu speichern.";
   };
 
   drag.onMove = (moveEvent) => {
@@ -261,7 +261,7 @@ function startPointerDrag(event, row, startIndex, order) {
 async function submitOrder(order) {
   const round = orderingState?.round;
   if (!round || selectedTeamIndex === null || round.phase !== "active") return;
-  orderingStatus.textContent = "Saving…";
+  orderingStatus.textContent = "Wird gespeichert…";
   try {
     const response = await fetch("/api/ordering/order", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -272,10 +272,10 @@ async function submitOrder(order) {
     });
     const payload = await response.json().catch(() => ({}));
     if (payload.state) orderingState = payload.state;
-    if (!response.ok) throw new Error(payload.error || "The order was not accepted.");
-    orderingStatus.textContent = "Saved";
+    if (!response.ok) throw new Error(payload.error || "Die Reihenfolge wurde nicht akzeptiert.");
+    orderingStatus.textContent = "Gespeichert";
   } catch (error) {
-    orderingStatus.textContent = error.message || "Could not reach the host.";
+    orderingStatus.textContent = error.message || "Die Spielleitung konnte nicht erreicht werden.";
   }
   render();
 }
@@ -290,7 +290,7 @@ function renderOrdering() {
   orderingList.hidden = !active;
   if (!active) {
     if (activeDrag) cancelDrag(false);
-    orderingStatus.textContent = "Time is up. Your answer is locked.";
+    orderingStatus.textContent = "Die Zeit ist abgelaufen. Eure Antwort ist gesperrt.";
     return;
   }
   if (activeDrag) return;
@@ -304,7 +304,7 @@ function renderOrdering() {
     const row = document.createElement("li");
     row.className = "ordering-phone-item";
     row.dataset.index = index;
-    row.setAttribute("aria-label", `${text.get(id)}. Drag to reorder.`);
+    row.setAttribute("aria-label", `${text.get(id)}. Zum Umsortieren ziehen.`);
     const label = document.createElement("span"); label.className = "ordering-item-text"; label.textContent = text.get(id);
     row.append(label); orderingList.append(row);
     row.addEventListener("pointerdown", (event) => startPointerDrag(event, row, index, order));
@@ -327,7 +327,7 @@ function connectOrderingEvents() {
   });
   orderingEvents.addEventListener("error", () => {
     if (activeDrag) cancelDrag();
-    orderingStatus.textContent = "Connection lost. Reconnecting…";
+    orderingStatus.textContent = "Verbindung verloren. Verbindung wird wiederhergestellt…";
   });
 }
 
@@ -359,10 +359,10 @@ buzzButton.addEventListener("click", async () => {
     });
     const result = await response.json().catch(() => ({}));
     if (result.state) currentState = result.state;
-    if (!response.ok) errorMessage = result.error || "The buzz was not accepted.";
+    if (!response.ok) errorMessage = result.error || "Der Buzzer wurde nicht akzeptiert.";
     else if (navigator.vibrate) navigator.vibrate(100);
   } catch {
-    errorMessage = "Could not reach the quiz host. Check the Wi-Fi connection.";
+    errorMessage = "Die Quiz-Spielleitung konnte nicht erreicht werden. Prüft die WLAN-Verbindung.";
   } finally {
     submitting = false;
     render();
@@ -373,12 +373,12 @@ buzzButton.addEventListener("click", async () => {
 const events = new EventSource("/api/buzzer/events");
 events.addEventListener("state", (event) => {
   currentState = JSON.parse(event.data);
-  connectionStatus.textContent = "Connected";
+  connectionStatus.textContent = "Verbunden";
   connectionStatus.classList.add("connected");
   render();
 });
 events.addEventListener("error", () => {
-  connectionStatus.textContent = "Reconnecting…";
+  connectionStatus.textContent = "Verbindung wird wiederhergestellt…";
   connectionStatus.classList.remove("connected");
 });
 
@@ -397,7 +397,7 @@ async function loadPresentationState() {
 
 Promise.all([loadState(), loadPresentationState()]).catch(() => {
   connectionStatus.textContent = "Offline";
-  waitingStatus.textContent = "Could not reach the quiz host. Check the Wi-Fi connection.";
+  waitingStatus.textContent = "Die Quiz-Spielleitung konnte nicht erreicht werden. Prüft die WLAN-Verbindung.";
 });
 
 connectOrderingEvents();
@@ -408,7 +408,7 @@ orderingTimer = setInterval(() => {
   if (seconds === 0 && activeDrag) {
     cancelDrag();
     orderingList.classList.add("locked-pending");
-    orderingStatus.textContent = "Time is up. Locking your answer…";
+    orderingStatus.textContent = "Die Zeit ist abgelaufen. Eure Antwort wird gesperrt…";
   }
 }, 200);
 

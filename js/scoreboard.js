@@ -24,7 +24,7 @@ export function renderScoreboard() {
     score.className = "score";
     score.id = `team-score-${index}`;
     score.textContent = team.score.toLocaleString();
-    score.setAttribute("aria-label", `${team.name} score`);
+    score.setAttribute("aria-label", `Punktestand von ${team.name}`);
     const add = scoreButton("add", index, () => changeScore(index, state.activeValue));
 
     card.append(name, subtract, score, add);
@@ -75,8 +75,8 @@ export function updateScoreControls() {
     button.disabled = !active;
     button.textContent = active ? `${sign}${state.activeValue.toLocaleString()}` : sign;
     button.setAttribute("aria-label", active
-      ? `${isAdd ? "Add" : "Subtract"} ${state.activeValue} points ${isAdd ? "to" : "from"} ${team.name}`
-      : `No active question; scoring unavailable for ${team.name}`);
+      ? `${state.activeValue} Punkte bei ${team.name} ${isAdd ? "hinzufügen" : "abziehen"}`
+      : `Keine aktive Frage; Punktevergabe für ${team.name} nicht verfügbar`);
   });
 }
 

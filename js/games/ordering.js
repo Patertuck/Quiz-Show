@@ -47,7 +47,7 @@ function remaining(round) {
 }
 
 function renderOverview() {
-  setStatus("Choose a question to begin.");
+  setStatus("Wählt eine Frage aus.");
   const grid = document.createElement("div");
   grid.className = "ordering-question-grid";
   state.config.ordering.questions.forEach((question) => {
@@ -56,7 +56,7 @@ function renderOverview() {
       selectedQuestion = question;
       renderPreview();
     }, complete);
-    if (complete) card.title = "Already completed";
+    if (complete) card.title = "Bereits abgeschlossen";
     grid.append(card);
   });
   content.replaceChildren(grid);
@@ -64,18 +64,18 @@ function renderOverview() {
 
 function renderPreview() {
   const question = selectedQuestion;
-  setStatus("The timer begins when you press Start.");
+  setStatus("Der Timer startet, sobald ihr auf «Starten» drückt.");
   const preview = document.createElement("section"); preview.className = "ordering-preview";
   const title = document.createElement("h2"); title.textContent = question.title;
   const prompt = document.createElement("p"); prompt.textContent = question.prompt;
-  const details = document.createElement("p"); details.textContent = `${question.items.length} items · ${question.timeLimitSeconds} seconds · ${state.config.ordering.pointsPerCorrect} points per correct position`;
+  const details = document.createElement("p"); details.textContent = `${question.items.length} Elemente · ${question.timeLimitSeconds} Sekunden · ${state.config.ordering.pointsPerCorrect} Punkte pro richtiger Position`;
   const list = document.createElement("ol");
   question.items.forEach((text) => { const item = document.createElement("li"); item.textContent = text; list.append(item); });
   preview.append(title, prompt, details, list);
   const actions = document.createElement("div"); actions.className = "ordering-actions";
   actions.append(
-    button("Start", "primary-button", () => request("start", { question: { ...question, pointsPerCorrect: state.config.ordering.pointsPerCorrect } })),
-    button("Back", "secondary-button", async () => { selectedQuestion = null; renderOverview(); })
+    button("Starten", "primary-button", () => request("start", { question: { ...question, pointsPerCorrect: state.config.ordering.pointsPerCorrect } })),
+    button("Zurück", "secondary-button", async () => { selectedQuestion = null; renderOverview(); })
   );
   content.replaceChildren(preview, actions);
 }
@@ -85,7 +85,7 @@ function renderActive(round) {
   timer.className = "ordering-timer";
   timer.dataset.deadline = round.deadlineAt;
   timer.textContent = remaining(round);
-  setStatus(`${round.prompt} · ${orderingState.connectedTeamCount} team${orderingState.connectedTeamCount === 1 ? "" : "s"} connected`);
+  setStatus(`${round.prompt} · ${orderingState.connectedTeamCount} ${orderingState.connectedTeamCount === 1 ? "Team verbunden" : "Teams verbunden"}`);
   const columns = document.createElement("div");
   columns.className = "ordering-live-columns";
   orderingState.teams.forEach((name, teamIndex) => {
@@ -102,12 +102,12 @@ function renderActive(round) {
   });
   const answer = document.createElement("details");
   answer.className = "ordering-private-answer";
-  answer.innerHTML = `<summary>Host answer key</summary><ol>${round.correctItems.map((item) => `<li></li>`).join("")}</ol>`;
+  answer.innerHTML = `<summary>Lösung für die Spielleitung</summary><ol>${round.correctItems.map((item) => `<li></li>`).join("")}</ol>`;
   answer.querySelectorAll("li").forEach((li, index) => { li.textContent = round.correctItems[index].text; });
   const actions = document.createElement("div"); actions.className = "ordering-actions";
   actions.append(
-    button("Lock answers", "primary-button", () => request("lock")),
-    button("Cancel round", "danger-button", confirmCancel)
+    button("Antworten sperren", "primary-button", () => request("lock")),
+    button("Runde abbrechen", "danger-button", confirmCancel)
   );
   content.replaceChildren(timer, columns, answer, actions);
 }
@@ -134,7 +134,7 @@ function teamColumn(round, teamIndex) {
 
 function renderResults(round) {
   const allRevealed = round.revealed.length === round.correctItems.length;
-  setStatus(round.phase === "distributed" ? "Points distributed." : "Click answer boxes to reveal them in any order.");
+  setStatus(round.phase === "distributed" ? "Punkte wurden verteilt." : "Klickt auf die Antwortfelder, um sie in beliebiger Reihenfolge aufzudecken.");
   const board = document.createElement("div"); board.className = "ordering-results";
   const split = Math.ceil(orderingState.teams.length / 2);
   const left = document.createElement("div"); left.className = "ordering-result-side";
@@ -142,20 +142,20 @@ function renderResults(round) {
   orderingState.teams.forEach((_, index) => (index < split ? left : right).append(teamColumn(round, index)));
   const solution = document.createElement("section"); solution.className = "ordering-result-column ordering-solution";
   solution.style.setProperty("--ordering-count", round.correctItems.length);
-  const title = document.createElement("h2"); title.textContent = "Correct order"; solution.append(title);
+  const title = document.createElement("h2"); title.textContent = "Richtige Reihenfolge"; solution.append(title);
   round.correctItems.forEach((item, slot) => {
     const revealed = round.revealed.includes(slot);
-    solution.append(button(revealed ? item.text : `Reveal ${slot + 1}`, `ordering-result-cell solution-cell${revealed ? " revealed" : ""}`,
+    solution.append(button(revealed ? item.text : `Position ${slot + 1} aufdecken`, `ordering-result-cell solution-cell${revealed ? " revealed" : ""}`,
       () => request("reveal", { slot }), revealed || round.phase === "distributed"));
   });
   board.append(left, solution, right);
   const actions = document.createElement("div"); actions.className = "ordering-actions";
   if (round.phase === "distributed") {
-    actions.append(button("Back to questions", "primary-button", () => request("close")));
+    actions.append(button("Zurück zu den Fragen", "primary-button", () => request("close")));
   } else {
     actions.append(
-      button("Distribute points", "primary-button", distribute, !allRevealed),
-      button("Cancel round", "danger-button", confirmCancel, round.revealed.length > 0)
+      button("Punkte verteilen", "primary-button", distribute, !allRevealed),
+      button("Runde abbrechen", "danger-button", confirmCancel, round.revealed.length > 0)
     );
   }
   content.replaceChildren(board, actions);

@@ -39,22 +39,22 @@ export function mount(root) {
       buzzOrder.append(item);
     });
     if (!round?.open) {
-      buzzerStatus.textContent = "Open the buzzers when the players are ready.";
-      buzzerControl.textContent = "Open buzzers";
+      buzzerStatus.textContent = "Gebt die Buzzer frei, sobald die Spieler bereit sind.";
+      buzzerControl.textContent = "Buzzer freigeben";
     } else if (!round.buzzes.length) {
-      buzzerStatus.textContent = "Buzzers are open. Waiting for a team…";
-      buzzerControl.textContent = "Reset buzzers";
+      buzzerStatus.textContent = "Die Buzzer sind offen. Warten auf ein Team…";
+      buzzerControl.textContent = "Buzzer zurücksetzen";
     } else if (activePosition !== -1) {
-      buzzerStatus.textContent = `${round.buzzes[activePosition].teamName} is answering.`;
-      buzzerControl.textContent = "Reset buzzers";
+      buzzerStatus.textContent = `${round.buzzes[activePosition].teamName} antwortet.`;
+      buzzerControl.textContent = "Buzzer zurücksetzen";
     } else {
-      buzzerStatus.textContent = "No teams are currently waiting.";
-      buzzerControl.textContent = "Reset buzzers";
+      buzzerStatus.textContent = "Momentan wartet kein Team.";
+      buzzerControl.textContent = "Buzzer zurücksetzen";
     }
   }
 
   function setBuzzerConnection(connected) {
-    buzzerConnection.textContent = connected ? "Connected" : "Reconnecting…";
+    buzzerConnection.textContent = connected ? "Verbunden" : "Verbindung wird wiederhergestellt…";
     buzzerConnection.classList.toggle("connected", connected);
   }
 
@@ -72,7 +72,7 @@ export function mount(root) {
       buzzerState = await controlBuzzer(action, { questionId });
       renderBuzzer();
     } catch (error) {
-      buzzerStatus.textContent = `Buzzer error: ${error.message}`;
+      buzzerStatus.textContent = `Buzzer-Fehler: ${error.message}`;
     } finally {
       buzzerControl.disabled = false;
     }
@@ -89,7 +89,7 @@ export function mount(root) {
       });
       renderBuzzer();
     } catch (error) {
-      buzzerStatus.textContent = `Could not advance the buzzer order: ${error.message}`;
+      buzzerStatus.textContent = `Die Buzzer-Reihenfolge konnte nicht fortgesetzt werden: ${error.message}`;
     }
   }
   window.addEventListener("quiz-score-changed", handleScoreChange);
@@ -98,8 +98,8 @@ export function mount(root) {
     tile.classList.toggle("used", used);
     tile.setAttribute("aria-disabled", String(used));
     if (used) {
-      tile.title = "Right-click to restore this question";
-      tile.setAttribute("aria-label", `${tile.dataset.availableLabel}, used. Right-click to restore.`);
+      tile.title = "Mit Rechtsklick kann diese Frage wiederhergestellt werden";
+      tile.setAttribute("aria-label", `${tile.dataset.availableLabel}, verwendet. Mit Rechtsklick wiederherstellen.`);
     } else {
       tile.removeAttribute("title");
       tile.setAttribute("aria-label", tile.dataset.availableLabel);
@@ -124,7 +124,7 @@ export function mount(root) {
       tile.textContent = value.toLocaleString();
       tile.dataset.row = rowIndex;
       tile.dataset.category = categoryIndex;
-      tile.dataset.availableLabel = `${category.name} for ${value} points`;
+      tile.dataset.availableLabel = `${category.name} für ${value} Punkte`;
       setTileUsed(tile, state.usedTiles.has(`${categoryIndex}:${rowIndex}`));
       tile.addEventListener("click", () => {
         if (!tile.classList.contains("used")) openQuestion(tile, categoryIndex, rowIndex);
@@ -167,7 +167,7 @@ export function mount(root) {
       element.addEventListener("error", () => {
         const error = document.createElement("div");
         error.className = "image-error";
-        error.textContent = `Could not load image: ${image.src}`;
+        error.textContent = `Bild konnte nicht geladen werden: ${image.src}`;
         element.replaceWith(error);
       }, { once: true });
       container.append(element);

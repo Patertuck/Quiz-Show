@@ -12,12 +12,12 @@ export function initializeHostControls({ navigate }) {
 
   audienceButton.addEventListener("click", () => {
     const display = window.open("/display", "quiz-audience-display");
-    if (!display) window.alert("The browser blocked the audience display window. Allow pop-ups and try again.");
+    if (!display) window.alert("Der Browser hat das Fenster der Publikumsansicht blockiert. Erlaubt Pop-ups und versucht es erneut.");
   });
 
   playerButton.addEventListener("click", async () => {
     playerDialog.showModal();
-    qrContainer.textContent = "Generating QR code…";
+    qrContainer.textContent = "QR-Code wird erstellt…";
     try {
       const response = await fetch("/api/buzzer/info", { cache: "no-store" });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -26,15 +26,15 @@ export function initializeHostControls({ navigate }) {
       playerUrl.textContent = joinUrl;
       playerLocalUrl.href = localUrl;
       if (!lanAvailable) {
-        qrContainer.textContent = "No local-network address was detected. Set QUIZ_HOST_IP to this computer's Wi-Fi IPv4 address and restart the server.";
+        qrContainer.textContent = "Es wurde keine Adresse im lokalen Netzwerk gefunden. Setzt QUIZ_HOST_IP auf die WLAN-IPv4-Adresse dieses Computers und startet den Server neu.";
         return;
       }
       const code = qrcode(0, "M");
       code.addData(joinUrl);
       code.make();
-      qrContainer.innerHTML = code.createSvgTag({ cellSize: 8, margin: 16, scalable: true, title: "Quiz player QR code" });
+      qrContainer.innerHTML = code.createSvgTag({ cellSize: 8, margin: 16, scalable: true, title: "QR-Code für Quizspieler" });
     } catch (error) {
-      qrContainer.textContent = `Could not create the QR code: ${error.message}`;
+      qrContainer.textContent = `Der QR-Code konnte nicht erstellt werden: ${error.message}`;
     }
   });
 
@@ -45,7 +45,7 @@ export function initializeHostControls({ navigate }) {
       await saveState();
       navigate("setup");
     } catch (error) {
-      window.alert(`Could not save the current game: ${error.message}`);
+      window.alert(`Das aktuelle Spiel konnte nicht gespeichert werden: ${error.message}`);
     } finally {
       setupButton.disabled = false;
       setupButton.removeAttribute("aria-busy");

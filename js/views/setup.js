@@ -27,14 +27,14 @@ export function mount(root, { navigate }) {
       input.className = "team-name-editor";
       input.value = team.name;
       input.required = true;
-      input.setAttribute("aria-label", `Name for team ${index + 1}`);
+      input.setAttribute("aria-label", `Name für Team ${index + 1}`);
       input.addEventListener("input", () => { teams[index].name = input.value; });
       const remove = document.createElement("button");
       remove.type = "button";
       remove.className = "remove-team-button";
       remove.textContent = "×";
       remove.disabled = teams.length === 1;
-      remove.setAttribute("aria-label", `Remove ${team.name || `team ${index + 1}`}`);
+      remove.setAttribute("aria-label", `${team.name || `Team ${index + 1}`} entfernen`);
       remove.addEventListener("click", () => { teams.splice(index, 1); renderEditors(); });
       item.append(input, remove);
       list.append(item);
@@ -46,7 +46,7 @@ export function mount(root, { navigate }) {
     const names = inputs.map((input) => input.value.trim());
     const empty = names.findIndex((name) => !name);
     if (empty !== -1) {
-      window.alert("Every team needs a name before the game can start.");
+      window.alert("Jedes Team benötigt einen Namen, bevor das Spiel beginnen kann.");
       inputs[empty].focus();
       return null;
     }
@@ -83,9 +83,9 @@ export function mount(root, { navigate }) {
 
   newButton.addEventListener("click", async () => {
     const selected = validatedTeams();
-    if (!selected || (saved && !window.confirm("Delete the saved game and start again? This cannot be undone."))) return;
+    if (!selected || (saved && !window.confirm("Gespeichertes Spiel löschen und neu beginnen? Dies kann nicht rückgängig gemacht werden."))) return;
     try { await deleteSavedState(); }
-    catch (error) { window.alert(`Could not delete the saved game: ${error.message}`); return; }
+    catch (error) { window.alert(`Das gespeicherte Spiel konnte nicht gelöscht werden: ${error.message}`); return; }
     const resetTeams = selected.map((team, index) => ({
       name: team.name,
       score: state.config.teams[index]?.startingScore ?? 0
@@ -97,21 +97,21 @@ export function mount(root, { navigate }) {
   });
 
   if (!saved) {
-    message.textContent = "No saved game found.";
+    message.textContent = "Kein gespeichertes Spiel gefunden.";
   } else if (!compatible) {
     startButton.hidden = true;
     newButton.hidden = false;
     message.textContent = saved.invalid
-      ? `The saved game cannot be resumed: ${saved.error}`
-      : "The quiz configuration changed. Start a new game to replace the incompatible save.";
+      ? `Das gespeicherte Spiel kann nicht fortgesetzt werden: ${saved.error}`
+      : "Die Quizkonfiguration wurde geändert. Startet ein neues Spiel, um den inkompatiblen Spielstand zu ersetzen.";
   } else {
     startButton.hidden = true;
     resumeButton.hidden = false;
     newButton.hidden = false;
     const savedTime = new Date(saved.updatedAt);
     message.textContent = Number.isNaN(savedTime.valueOf())
-      ? "Saved progress is available."
-      : `Saved progress from ${savedTime.toLocaleString()} is available.`;
+      ? "Ein gespeicherter Spielstand ist verfügbar."
+      : `Ein gespeicherter Spielstand vom ${savedTime.toLocaleString("de-CH")} ist verfügbar.`;
   }
   renderEditors();
 }

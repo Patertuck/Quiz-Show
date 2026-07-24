@@ -6,6 +6,8 @@ let orderingState = null;
 let orderingTicker;
 let displayScoreAnimationActive = false;
 const animatedOrderingRounds = new Set();
+const standbyLogoSource = "assets/Logo-1024.webp";
+const standbyLogoRetryDelay = 2000;
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -16,9 +18,16 @@ function element(tag, className, text) {
 
 function logoImage(className) {
   const logo = element("img", className);
-  logo.src = "assets/Logo-480.webp";
-  logo.srcset = "assets/Logo-480.webp 480w, assets/Logo-1024.webp 1024w";
-  logo.sizes = "(orientation: landscape) 58vh, 82vw";
+  let retryTimer;
+  logo.addEventListener("load", () => clearTimeout(retryTimer));
+  logo.addEventListener("error", () => {
+    clearTimeout(retryTimer);
+    retryTimer = setTimeout(() => {
+      if (!logo.isConnected) return;
+      logo.src = `${standbyLogoSource}?retry=${Date.now()}`;
+    }, standbyLogoRetryDelay);
+  });
+  logo.src = standbyLogoSource;
   logo.alt = "";
   logo.setAttribute("aria-hidden", "true");
   return logo;
@@ -30,14 +39,14 @@ function renderMedia(container, text, image) {
     const picture = document.createElement("img");
     picture.src = image.src;
     picture.alt = image.alt;
-    picture.addEventListener("error", () => picture.replaceWith(element("div", "", "Image unavailable")), { once: true });
+    picture.addEventListener("error", () => picture.replaceWith(element("div", "", "Bild nicht verfügbar")), { once: true });
     container.append(picture);
   }
 }
 
 function scoreboard(teams) {
   const board = element("aside", "display-scoreboard");
-  board.setAttribute("aria-label", "Team scores");
+  board.setAttribute("aria-label", "Punktestände der Teams");
   teams.forEach((team, teamIndex) => {
     const rank = 1 + teams.filter((candidate) => candidate.score > team.score).length;
     const card = element("section", `display-team rank-${rank}`);
@@ -54,7 +63,7 @@ function standby() {
   content.append(
     logoImage("display-standby-logo"),
     element("h1", "", presentation.title),
-    element("p", "", "Waiting for the next game")
+    element("p", "", "Warten auf das nächste Spiel")
   );
   screen.append(content);
   return screen;
@@ -98,8 +107,8 @@ function jeopardyQuestion() {
     content.append(answer);
   }
   const buzzOrder = element("aside", "display-buzz-order");
-  buzzOrder.setAttribute("aria-label", "Buzz order");
-  buzzOrder.append(element("strong", "display-buzz-label", "Buzz order"), element("ol", "display-buzz-list"));
+  buzzOrder.setAttribute("aria-label", "Buzzer-Reihenfolge");
+  buzzOrder.append(element("strong", "display-buzz-label", "Buzzer-Reihenfolge"), element("ol", "display-buzz-list"));
   screen.append(content, buzzOrder);
   return screen;
 }
@@ -109,7 +118,7 @@ function ordering() {
   const round = orderingState?.round;
   if (!round) {
     const content = element("div");
-    content.append(element("h1", "", "Put It in Order"), element("p", "", "Get ready for the next challenge."));
+    content.append(element("h1", "", "Order Up"), element("p", "", "Macht euch bereit für die nächste Herausforderung."));
     screen.append(content);
     return screen;
   }
@@ -119,7 +128,7 @@ function ordering() {
       element("h1", "", round.title),
       element("p", "display-ordering-prompt", round.prompt),
       element("output", "display-ordering-timer", String(Math.max(0, Math.ceil((round.deadlineAt - Date.now()) / 1000)))),
-      element("p", "display-ordering-connected", `${orderingState.connectedTeamCount} of ${orderingState.teams.length} teams connected`)
+      element("p", "display-ordering-connected", `${orderingState.connectedTeamCount} von ${orderingState.teams.length} Teams verbunden`)
     );
     content.querySelector("output").dataset.deadline = round.deadlineAt;
     screen.append(content);
@@ -148,8 +157,8 @@ function ordering() {
   });
   const solution = element("section", "display-ordering-column display-ordering-solution");
   solution.style.setProperty("--ordering-count", round.revealedItems.length);
-  solution.append(element("h2", "", "Correct order"));
-  round.revealedItems.forEach((item, slot) => solution.append(element("div", `display-ordering-cell${item ? " revealed" : " hidden-answer"}`, item?.text || `Answer ${slot + 1}`)));
+  solution.append(element("h2", "", "Richtige Reihenfolge"));
+  round.revealedItems.forEach((item, slot) => solution.append(element("div", `display-ordering-cell${item ? " revealed" : " hidden-answer"}`, item?.text || `Antwort ${slot + 1}`)));
   board.append(left, solution, right);
   screen.append(heading, board);
   return screen;
@@ -157,20 +166,20 @@ function ordering() {
 
 function victory() {
   const screen = element("section", "display-screen display-victory");
-  screen.append(element("h1", "", "Final standings"));
+  screen.append(element("h1", "", "Endstand"));
   const standings = element("div", "display-standing-reveals");
   const podium = element("div", "display-podium");
   presentation.steps.forEach((step, index) => {
     if (step.kind === "standing") {
       const row = element("div", `display-standing${index < presentation.revealedCount ? " revealed" : ""}`);
-      row.append(document.createTextNode(`Place ${step.rank}: ${step.names} `), element("span", "display-standing-score", `${step.score.toLocaleString()} points`));
+      row.append(document.createTextNode(`Platz ${step.rank}: ${step.names} `), element("span", "display-standing-score", `${step.score.toLocaleString("de-CH")} Punkte`));
       standings.append(row);
     } else {
       const place = element("section", `display-podium-place rank-${step.rank}${index < presentation.revealedCount ? " revealed" : ""}`);
       place.append(
         element("div", "display-podium-rank", String(step.rank)),
         element("div", "display-podium-names", step.names),
-        element("div", "display-podium-score", `${step.score.toLocaleString()} points`)
+        element("div", "display-podium-score", `${step.score.toLocaleString("de-CH")} Punkte`)
       );
       podium.append(place);
     }
@@ -181,7 +190,7 @@ function victory() {
 
 function render() {
   if (!presentation) return;
-  document.title = `${presentation.title} — Audience Display`;
+  document.title = `${presentation.title} — Publikumsansicht`;
   document.body.classList.toggle("with-scoreboard", ["jeopardy-board", "jeopardy-question", "ordering"].includes(presentation.screen));
   const renderers = {
     standby,
@@ -319,11 +328,11 @@ async function initialState(path) {
 const presentationEvents = new EventSource("/api/presentation/events");
 presentationEvents.addEventListener("state", (event) => {
   receivePresentation(JSON.parse(event.data));
-  connection.textContent = "Connected";
+  connection.textContent = "Verbunden";
   connection.classList.add("connected");
 });
 presentationEvents.addEventListener("error", () => {
-  connection.textContent = "Reconnecting to host…";
+  connection.textContent = "Verbindung zur Spielleitung wird wiederhergestellt…";
   connection.classList.remove("connected");
 });
 
@@ -347,7 +356,7 @@ Promise.all([initialState("/api/presentation/state"), initialState("/api/buzzer/
     if (!displayScoreAnimationActive) render();
   })
   .catch(() => {
-    connection.textContent = "Waiting for the quiz host…";
+    connection.textContent = "Warten auf die Quiz-Spielleitung…";
     connection.classList.remove("connected");
   });
 

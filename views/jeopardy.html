@@ -1,31 +1,31 @@
 <section id="jeopardy-view" class="viewport-above-scoreboard">
   <div id="jeopardy-board-view">
     <header class="game-header">
-      <a class="back-to-hub" href="#/hub" aria-label="Back to game hub">←</a>
+      <a class="back-to-hub" href="#/hub" aria-label="Zurück zur Spielauswahl">←</a>
       <h1 id="jeopardy-title"></h1>
     </header>
-    <div id="board" aria-label="Jeopardy board"></div>
+    <div id="board" aria-label="Jeopardy-Spielbrett"></div>
   </div>
   <div id="jeopardy-question-view" hidden>
-    <a class="back-to-hub floating-back" href="#/hub" aria-label="Back to game hub">←</a>
+    <a class="back-to-hub floating-back" href="#/hub" aria-label="Zurück zur Spielauswahl">←</a>
     <div id="question-layout">
       <div id="card-content">
         <div id="question-content" class="media-block"></div>
         <div id="answer-content" class="media-block answer" hidden></div>
       </div>
-      <aside id="buzzer-panel" aria-label="Buzzer order">
+      <aside id="buzzer-panel" aria-label="Buzzer-Reihenfolge">
         <div class="buzzer-panel-heading">
-          <h2>Buzzers</h2>
-          <span id="buzzer-connection" title="Buzzer connection status">Connecting…</span>
+          <h2>Buzzer</h2>
+          <span id="buzzer-connection" title="Verbindungsstatus der Buzzer">Verbindung wird hergestellt…</span>
         </div>
-        <p id="buzzer-host-status">Open the buzzers when the players are ready.</p>
+        <p id="buzzer-host-status">Gebt die Buzzer frei, sobald die Spieler bereit sind.</p>
         <ol id="buzz-order"></ol>
-        <button id="buzzer-control-button" type="button">Open buzzers</button>
+        <button id="buzzer-control-button" type="button">Buzzer freigeben</button>
       </aside>
     </div>
     <div id="question-controls">
-      <button id="reveal-button" type="button">Show answer</button>
-      <button id="continue-button" type="button">Continue →</button>
+      <button id="reveal-button" type="button">Antwort anzeigen</button>
+      <button id="continue-button" type="button">Weiter →</button>
     </div>
   </div>
 </section>

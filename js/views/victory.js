@@ -30,11 +30,11 @@ export async function mount(root) {
     const row = document.createElement("div");
     row.className = "standing-reveal";
     const names = teams.map((team) => team.name).join(" & ");
-    row.innerHTML = `<span>Place ${rank}: </span>`;
+    row.innerHTML = `<span>Platz ${rank}: </span>`;
     row.firstElementChild.append(document.createTextNode(names));
     const score = document.createElement("span");
     score.className = "standing-score";
-    score.textContent = ` ${teams[0].score.toLocaleString()} points`;
+    score.textContent = ` ${teams[0].score.toLocaleString("de-CH")} Punkte`;
     row.append(score);
     reveals.append(row);
     steps.push(row);
@@ -55,7 +55,7 @@ export async function mount(root) {
     names.textContent = teams.map((team) => team.name).join(" & ");
     const score = document.createElement("div");
     score.className = "podium-score";
-    score.textContent = `${teams[0].score.toLocaleString()} points`;
+    score.textContent = `${teams[0].score.toLocaleString("de-CH")} Punkte`;
     place.append(number, names, score);
     podium.append(place);
     steps.push(place);

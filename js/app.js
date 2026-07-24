@@ -38,7 +38,7 @@ export function navigate(name) {
 async function templateFor(path) {
   if (!templateCache.has(path)) {
     templateCache.set(path, fetch(path, { cache: "no-store" }).then(async (response) => {
-      if (!response.ok) throw new Error(`Could not load ${path} (HTTP ${response.status}).`);
+      if (!response.ok) throw new Error(`${path} konnte nicht geladen werden (HTTP ${response.status}).`);
       return response.text();
     }));
   }
@@ -48,7 +48,7 @@ async function templateFor(path) {
 function renderError(error) {
   setScoreboard("hidden");
   hostControls.hidden = true;
-  app.innerHTML = `<section class="status-screen"><div class="panel"><h1>Quiz error</h1><p class="error-message"></p></div></section>`;
+  app.innerHTML = `<section class="status-screen"><div class="panel"><h1>Quizfehler</h1><p class="error-message"></p></div></section>`;
   app.querySelector(".error-message").textContent = error.message;
 }
 

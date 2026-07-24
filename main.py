@@ -170,9 +170,9 @@ class BuzzerState:
         with self.condition:
             if action in {"open", "reset"}:
                 if not self.teams:
-                    raise ValueError("No teams are available for the buzzer.")
+                    raise ValueError("Für den Buzzer sind keine Teams verfügbar.")
                 if not isinstance(question_id, str) or not re.fullmatch(r"\d+:\d+", question_id):
-                    raise ValueError("A valid questionId is required.")
+                    raise ValueError("Eine gültige questionId ist erforderlich.")
                 self.round_id = secrets.token_urlsafe(9)
                 self.question_id = question_id
                 self.is_open = True
@@ -185,11 +185,11 @@ class BuzzerState:
             elif action == "advance":
                 active = self.buzzes[self.active_position] if self.active_position < len(self.buzzes) else None
                 if active is None or team_index != active:
-                    raise ValueError("Only the highlighted team can advance the buzzer queue.")
+                    raise ValueError("Nur das hervorgehobene Team kann die Buzzer-Reihenfolge fortsetzen.")
                 self.active_position += 1
                 self._changed()
             else:
-                raise ValueError("Unknown buzzer control action.")
+                raise ValueError("Unbekannte Buzzer-Aktion.")
             return self._snapshot_unlocked()
 
     def buzz(self, payload: dict) -> tuple[int, dict]:
@@ -198,16 +198,16 @@ class BuzzerState:
         team_index = payload.get("teamIndex")
         device_id = payload.get("deviceId")
         if not isinstance(device_id, str) or not 8 <= len(device_id) <= 100:
-            raise ValueError("A valid deviceId is required.")
+            raise ValueError("Eine gültige deviceId ist erforderlich.")
         if not isinstance(team_index, int) or isinstance(team_index, bool):
-            raise ValueError("teamIndex must be an integer.")
+            raise ValueError("teamIndex muss eine Ganzzahl sein.")
         with self.condition:
             if not self.is_open or round_id != self.round_id:
-                return 409, {"error": "Buzzers are closed or the round changed.", "state": self._snapshot_unlocked()}
+                return 409, {"error": "Die Buzzer sind geschlossen oder die Runde wurde gewechselt.", "state": self._snapshot_unlocked()}
             if teams_revision != self.teams_revision or not 0 <= team_index < len(self.teams):
-                return 409, {"error": "The team list changed. Select your team again.", "state": self._snapshot_unlocked()}
+                return 409, {"error": "Die Teamliste wurde geändert. Wählt euer Team erneut.", "state": self._snapshot_unlocked()}
             if team_index in self.buzzes:
-                return 409, {"error": "Your team has already buzzed in this round.", "state": self._snapshot_unlocked()}
+                return 409, {"error": "Euer Team hat in dieser Runde bereits gebuzzert.", "state": self._snapshot_unlocked()}
             self.buzzes.append(team_index)
             position = len(self.buzzes)
             self._changed()
@@ -307,7 +307,7 @@ class OrderingState:
 
     def configure(self, fingerprint: str, teams: list[str], question_ids: list[str]) -> None:
         if not fingerprint or not teams or not question_ids:
-            raise ValueError("Ordering configuration, teams, and questions are required.")
+            raise ValueError("Konfiguration, Teams und Fragen für Order Up sind erforderlich.")
         revision = BuzzerState.team_revision(teams)
         with self.condition:
             if fingerprint != self.config_fingerprint or revision != self.teams_revision:
@@ -322,21 +322,21 @@ class OrderingState:
     @staticmethod
     def _validate_question(question: object) -> dict:
         if not isinstance(question, dict):
-            raise ValueError("A question is required.")
+            raise ValueError("Eine Frage ist erforderlich.")
         for field in ("id", "title", "prompt"):
             if not isinstance(question.get(field), str) or not question[field].strip():
-                raise ValueError(f"Question {field} is required.")
+                raise ValueError(f"Das Fragenfeld {field} ist erforderlich.")
         items = question.get("items")
         seconds = question.get("timeLimitSeconds")
         points = question.get("pointsPerCorrect")
         if not isinstance(items, list) or not 3 <= len(items) <= 7 or any(not isinstance(item, str) or not item.strip() for item in items):
-            raise ValueError("A question needs 3 to 7 item strings.")
+            raise ValueError("Eine Frage benötigt 3 bis 7 Elemente.")
         if len({item.strip().casefold() for item in items}) != len(items):
-            raise ValueError("Question items must be unique.")
+            raise ValueError("Die Elemente einer Frage müssen eindeutig sein.")
         if not isinstance(seconds, int) or isinstance(seconds, bool) or not 5 <= seconds <= 600:
-            raise ValueError("timeLimitSeconds must be from 5 to 600.")
+            raise ValueError("timeLimitSeconds muss zwischen 5 und 600 liegen.")
         if not isinstance(points, int) or isinstance(points, bool) or points <= 0:
-            raise ValueError("pointsPerCorrect must be positive.")
+            raise ValueError("pointsPerCorrect muss positiv sein.")
         return question
 
     def start(self, question: object) -> None:
@@ -344,11 +344,11 @@ class OrderingState:
         with self.condition:
             self._expire_unlocked()
             if not self.teams:
-                raise ValueError("Configure teams before starting an ordering round.")
+                raise ValueError("Richtet die Teams ein, bevor ihr eine Order-Up-Runde startet.")
             if self.round and self.round.get("phase") != "distributed":
-                raise ValueError("Finish or cancel the current ordering round first.")
+                raise ValueError("Beendet oder brecht zuerst die aktuelle Order-Up-Runde ab.")
             if clean["id"] in self.completed:
-                raise ValueError("This ordering question is already complete.")
+                raise ValueError("Diese Order-Up-Frage wurde bereits abgeschlossen.")
             correct = [{"id": f"item-{index}", "text": text} for index, text in enumerate(clean["items"])]
             shuffled = [item.copy() for item in correct]
             random.SystemRandom().shuffle(shuffled)
@@ -371,12 +371,12 @@ class OrderingState:
         with self.condition:
             self._expire_unlocked()
             if not self.round or self.round["phase"] != "active" or payload.get("roundId") != self.round["id"]:
-                return 409, {"error": "Time is up or the round changed.", "state": self._snapshot_unlocked("team", team_index)}
+                return 409, {"error": "Die Zeit ist abgelaufen oder die Runde wurde gewechselt.", "state": self._snapshot_unlocked("team", team_index)}
             if payload.get("teamsRevision") != self.teams_revision or not isinstance(team_index, int) or isinstance(team_index, bool) or not 0 <= team_index < len(self.teams):
-                return 409, {"error": "The team list changed. Select your team again.", "state": self._snapshot_unlocked("public")}
+                return 409, {"error": "Die Teamliste wurde geändert. Wählt euer Team erneut.", "state": self._snapshot_unlocked("public")}
             expected = {item["id"] for item in self.round["shuffledItems"]}
             if not isinstance(order, list) or len(order) != len(expected) or set(order) != expected:
-                raise ValueError("order must contain every item exactly once.")
+                raise ValueError("order muss jedes Element genau einmal enthalten.")
             self.round["teamOrders"][team_index] = list(order)
             self._changed_unlocked()
             return 200, {"saved": True, "state": self._snapshot_unlocked("team", team_index)}
@@ -387,7 +387,7 @@ class OrderingState:
             teams = payload.get("teams")
             ids = payload.get("questionIds")
             if not isinstance(teams, list) or any(not isinstance(x, str) for x in teams) or not isinstance(ids, list) or any(not isinstance(x, str) for x in ids):
-                raise ValueError("Invalid ordering configuration.")
+                raise ValueError("Ungültige Order-Up-Konfiguration.")
             self.configure(payload.get("configFingerprint", ""), teams, ids)
         elif action == "start":
             self.start(payload.get("question"))
@@ -395,36 +395,36 @@ class OrderingState:
             with self.condition:
                 self._expire_unlocked()
                 if not self.round:
-                    raise ValueError("There is no current ordering round.")
+                    raise ValueError("Es gibt keine aktuelle Order-Up-Runde.")
                 if action == "lock":
                     if self.round["phase"] != "active":
-                        raise ValueError("The round is already locked.")
+                        raise ValueError("Die Runde ist bereits gesperrt.")
                     self.round["phase"] = "locked"
                 elif action == "cancel":
                     if self.round["revealed"]:
-                        raise ValueError("A round cannot be cancelled after revealing has begun.")
+                        raise ValueError("Eine Runde kann nicht abgebrochen werden, nachdem das Aufdecken begonnen hat.")
                     self.round = None
                 elif action == "reveal":
                     slot = payload.get("slot")
                     if self.round["phase"] == "active":
-                        raise ValueError("Lock the answers before revealing them.")
+                        raise ValueError("Sperrt die Antworten, bevor ihr sie aufdeckt.")
                     if not isinstance(slot, int) or isinstance(slot, bool) or not 0 <= slot < len(self.round["correctItems"]):
-                        raise ValueError("Invalid answer slot.")
+                        raise ValueError("Ungültige Antwortposition.")
                     if slot not in self.round["revealed"]:
                         self.round["revealed"].append(slot)
                         self.round["revealed"].sort()
                 elif action == "confirm-distribution":
                     if len(self.round["revealed"]) != len(self.round["correctItems"]):
-                        raise ValueError("Reveal every answer before distributing points.")
+                        raise ValueError("Deckt alle Antworten auf, bevor ihr die Punkte verteilt.")
                     self.round["phase"] = "distributed"
                     if self.round["questionId"] not in self.completed:
                         self.completed.append(self.round["questionId"])
                 elif action == "close":
                     if self.round["phase"] != "distributed":
-                        raise ValueError("Distribute the points before closing the round.")
+                        raise ValueError("Verteilt die Punkte, bevor ihr die Runde schliesst.")
                     self.round = None
                 else:
-                    raise ValueError("Unknown ordering control action.")
+                    raise ValueError("Unbekannte Order-Up-Aktion.")
                 self._changed_unlocked()
         return self.snapshot("host")
 
@@ -439,7 +439,7 @@ class OrderingState:
         with self.condition:
             self._expire_unlocked()
             if not self.round or len(self.round["revealed"]) != len(self.round["correctItems"]):
-                raise ValueError("Reveal every answer before distributing points.")
+                raise ValueError("Deckt alle Antworten auf, bevor ihr die Punkte verteilt.")
             return {
                 "awardId": f"ordering:{self.round['id']}",
                 "awards": [{"teamIndex": index, "points": self._round_points_unlocked(index)} for index in range(len(self.teams))],
@@ -672,7 +672,7 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
     def require_host(self) -> bool:
         if self.is_host:
             return True
-        self.send_json(403, {"error": "This endpoint is only available on the quiz host."})
+        self.send_json(403, {"error": "Dieser Endpunkt ist nur auf dem Quiz-Host verfügbar."})
         return False
 
     def send_json(self, status: int, payload: object | None = None) -> None:
@@ -789,12 +789,12 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
                 return
             with STATE_LOCK:
                 if not STATE_FILE.exists():
-                    self.send_json(404, {"error": "No saved game exists."})
+                    self.send_json(404, {"error": "Es ist kein gespeichertes Spiel vorhanden."})
                     return
                 try:
                     state = validate_state(json.loads(STATE_FILE.read_text(encoding="utf-8")))
                 except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as error:
-                    self.send_json(500, {"error": f"Saved state is invalid: {error}"})
+                    self.send_json(500, {"error": f"Der gespeicherte Spielstand ist ungültig: {error}"})
                     return
             self.send_json(200, state)
             return
@@ -808,7 +808,7 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
                 "/display", "/display.html", "/styles/display.css", "/js/display.js",
             }
             if self.request_path not in allowed and not self.request_path.startswith("/assets/"):
-                self.send_error(403, "Only the player and audience display are available from another device.")
+                self.send_error(403, "Von einem anderen Gerät sind nur die Spieler- und Publikumsansicht verfügbar.")
                 return
         if self.request_path in {"/buzzer", "/buzzer.html"}:
             self.redirect_to_player()
@@ -830,7 +830,7 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
             "/display", "/display.html", "/styles/display.css", "/js/display.js",
         }
         if not self.is_host and self.request_path not in allowed and not self.request_path.startswith("/assets/"):
-            self.send_error(403, "Only the player and audience display are available from another device.")
+            self.send_error(403, "Von einem anderen Gerät sind nur die Spieler- und Publikumsansicht verfügbar.")
             return
         if self.request_path in {"/buzzer", "/buzzer.html"}:
             self.redirect_to_player()
@@ -884,7 +884,7 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
                 return
             self.send_json(200, response)
             return
-        self.send_json(404, {"error": "Unknown API endpoint."})
+        self.send_json(404, {"error": "Unbekannter API-Endpunkt."})
 
     def do_PUT(self) -> None:  # noqa: N802 - required by BaseHTTPRequestHandler
         if self.request_path == "/api/presentation/state":
@@ -898,17 +898,17 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.send_json(200, response)
             return
         if self.request_path != "/api/state":
-            self.send_json(404, {"error": "Unknown API endpoint."})
+            self.send_json(404, {"error": "Unbekannter API-Endpunkt."})
             return
         if not self.require_host():
             return
         try:
             content_length = int(self.headers.get("Content-Length", "0"))
         except ValueError:
-            self.send_json(400, {"error": "Invalid Content-Length header."})
+            self.send_json(400, {"error": "Ungültiger Content-Length-Header."})
             return
         if content_length <= 0 or content_length > MAX_STATE_BYTES:
-            self.send_json(413, {"error": "State body is empty or too large."})
+            self.send_json(413, {"error": "Der Inhalt des Spielstands ist leer oder zu gross."})
             return
 
         try:
@@ -922,7 +922,7 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
                         current = None
                     if (current is not None and current["configFingerprint"] == state["configFingerprint"]
                             and current["revision"] > state["revision"]):
-                        self.send_json(409, {"error": "A newer state revision is already saved."})
+                        self.send_json(409, {"error": "Eine neuere Revision des Spielstands ist bereits gespeichert."})
                         return
                 with STATE_TEMP_FILE.open("wb") as state_file:
                     state_file.write(encoded)
@@ -933,14 +933,14 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.send_json(400, {"error": str(error)})
             return
         except OSError as error:
-            self.send_json(500, {"error": f"Could not save state: {error}"})
+            self.send_json(500, {"error": f"Der Spielstand konnte nicht gespeichert werden: {error}"})
             return
         BUZZER.sync_teams(state)
         self.send_json(200, {"saved": True})
 
     def do_DELETE(self) -> None:  # noqa: N802 - required by BaseHTTPRequestHandler
         if self.request_path != "/api/state":
-            self.send_json(404, {"error": "Unknown API endpoint."})
+            self.send_json(404, {"error": "Unbekannter API-Endpunkt."})
             return
         if not self.require_host():
             return
@@ -949,7 +949,7 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
                 STATE_FILE.unlink(missing_ok=True)
                 STATE_TEMP_FILE.unlink(missing_ok=True)
         except OSError as error:
-            self.send_json(500, {"error": f"Could not delete state: {error}"})
+            self.send_json(500, {"error": f"Der Spielstand konnte nicht gelöscht werden: {error}"})
             return
         BUZZER.sync_teams(None)
         ORDERING.reset()
