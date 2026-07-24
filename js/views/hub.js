@@ -34,7 +34,7 @@ export function mount(root, { navigate }) {
       const code = qrcode(0, "M");
       code.addData(joinUrl);
       code.make();
-      qrContainer.innerHTML = code.createSvgTag({ cellSize: 8, margin: 16, scalable: true, title: "Player buzzer QR code" });
+      qrContainer.innerHTML = code.createSvgTag({ cellSize: 8, margin: 16, scalable: true, title: "Quiz player QR code" });
     } catch (error) {
       qrContainer.textContent = `Could not create the QR code: ${error.message}`;
     }

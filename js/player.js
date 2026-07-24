@@ -1,7 +1,8 @@
+const waitingStep = document.querySelector("#waiting-step");
+const waitingStatus = document.querySelector("#waiting-status");
 const teamStep = document.querySelector("#team-step");
 const buzzStep = document.querySelector("#buzz-step");
 const choices = document.querySelector("#team-choices");
-const phoneIdleLogo = document.querySelector("#phone-idle-logo");
 const selectedTeamLabel = document.querySelector("#selected-team");
 const buzzButton = document.querySelector("#buzz-button");
 const buzzStatus = document.querySelector("#buzz-status");
@@ -36,15 +37,30 @@ function showTeamSelection() {
   cancelDrag(false);
   selectedTeamIndex = null;
   localStorage.removeItem("quiz-buzzer-team");
+  waitingStep.hidden = true;
   teamStep.hidden = false;
   buzzStep.hidden = true;
   orderingStep.hidden = true;
   connectOrderingEvents();
 }
 
+function showWaiting() {
+  const hadSelection = selectedTeamIndex !== null;
+  cancelDrag(false);
+  selectedTeamIndex = null;
+  localStorage.removeItem("quiz-buzzer-team");
+  waitingStatus.textContent = "The host has not started a game yet. Keep this page open.";
+  waitingStep.hidden = false;
+  teamStep.hidden = true;
+  buzzStep.hidden = true;
+  orderingStep.hidden = true;
+  if (hadSelection) connectOrderingEvents();
+}
+
 function selectTeam(index) {
   selectedTeamIndex = index;
   localStorage.setItem("quiz-buzzer-team", JSON.stringify({ index, revision: currentState.teamsRevision }));
+  waitingStep.hidden = true;
   teamStep.hidden = true;
   buzzStep.hidden = false;
   connectOrderingEvents();
@@ -53,15 +69,6 @@ function selectTeam(index) {
 
 function renderTeams() {
   choices.replaceChildren();
-  const noTeams = !currentState?.teams.length;
-  phoneIdleLogo.hidden = !noTeams;
-  teamStep.classList.toggle("is-idle", noTeams);
-  if (noTeams) {
-    const message = document.createElement("p");
-    message.textContent = "No teams are available yet. Ask the host to start the game.";
-    choices.append(message);
-    return;
-  }
   currentState.teams.forEach((team, index) => {
     const button = document.createElement("button");
     button.type = "button";
@@ -74,6 +81,11 @@ function renderTeams() {
 
 function render() {
   if (!currentState) return;
+  if (!currentState.teams.length) {
+    showWaiting();
+    return;
+  }
+  waitingStep.hidden = true;
   const saved = savedSelection();
   if (selectedTeamIndex === null && saved?.revision === currentState.teamsRevision
       && Number.isInteger(saved.index) && saved.index >= 0 && saved.index < currentState.teams.length) {
@@ -84,7 +96,12 @@ function render() {
     showTeamSelection();
   }
   renderTeams();
-  if (selectedTeamIndex === null) return;
+  if (selectedTeamIndex === null) {
+    teamStep.hidden = false;
+    buzzStep.hidden = true;
+    orderingStep.hidden = true;
+    return;
+  }
 
   teamStep.hidden = true;
   if (orderingState?.round) {
@@ -344,7 +361,7 @@ events.addEventListener("error", () => {
 
 loadState().catch(() => {
   connectionStatus.textContent = "Offline";
-  buzzStatus.textContent = "Could not reach the quiz host. Check the Wi-Fi connection.";
+  waitingStatus.textContent = "Could not reach the quiz host. Check the Wi-Fi connection.";
 });
 
 connectOrderingEvents();

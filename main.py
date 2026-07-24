@@ -1,4 +1,4 @@
-"""Launch the quiz show, persist its state, and provide a LAN-only player buzzer."""
+"""Launch the quiz show and provide LAN-only audience and player views."""
 
 from __future__ import annotations
 
@@ -64,15 +64,15 @@ def find_lan_address() -> str:
 
 
 LAN_ADDRESS = find_lan_address()
-JOIN_URL = f"http://{LAN_ADDRESS}:{PORT}/buzzer"
+JOIN_URL = f"http://{LAN_ADDRESS}:{PORT}/player"
 
 
 def current_join_info() -> dict:
     """Re-evaluate the address after a Wi-Fi or hotspot change."""
     address = find_lan_address()
     return {
-        "joinUrl": f"http://{address}:{PORT}/buzzer",
-        "localUrl": f"http://127.0.0.1:{PORT}/buzzer",
+        "joinUrl": f"http://{address}:{PORT}/player",
+        "localUrl": f"http://127.0.0.1:{PORT}/player",
         "lanAvailable": address != "127.0.0.1",
     }
 
@@ -681,6 +681,13 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
         if body:
             self.wfile.write(body)
 
+    def redirect_to_player(self) -> None:
+        self.send_response(308)
+        self.send_header("Location", "/player")
+        self.send_header("Content-Length", "0")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+
     def do_GET(self) -> None:  # noqa: N802 - required by BaseHTTPRequestHandler
         if self.request_path == "/api/ordering/state":
             query = parse_qs(urlsplit(self.path).query)
@@ -792,28 +799,44 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
         if not self.is_host:
             allowed = {
+                "/player", "/player.html", "/styles/player.css", "/js/player.js",
                 "/buzzer", "/buzzer.html", "/styles/buzzer.css", "/js/buzzer.js",
                 "/display", "/display.html", "/styles/display.css", "/js/display.js",
             }
             if self.request_path not in allowed and not self.request_path.startswith("/assets/"):
-                self.send_error(403, "Only the player buzzer and audience display are available from another device.")
+                self.send_error(403, "Only the player and audience display are available from another device.")
                 return
-        if self.request_path == "/buzzer":
-            self.path = "/buzzer.html"
+        if self.request_path in {"/buzzer", "/buzzer.html"}:
+            self.redirect_to_player()
+            return
+        if self.request_path == "/player":
+            self.path = "/player.html"
+        elif self.request_path == "/styles/buzzer.css":
+            self.path = "/styles/player.css"
+        elif self.request_path == "/js/buzzer.js":
+            self.path = "/js/player.js"
         elif self.request_path == "/display":
             self.path = "/display.html"
         super().do_GET()
 
     def do_HEAD(self) -> None:  # noqa: N802 - required by BaseHTTPRequestHandler
         allowed = {
+            "/player", "/player.html", "/styles/player.css", "/js/player.js",
             "/buzzer", "/buzzer.html", "/styles/buzzer.css", "/js/buzzer.js",
             "/display", "/display.html", "/styles/display.css", "/js/display.js",
         }
         if not self.is_host and self.request_path not in allowed and not self.request_path.startswith("/assets/"):
-            self.send_error(403, "Only the player buzzer and audience display are available from another device.")
+            self.send_error(403, "Only the player and audience display are available from another device.")
             return
-        if self.request_path == "/buzzer":
-            self.path = "/buzzer.html"
+        if self.request_path in {"/buzzer", "/buzzer.html"}:
+            self.redirect_to_player()
+            return
+        if self.request_path == "/player":
+            self.path = "/player.html"
+        elif self.request_path == "/styles/buzzer.css":
+            self.path = "/styles/player.css"
+        elif self.request_path == "/js/buzzer.js":
+            self.path = "/js/player.js"
         elif self.request_path == "/display":
             self.path = "/display.html"
         super().do_HEAD()
@@ -940,7 +963,7 @@ def main() -> None:
     try:
         with LocalQuizServer((BIND_HOST, PORT), QuizRequestHandler) as server:
             print(f"Quiz show running at {HOST_URL}")
-            print(f"Player buzzer available at {JOIN_URL}")
+            print(f"Player view available at {JOIN_URL}")
             if LAN_ADDRESS == "127.0.0.1":
                 print("Warning: no LAN address was found. Set QUIZ_HOST_IP to this computer's Wi-Fi IPv4 address.")
             print("Press Ctrl+C to stop the server.")

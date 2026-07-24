@@ -5,29 +5,31 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#111d65">
   <title>Quiz Player</title>
-  <link rel="stylesheet" href="styles/buzzer.css?v=5">
+  <link rel="stylesheet" href="styles/player.css?v=1">
 </head>
 <body>
-  <main class="buzzer-app">
+  <main class="player-app">
     <header>
       <h1>Quiz Player</h1>
       <span id="connection-status" class="connection-status">Connecting…</span>
     </header>
-    <section id="team-step" class="buzzer-card">
+    <section id="waiting-step" class="player-card waiting-player">
       <img
-        id="phone-idle-logo"
-        class="phone-idle-logo"
+        class="player-waiting-logo"
         src="assets/Logo-480.webp"
         srcset="assets/Logo-480.webp 480w, assets/Logo-1024.webp 1024w"
         sizes="(max-width: 34rem) 72vw, 24rem"
         alt=""
         aria-hidden="true"
-        hidden
       >
+      <h2>Waiting for a game</h2>
+      <p id="waiting-status" role="status" aria-live="polite">The host has not started a game yet. Keep this page open.</p>
+    </section>
+    <section id="team-step" class="player-card" hidden>
       <h2>Choose your team</h2>
       <div id="team-choices" class="team-choices"></div>
     </section>
-    <section id="buzz-step" class="buzzer-card" hidden>
+    <section id="buzz-step" class="player-card" hidden>
       <div class="selected-team-row">
         <strong id="selected-team"></strong>
         <button id="change-team" type="button">Change</button>
@@ -35,7 +37,7 @@
       <button id="buzz-button" class="buzz-button" type="button" disabled>Waiting for host</button>
       <p id="buzz-status" class="buzz-status" role="status" aria-live="polite">The host has not opened the buzzers yet.</p>
     </section>
-    <section id="ordering-step" class="buzzer-card ordering-phone" hidden>
+    <section id="ordering-step" class="player-card ordering-phone" hidden>
       <div class="selected-team-row">
         <strong id="ordering-team"></strong>
         <button id="ordering-change-team" type="button">Change</button>
@@ -47,6 +49,6 @@
       <p id="ordering-phone-status" class="buzz-status" role="status" aria-live="polite"></p>
     </section>
   </main>
-  <script type="module" src="js/buzzer.js?v=5"></script>
+  <script type="module" src="js/player.js?v=1"></script>
 </body>
 </html>
