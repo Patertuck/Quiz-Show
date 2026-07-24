@@ -1,6 +1,7 @@
 const teamStep = document.querySelector("#team-step");
 const buzzStep = document.querySelector("#buzz-step");
 const choices = document.querySelector("#team-choices");
+const phoneIdleLogo = document.querySelector("#phone-idle-logo");
 const selectedTeamLabel = document.querySelector("#selected-team");
 const buzzButton = document.querySelector("#buzz-button");
 const buzzStatus = document.querySelector("#buzz-status");
@@ -52,7 +53,10 @@ function selectTeam(index) {
 
 function renderTeams() {
   choices.replaceChildren();
-  if (!currentState?.teams.length) {
+  const noTeams = !currentState?.teams.length;
+  phoneIdleLogo.hidden = !noTeams;
+  teamStep.classList.toggle("is-idle", noTeams);
+  if (noTeams) {
     const message = document.createElement("p");
     message.textContent = "No teams are available yet. Ask the host to start the game.";
     choices.append(message);

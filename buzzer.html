@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#111d65">
   <title>Quiz Player</title>
-  <link rel="stylesheet" href="styles/buzzer.css?v=4">
+  <link rel="stylesheet" href="styles/buzzer.css?v=5">
 </head>
 <body>
   <main class="buzzer-app">
@@ -14,6 +14,16 @@
       <span id="connection-status" class="connection-status">Connecting…</span>
     </header>
     <section id="team-step" class="buzzer-card">
+      <img
+        id="phone-idle-logo"
+        class="phone-idle-logo"
+        src="assets/Logo-480.webp"
+        srcset="assets/Logo-480.webp 480w, assets/Logo-1024.webp 1024w"
+        sizes="(max-width: 34rem) 72vw, 24rem"
+        alt=""
+        aria-hidden="true"
+        hidden
+      >
       <h2>Choose your team</h2>
       <div id="team-choices" class="team-choices"></div>
     </section>
@@ -37,6 +47,6 @@
       <p id="ordering-phone-status" class="buzz-status" role="status" aria-live="polite"></p>
     </section>
   </main>
-  <script type="module" src="js/buzzer.js?v=4"></script>
+  <script type="module" src="js/buzzer.js?v=5"></script>
 </body>
 </html>

@@ -8,8 +8,10 @@ body { margin: 0; overflow: hidden; background: var(--blue); color: #fff; }
 #display-connection { position: fixed; z-index: 20; top: 1rem; left: 50%; padding: 0.55rem 1rem; border-radius: 999px; background: #8a2830; color: #fff; font-size: 0.8rem; font-weight: bold; box-shadow: 0 0.4rem 1rem rgb(0 0 0 / 35%); transform: translateX(-50%); }
 #display-connection.connected { display: none; }
 .display-standby { display: grid; place-items: center; padding: 2rem; background: radial-gradient(circle at 50% 10%, #4056cf 0%, #17277f 42%, #080f35 100%); text-align: center; }
-.display-standby h1 { margin: 0; color: var(--yellow); font-size: clamp(2.8rem, 9vw, 7rem); text-shadow: 0 0.25rem 0 #10194f, 0 0 1.3rem rgb(255 244 92 / 35%); }
-.display-standby p { margin: 1.5rem 0 0; font-size: clamp(1.2rem, 3vw, 2rem); }
+.display-standby-content { display: grid; max-height: 100%; justify-items: center; gap: clamp(0.45rem, 1.5vh, 1rem); }
+.display-standby-logo { display: block; width: min(72vw, 58vh, 44rem); max-height: 64vh; border-radius: clamp(0.75rem, 2vw, 1.5rem); object-fit: contain; box-shadow: 0 1.25rem 3rem rgb(0 0 0 / 35%); }
+.display-standby h1 { margin: 0; color: var(--yellow); font-size: clamp(1.6rem, 4.5vw, 3.8rem); text-shadow: 0 0.2rem 0 #10194f, 0 0 1.3rem rgb(255 244 92 / 35%); }
+.display-standby p { margin: 0; font-size: clamp(1rem, 2.4vw, 1.7rem); }
 .display-board-screen { display: grid; grid-template-rows: auto 1fr; background: #000; }
 .display-game-title { margin: 0; padding: 0.7rem 1rem; overflow: hidden; background: var(--blue-dark); color: #fff; font-size: clamp(1.2rem, 2.7vw, 2rem); text-align: center; text-overflow: ellipsis; white-space: nowrap; }
 .display-board { display: grid; min-height: 0; gap: var(--board-gap, 0.3rem); padding: var(--board-gap, 0.3rem); background: #000; }

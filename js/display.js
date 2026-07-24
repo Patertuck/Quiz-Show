@@ -14,6 +14,16 @@ function element(tag, className, text) {
   return node;
 }
 
+function logoImage(className) {
+  const logo = element("img", className);
+  logo.src = "assets/Logo-480.webp";
+  logo.srcset = "assets/Logo-480.webp 480w, assets/Logo-1024.webp 1024w";
+  logo.sizes = "(orientation: landscape) 58vh, 82vw";
+  logo.alt = "";
+  logo.setAttribute("aria-hidden", "true");
+  return logo;
+}
+
 function renderMedia(container, text, image) {
   if (typeof text === "string" && text.trim()) container.append(element("div", "", text));
   if (image) {
@@ -40,8 +50,12 @@ function scoreboard(teams) {
 
 function standby() {
   const screen = element("section", "display-screen display-standby");
-  const content = element("div");
-  content.append(element("h1", "", presentation.title), element("p", "", "Waiting for the next game"));
+  const content = element("div", "display-standby-content");
+  content.append(
+    logoImage("display-standby-logo"),
+    element("h1", "", presentation.title),
+    element("p", "", "Waiting for the next game")
+  );
   screen.append(content);
   return screen;
 }
