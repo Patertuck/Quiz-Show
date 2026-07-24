@@ -652,6 +652,11 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
         except ValueError:
             return False
 
+    def end_headers(self) -> None:
+        if not self.request_path.startswith("/api/"):
+            self.send_header("Cache-Control", "no-cache")
+        super().end_headers()
+
     def read_json(self, maximum: int = MAX_BUZZER_BODY_BYTES) -> dict:
         try:
             content_length = int(self.headers.get("Content-Length", "0"))
@@ -685,7 +690,6 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.send_response(308)
         self.send_header("Location", "/player")
         self.send_header("Content-Length", "0")
-        self.send_header("Cache-Control", "no-store")
         self.end_headers()
 
     def do_GET(self) -> None:  # noqa: N802 - required by BaseHTTPRequestHandler
