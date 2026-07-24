@@ -1,3 +1,5 @@
+import { animateScoreDistribution } from "./display-score-animation.js";
+
 const root = document.querySelector("#display-root");
 const connection = document.querySelector("#display-connection");
 let presentation = null;
@@ -5,6 +7,7 @@ let buzzer = null;
 let orderingState = null;
 let orderingTicker;
 let displayScoreAnimationActive = false;
+const presentationQueue = [];
 const animatedOrderingRounds = new Set();
 const standbyLogoSource = "assets/Logo-1024.webp";
 const standbyLogoRetryDelay = 2000;
@@ -98,6 +101,11 @@ function fitBoard(board, columns, rows) {
 function jeopardyQuestion() {
   const screen = element("section", "display-screen display-question");
   const content = element("div", "display-question-content");
+  content.append(element(
+    "div",
+    "display-question-value",
+    `±${presentation.question.value.toLocaleString("de-CH")} Punkte`
+  ));
   const question = element("div", "display-media");
   renderMedia(question, presentation.question.question, presentation.question.questionImage);
   content.append(question);
@@ -204,97 +212,71 @@ function render() {
   updateBuzzerBanner();
 }
 
-function audienceAnimationPlan(nextPresentation) {
-  const round = orderingState?.round;
-  if (!presentation || presentation.screen !== "ordering" || nextPresentation.screen !== "ordering"
-      || !round || animatedOrderingRounds.has(round.id)
-      || round.revealed?.length !== round.shuffledItems?.length) return null;
-  const awards = nextPresentation.teams.map((team, teamIndex) => ({
+function scoreChanges(nextPresentation) {
+  return nextPresentation.teams.map((team, teamIndex) => ({
     teamIndex,
     points: team.score - (presentation.teams[teamIndex]?.score ?? team.score),
     oldScore: presentation.teams[teamIndex]?.score ?? team.score,
     newScore: team.score
   }));
+}
+
+function orderingAnimationPlan(nextPresentation) {
+  const round = orderingState?.round;
+  if (!presentation || presentation.screen !== "ordering" || nextPresentation.screen !== "ordering"
+      || !round || animatedOrderingRounds.has(round.id)
+      || round.revealed?.length !== round.shuffledItems?.length) return null;
+  const awards = scoreChanges(nextPresentation);
   if (!awards.some(({ points }) => points > 0)
       || awards.some(({ points, teamIndex }) => points !== (round.roundPoints?.[teamIndex] || 0))) return null;
   const origins = awards.map(({ teamIndex }) => root.querySelector(
     `.display-ordering-column[data-team-index="${teamIndex}"] h2 strong`
   )?.getBoundingClientRect() || null);
   animatedOrderingRounds.add(round.id);
-  return { awards, origins };
+  return { awards: awards.filter(({ points }) => points > 0), origins };
 }
 
-function countDisplayScore(output, from, to, duration = 420) {
-  if (!output || matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    if (output) output.textContent = to.toLocaleString();
-    return Promise.resolve();
+function jeopardyAnimationPlan(nextPresentation) {
+  if (!presentation || presentation.screen !== "jeopardy-question"
+      || nextPresentation.screen !== "jeopardy-question"
+      || presentation.question?.id !== nextPresentation.question?.id) return null;
+  const awards = scoreChanges(nextPresentation).filter(({ points }) => points !== 0);
+  if (!awards.length) return null;
+  const origin = root.querySelector(".display-question-value")?.getBoundingClientRect() || null;
+  return { awards, origins: nextPresentation.teams.map(() => origin) };
+}
+
+function audienceAnimationPlan(nextPresentation) {
+  return jeopardyAnimationPlan(nextPresentation) || orderingAnimationPlan(nextPresentation);
+}
+
+async function drainPresentationQueue() {
+  if (displayScoreAnimationActive) return;
+  displayScoreAnimationActive = true;
+  try {
+    while (presentationQueue.length) {
+      const nextPresentation = presentationQueue.shift();
+      if (presentation?.version !== undefined && nextPresentation.version <= presentation.version) continue;
+      const plan = audienceAnimationPlan(nextPresentation);
+      presentation = nextPresentation;
+      render();
+      if (plan) {
+        await animateScoreDistribution({ root, ...plan });
+        render();
+      }
+    }
+  } finally {
+    displayScoreAnimationActive = false;
   }
-  return new Promise((resolve) => {
-    const started = performance.now();
-    const step = (now) => {
-      const progress = Math.min(1, (now - started) / duration);
-      const eased = 1 - ((1 - progress) ** 3);
-      output.textContent = Math.round(from + ((to - from) * eased)).toLocaleString();
-      if (progress < 1) requestAnimationFrame(step);
-      else resolve();
-    };
-    requestAnimationFrame(step);
-  });
-}
-
-async function animateDisplayAward(origin, award) {
-  const card = root.querySelector(`.display-team[data-team-index="${award.teamIndex}"]`);
-  const output = card?.querySelector(".display-team-score");
-  if (!card || !output) return;
-  const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const destination = output.getBoundingClientRect();
-  if (!reducedMotion && origin) {
-    const badge = element("div", "display-points-flight", `+${award.points.toLocaleString()}`);
-    badge.style.left = `${origin.left + origin.width / 2}px`;
-    badge.style.top = `${origin.top + origin.height / 2}px`;
-    document.body.append(badge);
-    const dx = destination.left + destination.width / 2 - (origin.left + origin.width / 2);
-    const dy = destination.top + destination.height / 2 - (origin.top + origin.height / 2);
-    await badge.animate([
-      { transform: "translate(-50%, -50%) scale(.65)", opacity: 0 },
-      { transform: "translate(-50%, -50%) scale(1.16)", opacity: 1, offset: 0.28 },
-      { transform: "translate(-50%, -50%) scale(1)", opacity: 1, offset: 0.52 },
-      { transform: "translate(-50%, -50%) scale(1)", opacity: 1 }
-    ], { duration: 700, easing: "cubic-bezier(.2,.8,.2,1)", fill: "forwards" }).finished.catch(() => undefined);
-    await badge.animate([
-      { transform: "translate(-50%, -50%) scale(1)", opacity: 1 },
-      { transform: `translate(calc(-50% + ${dx * 0.58}px), calc(-50% + ${dy * 0.42 - 55}px)) scale(1.08)`, opacity: 1, offset: 0.48 },
-      { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(.5)`, opacity: 0.2 }
-    ], { duration: 320, easing: "cubic-bezier(.35,.05,.7,.2)", fill: "forwards" }).finished.catch(() => undefined);
-    badge.remove();
-  }
-  card.classList.add("points-arrived");
-  await countDisplayScore(output, award.oldScore, award.newScore);
-  setTimeout(() => card.classList.remove("points-arrived"), 550);
-  await new Promise((resolve) => setTimeout(resolve, reducedMotion ? 0 : 120));
-}
-
-async function runAudienceAnimation(plan) {
-  const moving = plan.awards.filter(({ points }) => points > 0);
-  moving.forEach(({ teamIndex, oldScore }) => {
-    const output = root.querySelector(`.display-team[data-team-index="${teamIndex}"] .display-team-score`);
-    if (output) output.textContent = oldScore.toLocaleString();
-  });
-  for (const award of moving) await animateDisplayAward(plan.origins[award.teamIndex], award);
 }
 
 function receivePresentation(nextPresentation) {
-  if (displayScoreAnimationActive) {
+  const latestVersion = presentationQueue.at(-1)?.version ?? presentation?.version;
+  if (latestVersion !== undefined && nextPresentation.version <= latestVersion) return;
+  presentationQueue.push(nextPresentation);
+  drainPresentationQueue().catch((error) => {
+    console.error(error);
     presentation = nextPresentation;
-    return;
-  }
-  const plan = audienceAnimationPlan(nextPresentation);
-  presentation = nextPresentation;
-  render();
-  if (!plan) return;
-  displayScoreAnimationActive = true;
-  runAudienceAnimation(plan).catch(console.error).finally(() => {
-    displayScoreAnimationActive = false;
     render();
   });
 }

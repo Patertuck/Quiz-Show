@@ -21,6 +21,7 @@ body { margin: 0; overflow: hidden; background: var(--blue); color: #fff; }
 .display-tile.used { color: transparent; }
 .display-question { position: relative; display: grid; grid-template-rows: 1fr auto; place-items: center; gap: 1rem; padding: clamp(1rem, 3vw, 2.5rem); background: var(--blue); text-align: center; }
 .display-question-content { display: grid; width: min(76rem, 100%); min-height: 0; gap: 1.2rem; place-items: center; }
+.display-question-value { padding: 0.5rem 1rem; border: 2px solid var(--yellow); border-radius: 999px; background: rgb(6 13 65 / 72%); color: var(--yellow); font-size: clamp(1rem, 2.2vw, 1.5rem); font-variant-numeric: tabular-nums; font-weight: 900; box-shadow: 0 0.4rem 1.1rem rgb(0 0 0 / 28%); }
 .display-media { display: grid; gap: 1rem; place-items: center; font-size: clamp(1.7rem, 4.8vw, 4.2rem); font-weight: bold; line-height: 1.18; white-space: pre-wrap; }
 .display-media.answer { padding-top: 1.2rem; border-top: 2px solid rgb(255 255 255 / 45%); color: var(--yellow); }
 .display-media img { display: block; width: auto; max-width: min(88vw, 60rem); max-height: 40vh; border-radius: 0.6rem; object-fit: contain; box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 30%); }
@@ -56,12 +57,14 @@ body { margin: 0; overflow: hidden; background: var(--blue); color: #fff; }
 .display-ordering-solution .display-ordering-cell { border: 2px solid #f2d866; background: #f2d866; }
 .display-ordering-solution .hidden-answer { border-style: dashed; background: #35154d; color: #d8bce8; }
 .display-points-flight { position: fixed; z-index: 30; min-width: 4.5rem; padding: .45rem .75rem; border: 2px solid #ffe16d; border-radius: 999px; background: linear-gradient(145deg, #6f35a0, #321347); color: #ffe16d; font-size: clamp(1rem, 2.2vw, 1.5rem); font-variant-numeric: tabular-nums; font-weight: 900; text-align: center; pointer-events: none; box-shadow: 0 .45rem 1.2rem #0008, 0 0 1rem #ffe16d66; }
+.display-points-flight.deducted { border-color: #ff8f9c; background: linear-gradient(145deg, #a52e45, #551323); color: #fff; box-shadow: 0 .45rem 1.2rem #0008, 0 0 1rem #ff657766; }
 .display-scoreboard { position: fixed; z-index: 5; right: 0; bottom: 0; left: 0; display: flex; height: var(--scoreboard-height); gap: 0.65rem; align-items: stretch; padding: 0.65rem; overflow: hidden; background: linear-gradient(180deg, #101b59, #080f35); box-shadow: 0 -0.35rem 1.2rem rgb(0 0 0 / 38%); }
 .display-team { display: grid; min-width: 0; flex: 1 1 0; grid-template-rows: 1.7rem 1fr; align-items: center; padding: 0.45rem 0.55rem; border: 2px solid #5264bd; border-radius: 0.75rem; background: linear-gradient(180deg, #263ca3, #18287d); box-shadow: 0 0.35rem 0.8rem rgb(0 0 0 / 28%); }
 .display-team.rank-first { border-color: #ffd84d; box-shadow: 0 0 0.75rem rgb(255 216 77 / 45%); }
 .display-team.rank-second { border-color: #d8deea; box-shadow: 0 0 0.65rem rgb(216 222 234 / 38%); }
 .display-team.rank-third { border-color: #cd8b52; box-shadow: 0 0 0.65rem rgb(205 139 82 / 38%); }
 .display-team.points-arrived { animation: display-score-arrival 520ms ease-out; }
+.display-team.points-deducted { animation: display-score-deduction 520ms ease-out; }
 .display-team-name { overflow: hidden; font-size: clamp(0.65rem, 1.4vw, 0.95rem); font-weight: 800; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
 .display-team-score { color: var(--yellow); font-size: clamp(1.15rem, 2.7vw, 2rem); font-variant-numeric: tabular-nums; font-weight: 900; text-align: center; text-shadow: 0 0.12rem 0 #10194f; }
 .display-victory { display: grid; grid-template-rows: auto minmax(5rem, auto) 1fr; gap: clamp(1rem, 3vh, 2rem); align-items: center; justify-items: center; padding: clamp(1.5rem, 5vw, 4rem); background: radial-gradient(circle at 50% 15%, #4258d2 0%, var(--blue-dark) 42%, #080d38 100%); text-align: center; }
@@ -81,5 +84,6 @@ body { margin: 0; overflow: hidden; background: var(--blue); color: #fff; }
 .display-podium-score { color: #593800; font-weight: bold; }
 @keyframes display-reveal { to { opacity: 1; transform: none; } }
 @keyframes display-score-arrival { 0% { transform: scale(1); filter: brightness(1); } 38% { transform: scale(1.055); filter: brightness(1.6); box-shadow: 0 0 1.5rem #ffe16dcc; } 100% { transform: scale(1); filter: brightness(1); } }
+@keyframes display-score-deduction { 0% { transform: scale(1); filter: brightness(1); } 38% { transform: scale(0.96); filter: brightness(1.25); border-color: #ff6577; box-shadow: 0 0 1.5rem #ff6577aa; } 100% { transform: scale(1); filter: brightness(1); } }
 @media (max-width: 650px) { :root { --scoreboard-height: 112px; } .display-scoreboard { gap: 0.3rem; padding: 0.4rem; } .display-team { padding: 0.3rem; } }
-@media (prefers-reduced-motion: reduce) { .display-standing.revealed, .display-podium-place.revealed { animation: none; opacity: 1; transform: none; } .display-team.points-arrived { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .display-standing.revealed, .display-podium-place.revealed { animation: none; opacity: 1; transform: none; } .display-team.points-arrived, .display-team.points-deducted { animation: none; } }

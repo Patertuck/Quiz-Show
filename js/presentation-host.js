@@ -53,6 +53,7 @@ export function publishJeopardy() {
     ...base("jeopardy-question"),
     question: {
       id: `${categoryIndex}:${rowIndex}`,
+      value: state.config.values[rowIndex],
       question: typeof item.question === "string" ? item.question : null,
       questionImage: media(item.questionImage),
       answerRevealed,

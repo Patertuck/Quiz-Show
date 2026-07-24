@@ -9,6 +9,7 @@ export function mount(root) {
   const board = root.querySelector("#board");
   const questionContent = root.querySelector("#question-content");
   const answerContent = root.querySelector("#answer-content");
+  const questionValue = root.querySelector("#question-value");
   const revealButton = root.querySelector("#reveal-button");
   const buzzerConnection = root.querySelector("#buzzer-connection");
   const buzzerStatus = root.querySelector("#buzzer-host-status");
@@ -177,6 +178,7 @@ export function mount(root) {
   function displayQuestion() {
     const { categoryIndex, rowIndex, answerRevealed } = state.activeQuestion;
     const item = state.config.categories[categoryIndex].questions[rowIndex];
+    questionValue.textContent = `±${state.config.values[rowIndex].toLocaleString("de-CH")} Punkte`;
     renderMedia(questionContent, item.question, item.questionImage);
     renderMedia(answerContent, item.answer, item.answerImage);
     answerContent.hidden = !answerRevealed;

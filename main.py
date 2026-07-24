@@ -561,6 +561,9 @@ def validate_presentation(payload: object) -> dict:
         revealed = question.get("answerRevealed")
         if not isinstance(revealed, bool):
             raise ValueError("answerRevealed must be a boolean.")
+        value = question.get("value")
+        if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+            raise ValueError("Question value must be a positive integer.")
         question_text = question.get("question")
         answer_text = question.get("answer")
         if question_text is not None and not isinstance(question_text, str):
@@ -572,7 +575,7 @@ def validate_presentation(payload: object) -> dict:
         if not revealed and (answer_text is not None or answer_image is not None):
             raise ValueError("An unrevealed presentation must not contain an answer.")
         clean["question"] = {
-            "id": question["id"], "question": question_text, "questionImage": question_image,
+            "id": question["id"], "value": value, "question": question_text, "questionImage": question_image,
             "answerRevealed": revealed, "answer": answer_text if revealed else None,
             "answerImage": answer_image if revealed else None,
         }
@@ -806,6 +809,7 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
                 "/player", "/player.html", "/styles/player.css", "/js/player.js",
                 "/buzzer", "/buzzer.html", "/styles/buzzer.css", "/js/buzzer.js",
                 "/display", "/display.html", "/styles/display.css", "/js/display.js",
+                "/js/display-score-animation.js",
             }
             if self.request_path not in allowed and not self.request_path.startswith("/assets/"):
                 self.send_error(403, "Von einem anderen Gerät sind nur die Spieler- und Publikumsansicht verfügbar.")
@@ -828,6 +832,7 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
             "/player", "/player.html", "/styles/player.css", "/js/player.js",
             "/buzzer", "/buzzer.html", "/styles/buzzer.css", "/js/buzzer.js",
             "/display", "/display.html", "/styles/display.css", "/js/display.js",
+            "/js/display-score-animation.js",
         }
         if not self.is_host and self.request_path not in allowed and not self.request_path.startswith("/assets/"):
             self.send_error(403, "Von einem anderen Gerät sind nur die Spieler- und Publikumsansicht verfügbar.")
