@@ -81,6 +81,7 @@ export function mount(root) {
 
   async function handleScoreChange(event) {
     publishJeopardy().catch(() => undefined);
+    if (event.detail.source === "manual") return;
     const round = currentRound();
     if (!round?.open || round.activeTeamIndex !== event.detail.teamIndex) return;
     try {

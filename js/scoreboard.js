@@ -1,9 +1,42 @@
 import { state, saveState } from "./store.js";
 
 let container;
+let scoreDialog;
+let scoreForm;
+let scoreInput;
+let scoreError;
+let editedTeamIndex = null;
 
 export function initializeScoreboard(element) {
   container = element;
+  scoreDialog = document.querySelector("#score-editor-dialog");
+  scoreForm = document.querySelector("#score-editor-form");
+  scoreInput = document.querySelector("#score-editor-input");
+  scoreError = document.querySelector("#score-editor-error");
+
+  document.querySelector("#score-editor-cancel").addEventListener("click", () => scoreDialog.close());
+  scoreForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (editedTeamIndex === null || !state.teams[editedTeamIndex]) {
+      scoreDialog.close();
+      return;
+    }
+    const nextScore = scoreInput.valueAsNumber;
+    if (!Number.isSafeInteger(nextScore)) {
+      scoreError.textContent = "Gebt eine gültige Ganzzahl ein.";
+      scoreError.hidden = false;
+      scoreInput.focus();
+      return;
+    }
+    const previousScore = state.teams[editedTeamIndex].score;
+    scoreDialog.close();
+    if (nextScore !== previousScore) updateTeamScore(editedTeamIndex, nextScore, "manual");
+  });
+  scoreDialog.addEventListener("close", () => {
+    editedTeamIndex = null;
+    scoreError.hidden = true;
+    scoreError.textContent = "";
+  });
 }
 
 export function renderScoreboard() {
@@ -13,6 +46,11 @@ export function renderScoreboard() {
     const card = document.createElement("section");
     card.className = "team";
     card.dataset.teamIndex = index;
+    card.title = `Punktestand von ${team.name} mit Rechtsklick bearbeiten`;
+    card.addEventListener("contextmenu", (event) => {
+      event.preventDefault();
+      openScoreEditor(index);
+    });
 
     const name = document.createElement("div");
     name.className = "team-name";
@@ -44,14 +82,30 @@ function scoreButton(action, teamIndex, handler) {
   return button;
 }
 
-function changeScore(teamIndex, amount) {
-  if (!state.activeValue) return;
+function openScoreEditor(teamIndex) {
   const team = state.teams[teamIndex];
-  team.score += amount;
-  container.querySelector(`#team-score-${teamIndex}`).textContent = team.score.toLocaleString();
+  if (!team) return;
+  editedTeamIndex = teamIndex;
+  scoreDialog.querySelector("#score-editor-title").textContent = `Punktestand von ${team.name} bearbeiten`;
+  scoreInput.value = String(team.score);
+  scoreError.hidden = true;
+  scoreDialog.showModal();
+  scoreInput.select();
+}
+
+function updateTeamScore(teamIndex, nextScore, source) {
+  const team = state.teams[teamIndex];
+  const amount = nextScore - team.score;
+  team.score = nextScore;
+  container.querySelector(`#team-score-${teamIndex}`).textContent = team.score.toLocaleString("de-CH");
   updateStandings();
   saveState().catch(() => undefined);
-  window.dispatchEvent(new CustomEvent("quiz-score-changed", { detail: { teamIndex, amount } }));
+  window.dispatchEvent(new CustomEvent("quiz-score-changed", { detail: { teamIndex, amount, source } }));
+}
+
+function changeScore(teamIndex, amount) {
+  if (!state.activeValue) return;
+  updateTeamScore(teamIndex, state.teams[teamIndex].score + amount, "question");
 }
 
 export function updateStandings() {

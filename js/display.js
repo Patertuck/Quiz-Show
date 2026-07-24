@@ -225,6 +225,7 @@ function orderingAnimationPlan(nextPresentation) {
   const round = orderingState?.round;
   if (!presentation || presentation.screen !== "ordering" || nextPresentation.screen !== "ordering"
       || !round || animatedOrderingRounds.has(round.id)
+      || round.phase !== "distributed"
       || round.revealed?.length !== round.shuffledItems?.length) return null;
   const awards = scoreChanges(nextPresentation);
   if (!awards.some(({ points }) => points > 0)

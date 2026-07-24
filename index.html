@@ -28,6 +28,18 @@
     <section class="status-screen"><div class="panel"><h1>Quiz wird geladen…</h1></div></section>
   </main>
   <aside id="scoreboard" aria-label="Punktestände der Teams" hidden></aside>
+  <dialog id="score-editor-dialog" aria-labelledby="score-editor-title">
+    <form id="score-editor-form">
+      <h2 id="score-editor-title">Punktestand bearbeiten</h2>
+      <label for="score-editor-input">Neuer Punktestand</label>
+      <input id="score-editor-input" name="score" type="number" step="100" required>
+      <p id="score-editor-error" class="score-editor-error" role="alert" hidden></p>
+      <div class="score-editor-actions">
+        <button id="score-editor-cancel" class="secondary-button" type="button">Abbrechen</button>
+        <button class="primary-button" type="submit">Speichern</button>
+      </div>
+    </form>
+  </dialog>
   <dialog id="buzzer-dialog" aria-labelledby="buzzer-dialog-title">
     <form method="dialog"><button class="dialog-close" aria-label="Schliessen">&times;</button></form>
     <h2 id="buzzer-dialog-title">Mit dem Handy teilnehmen</h2>

@@ -206,9 +206,15 @@ export async function mount(element) {
   render(await fetch("/api/ordering/state", { cache: "no-store" }).then((response) => response.json()));
   events = new EventSource("/api/ordering/events");
   events.addEventListener("state", (event) => render(JSON.parse(event.data)));
+  const handleScoreChange = () => publishOrdering().catch(() => undefined);
+  window.addEventListener("quiz-score-changed", handleScoreChange);
   ticker = setInterval(() => {
     const timer = content.querySelector(".ordering-timer");
     if (timer) timer.textContent = Math.max(0, Math.ceil((Number(timer.dataset.deadline) - Date.now()) / 1000));
   }, 200);
-  return () => { events?.close(); clearInterval(ticker); };
+  return () => {
+    events?.close();
+    clearInterval(ticker);
+    window.removeEventListener("quiz-score-changed", handleScoreChange);
+  };
 }

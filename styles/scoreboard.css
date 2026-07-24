@@ -2,7 +2,7 @@
 #scoreboard::-webkit-scrollbar { height: 0.45rem; }
 #scoreboard::-webkit-scrollbar-track { background: #080f35; }
 #scoreboard::-webkit-scrollbar-thumb { border-radius: 999px; background: #5262b5; }
-.team { display: grid; min-width: 12.5rem; flex: 1 0 12.5rem; grid-template-columns: 3.5rem minmax(4rem, 1fr) 3.5rem; grid-template-rows: 1.7rem 1fr; gap: 0.2rem 0.35rem; align-items: center; padding: 0.45rem 0.55rem; border: 2px solid #5264bd; border-radius: 0.75rem; background: linear-gradient(180deg, #263ca3, #18287d); box-shadow: 0 0.35rem 0.8rem rgb(0 0 0 / 28%); }
+.team { display: grid; min-width: 12.5rem; flex: 1 0 12.5rem; grid-template-columns: 3.5rem minmax(4rem, 1fr) 3.5rem; grid-template-rows: 1.7rem 1fr; gap: 0.2rem 0.35rem; align-items: center; padding: 0.45rem 0.55rem; border: 2px solid #5264bd; border-radius: 0.75rem; background: linear-gradient(180deg, #263ca3, #18287d); box-shadow: 0 0.35rem 0.8rem rgb(0 0 0 / 28%); cursor: context-menu; }
 .team.rank-first { border-color: #ffd84d; box-shadow: 0 0 0.75rem rgb(255 216 77 / 45%), 0 0.35rem 0.8rem rgb(0 0 0 / 32%); }
 .team.rank-second { border-color: #d8deea; box-shadow: 0 0 0.65rem rgb(216 222 234 / 38%), 0 0.35rem 0.8rem rgb(0 0 0 / 32%); }
 .team.rank-third { border-color: #cd8b52; box-shadow: 0 0 0.65rem rgb(205 139 82 / 38%), 0 0.35rem 0.8rem rgb(0 0 0 / 32%); }
@@ -16,6 +16,15 @@
 #scoreboard.standings-only .score-button { display: none; }
 #scoreboard.standings-only .team { grid-template-columns: 1fr; }
 #scoreboard.standings-only .score { grid-column: 1; }
+#score-editor-dialog { width: min(28rem, calc(100% - 2rem)); padding: clamp(1.25rem, 4vw, 2rem); border: 2px solid #596bd4; border-radius: 1rem; background: #fff; color: #17206a; box-shadow: 0 1.5rem 4rem rgb(0 0 0 / 55%); }
+#score-editor-dialog::backdrop { background: rgb(2 5 24 / 78%); backdrop-filter: blur(3px); }
+#score-editor-form { display: grid; gap: 0.85rem; }
+#score-editor-title { margin: 0 0 0.35rem; font-size: clamp(1.35rem, 4vw, 1.8rem); }
+#score-editor-form label { font-weight: bold; }
+#score-editor-input { width: 100%; padding: 0.65rem 0.75rem; border: 2px solid #8d97cf; border-radius: 0.5rem; background: #fff; color: #17206a; font-size: 1.2rem; font-variant-numeric: tabular-nums; }
+#score-editor-input:focus { border-color: var(--blue); outline: 2px solid rgb(37 55 164 / 20%); }
+.score-editor-error { margin: 0; color: #a0182c; font-size: 0.9rem; font-weight: bold; }
+.score-editor-actions { display: flex; justify-content: flex-end; gap: 0.65rem; margin-top: 0.35rem; }
 @media (max-width: 650px) {
   :root { --scoreboard-height: 118px; }
   #scoreboard { gap: 0.35rem; padding: 0.4rem; }
