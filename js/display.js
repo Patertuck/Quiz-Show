@@ -4,6 +4,8 @@ let presentation = null;
 let buzzer = null;
 let orderingState = null;
 let orderingTicker;
+let displayScoreAnimationActive = false;
+const animatedOrderingRounds = new Set();
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -26,9 +28,10 @@ function renderMedia(container, text, image) {
 function scoreboard(teams) {
   const board = element("aside", "display-scoreboard");
   board.setAttribute("aria-label", "Team scores");
-  teams.forEach((team) => {
+  teams.forEach((team, teamIndex) => {
     const rank = 1 + teams.filter((candidate) => candidate.score > team.score).length;
     const card = element("section", `display-team rank-${rank}`);
+    card.dataset.teamIndex = teamIndex;
     card.append(element("div", "display-team-name", team.name), element("div", "display-team-score", team.score.toLocaleString()));
     board.append(card);
   });
@@ -117,6 +120,7 @@ function ordering() {
   const itemNames = new Map(round.shuffledItems.map((item) => [item.id, item.text]));
   orderingState.teams.forEach((name, teamIndex) => {
     const column = element("section", "display-ordering-column");
+    column.dataset.teamIndex = teamIndex;
     column.style.setProperty("--ordering-count", round.teamOrders[teamIndex].length);
     const title = element("h2");
     title.append(element("span", "", name), element("strong", "", `+${round.roundPoints[teamIndex]}`));
@@ -177,6 +181,101 @@ function render() {
   updateBuzzerBanner();
 }
 
+function audienceAnimationPlan(nextPresentation) {
+  const round = orderingState?.round;
+  if (!presentation || presentation.screen !== "ordering" || nextPresentation.screen !== "ordering"
+      || !round || animatedOrderingRounds.has(round.id)
+      || round.revealed?.length !== round.shuffledItems?.length) return null;
+  const awards = nextPresentation.teams.map((team, teamIndex) => ({
+    teamIndex,
+    points: team.score - (presentation.teams[teamIndex]?.score ?? team.score),
+    oldScore: presentation.teams[teamIndex]?.score ?? team.score,
+    newScore: team.score
+  }));
+  if (!awards.some(({ points }) => points > 0)
+      || awards.some(({ points, teamIndex }) => points !== (round.roundPoints?.[teamIndex] || 0))) return null;
+  const origins = awards.map(({ teamIndex }) => root.querySelector(
+    `.display-ordering-column[data-team-index="${teamIndex}"] h2 strong`
+  )?.getBoundingClientRect() || null);
+  animatedOrderingRounds.add(round.id);
+  return { awards, origins };
+}
+
+function countDisplayScore(output, from, to, duration = 420) {
+  if (!output || matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    if (output) output.textContent = to.toLocaleString();
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    const started = performance.now();
+    const step = (now) => {
+      const progress = Math.min(1, (now - started) / duration);
+      const eased = 1 - ((1 - progress) ** 3);
+      output.textContent = Math.round(from + ((to - from) * eased)).toLocaleString();
+      if (progress < 1) requestAnimationFrame(step);
+      else resolve();
+    };
+    requestAnimationFrame(step);
+  });
+}
+
+async function animateDisplayAward(origin, award) {
+  const card = root.querySelector(`.display-team[data-team-index="${award.teamIndex}"]`);
+  const output = card?.querySelector(".display-team-score");
+  if (!card || !output) return;
+  const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const destination = output.getBoundingClientRect();
+  if (!reducedMotion && origin) {
+    const badge = element("div", "display-points-flight", `+${award.points.toLocaleString()}`);
+    badge.style.left = `${origin.left + origin.width / 2}px`;
+    badge.style.top = `${origin.top + origin.height / 2}px`;
+    document.body.append(badge);
+    const dx = destination.left + destination.width / 2 - (origin.left + origin.width / 2);
+    const dy = destination.top + destination.height / 2 - (origin.top + origin.height / 2);
+    await badge.animate([
+      { transform: "translate(-50%, -50%) scale(.65)", opacity: 0 },
+      { transform: "translate(-50%, -50%) scale(1.16)", opacity: 1, offset: 0.28 },
+      { transform: "translate(-50%, -50%) scale(1)", opacity: 1, offset: 0.52 },
+      { transform: "translate(-50%, -50%) scale(1)", opacity: 1 }
+    ], { duration: 700, easing: "cubic-bezier(.2,.8,.2,1)", fill: "forwards" }).finished.catch(() => undefined);
+    await badge.animate([
+      { transform: "translate(-50%, -50%) scale(1)", opacity: 1 },
+      { transform: `translate(calc(-50% + ${dx * 0.58}px), calc(-50% + ${dy * 0.42 - 55}px)) scale(1.08)`, opacity: 1, offset: 0.48 },
+      { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(.5)`, opacity: 0.2 }
+    ], { duration: 320, easing: "cubic-bezier(.35,.05,.7,.2)", fill: "forwards" }).finished.catch(() => undefined);
+    badge.remove();
+  }
+  card.classList.add("points-arrived");
+  await countDisplayScore(output, award.oldScore, award.newScore);
+  setTimeout(() => card.classList.remove("points-arrived"), 550);
+  await new Promise((resolve) => setTimeout(resolve, reducedMotion ? 0 : 120));
+}
+
+async function runAudienceAnimation(plan) {
+  const moving = plan.awards.filter(({ points }) => points > 0);
+  moving.forEach(({ teamIndex, oldScore }) => {
+    const output = root.querySelector(`.display-team[data-team-index="${teamIndex}"] .display-team-score`);
+    if (output) output.textContent = oldScore.toLocaleString();
+  });
+  for (const award of moving) await animateDisplayAward(plan.origins[award.teamIndex], award);
+}
+
+function receivePresentation(nextPresentation) {
+  if (displayScoreAnimationActive) {
+    presentation = nextPresentation;
+    return;
+  }
+  const plan = audienceAnimationPlan(nextPresentation);
+  presentation = nextPresentation;
+  render();
+  if (!plan) return;
+  displayScoreAnimationActive = true;
+  runAudienceAnimation(plan).catch(console.error).finally(() => {
+    displayScoreAnimationActive = false;
+    render();
+  });
+}
+
 function updateBuzzerBanner() {
   const order = root.querySelector(".display-buzz-order");
   const list = order?.querySelector(".display-buzz-list");
@@ -205,10 +304,9 @@ async function initialState(path) {
 
 const presentationEvents = new EventSource("/api/presentation/events");
 presentationEvents.addEventListener("state", (event) => {
-  presentation = JSON.parse(event.data);
+  receivePresentation(JSON.parse(event.data));
   connection.textContent = "Connected";
   connection.classList.add("connected");
-  render();
 });
 presentationEvents.addEventListener("error", () => {
   connection.textContent = "Reconnecting to host…";
@@ -224,7 +322,7 @@ buzzerEvents.addEventListener("state", (event) => {
 const orderingEvents = new EventSource("/api/ordering/events?role=public");
 orderingEvents.addEventListener("state", (event) => {
   orderingState = JSON.parse(event.data);
-  if (presentation?.screen === "ordering") render();
+  if (presentation?.screen === "ordering" && !displayScoreAnimationActive) render();
 });
 
 Promise.all([initialState("/api/presentation/state"), initialState("/api/buzzer/state"), initialState("/api/ordering/state?role=public")])
@@ -232,7 +330,7 @@ Promise.all([initialState("/api/presentation/state"), initialState("/api/buzzer/
     if (!presentation || nextPresentation.version >= presentation.version) presentation = nextPresentation;
     if (!buzzer || nextBuzzer.version >= buzzer.version) buzzer = nextBuzzer;
     orderingState = nextOrdering;
-    render();
+    if (!displayScoreAnimationActive) render();
   })
   .catch(() => {
     connection.textContent = "Waiting for the quiz host…";
