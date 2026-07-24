@@ -1,5 +1,6 @@
 import { state, loadApplicationData, stateSnapshot, resumeRuntime } from "./store.js";
 import { initializeScoreboard, renderScoreboard, setScoreboard, updateScoreControls } from "./scoreboard.js";
+import { initializeHostControls } from "./host-controls.js";
 import * as setup from "./views/setup.js";
 import * as hub from "./views/hub.js";
 import * as jeopardy from "./games/jeopardy.js";
@@ -8,7 +9,9 @@ import * as victory from "./views/victory.js";
 
 const app = document.querySelector("#app");
 const scoreboardElement = document.querySelector("#scoreboard");
+const hostControls = document.querySelector("#host-controls");
 initializeScoreboard(scoreboardElement);
+initializeHostControls({ navigate });
 
 const routes = {
   setup: { template: "views/setup.html", controller: setup, scoreboard: "hidden", requiresGame: false },
@@ -44,6 +47,7 @@ async function templateFor(path) {
 
 function renderError(error) {
   setScoreboard("hidden");
+  hostControls.hidden = true;
   app.innerHTML = `<section class="status-screen"><div class="panel"><h1>Quiz error</h1><p class="error-message"></p></div></section>`;
   app.querySelector(".error-message").textContent = error.message;
 }
@@ -67,6 +71,7 @@ async function renderRoute() {
     }
     setScoreboard(route.scoreboard);
     document.body.classList.toggle("app-active", name !== "setup");
+    hostControls.hidden = name === "setup";
     const template = await templateFor(route.template);
     if (thisNavigation !== navigationId) return;
     app.innerHTML = template;
