@@ -1,5 +1,8 @@
 const waitingStep = document.querySelector("#waiting-step");
+const waitingTitle = document.querySelector("#waiting-title");
 const waitingStatus = document.querySelector("#waiting-status");
+const waitingTeamRow = document.querySelector("#waiting-team-row");
+const waitingTeam = document.querySelector("#waiting-team");
 const teamStep = document.querySelector("#team-step");
 const buzzStep = document.querySelector("#buzz-step");
 const choices = document.querySelector("#team-choices");
@@ -17,6 +20,7 @@ const orderingStatus = document.querySelector("#ordering-phone-status");
 
 let currentState = null;
 let orderingState = null;
+let presentationState = null;
 let selectedTeamIndex = null;
 let submitting = false;
 let orderingEvents;
@@ -44,17 +48,30 @@ function showTeamSelection() {
   connectOrderingEvents();
 }
 
-function showWaiting() {
+function showNoGameWaiting() {
   const hadSelection = selectedTeamIndex !== null;
   cancelDrag(false);
   selectedTeamIndex = null;
   localStorage.removeItem("quiz-buzzer-team");
+  waitingTeamRow.hidden = true;
+  waitingTitle.textContent = "Waiting for a game";
   waitingStatus.textContent = "The host has not started a game yet. Keep this page open.";
   waitingStep.hidden = false;
   teamStep.hidden = true;
   buzzStep.hidden = true;
   orderingStep.hidden = true;
   if (hadSelection) connectOrderingEvents();
+}
+
+function showActivityWaiting() {
+  waitingTeam.textContent = currentState.teams[selectedTeamIndex];
+  waitingTeamRow.hidden = false;
+  waitingTitle.textContent = "Waiting for the next game";
+  waitingStatus.textContent = "Your team is ready. Waiting for the next game.";
+  waitingStep.hidden = false;
+  teamStep.hidden = true;
+  buzzStep.hidden = true;
+  orderingStep.hidden = true;
 }
 
 function selectTeam(index) {
@@ -82,7 +99,7 @@ function renderTeams() {
 function render() {
   if (!currentState) return;
   if (!currentState.teams.length) {
-    showWaiting();
+    showNoGameWaiting();
     return;
   }
   waitingStep.hidden = true;
@@ -104,12 +121,17 @@ function render() {
   }
 
   teamStep.hidden = true;
-  if (orderingState?.round) {
+  if (presentationState?.screen === "ordering" && orderingState?.round) {
     buzzStep.hidden = true;
     orderingStep.hidden = false;
     renderOrdering();
     return;
   }
+  if (!["jeopardy-board", "jeopardy-question"].includes(presentationState?.screen)) {
+    showActivityWaiting();
+    return;
+  }
+  waitingStep.hidden = true;
   orderingStep.hidden = true;
   buzzStep.hidden = false;
   selectedTeamLabel.textContent = currentState.teams[selectedTeamIndex];
@@ -317,6 +339,7 @@ async function loadState() {
 }
 
 document.querySelector("#change-team").addEventListener("click", showTeamSelection);
+document.querySelector("#waiting-change-team").addEventListener("click", showTeamSelection);
 document.querySelector("#ordering-change-team").addEventListener("click", showTeamSelection);
 buzzButton.addEventListener("click", async () => {
   if (!currentState?.round.open || selectedTeamIndex === null || submitting) return;
@@ -359,7 +382,20 @@ events.addEventListener("error", () => {
   connectionStatus.classList.remove("connected");
 });
 
-loadState().catch(() => {
+const presentationEvents = new EventSource("/api/presentation/events");
+presentationEvents.addEventListener("state", (event) => {
+  presentationState = JSON.parse(event.data);
+  render();
+});
+
+async function loadPresentationState() {
+  const response = await fetch("/api/presentation/state", { cache: "no-store" });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  presentationState = await response.json();
+  render();
+}
+
+Promise.all([loadState(), loadPresentationState()]).catch(() => {
   connectionStatus.textContent = "Offline";
   waitingStatus.textContent = "Could not reach the quiz host. Check the Wi-Fi connection.";
 });

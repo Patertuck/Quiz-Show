@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#111d65">
   <title>Quiz Player</title>
-  <link rel="stylesheet" href="styles/player.css?v=1">
+  <link rel="stylesheet" href="styles/player.css?v=2">
 </head>
 <body>
   <main class="player-app">
@@ -22,7 +22,11 @@
         alt=""
         aria-hidden="true"
       >
-      <h2>Waiting for a game</h2>
+      <div id="waiting-team-row" class="selected-team-row" hidden>
+        <strong id="waiting-team"></strong>
+        <button id="waiting-change-team" type="button">Change</button>
+      </div>
+      <h2 id="waiting-title">Waiting for a game</h2>
       <p id="waiting-status" role="status" aria-live="polite">The host has not started a game yet. Keep this page open.</p>
     </section>
     <section id="team-step" class="player-card" hidden>
@@ -49,6 +53,6 @@
       <p id="ordering-phone-status" class="buzz-status" role="status" aria-live="polite"></p>
     </section>
   </main>
-  <script type="module" src="js/player.js?v=1"></script>
+  <script type="module" src="js/player.js?v=2"></script>
 </body>
 </html>
