@@ -11,6 +11,7 @@ let listingTicker;
 let displayScoreAnimationActive = false;
 const presentationQueue = [];
 const animatedOrderingRounds = new Set();
+const animatedListingRounds = new Set();
 const standbyLogoSource = "assets/Logo-1024.webp";
 const standbyLogoRetryDelay = 2000;
 
@@ -298,6 +299,22 @@ function orderingAnimationPlan(nextPresentation) {
   return { awards: awards.filter(({ points }) => points > 0), origins };
 }
 
+function listingAnimationPlan(nextPresentation) {
+  const round = listingState?.round;
+  if (!presentation || presentation.screen !== "listing" || nextPresentation.screen !== "listing"
+      || !round || animatedListingRounds.has(round.id)
+      || !["results", "distributed"].includes(round.phase) || !Array.isArray(round.results)) return null;
+  const expectedPoints = new Map(round.results.map(({ teamIndex, points }) => [teamIndex, points]));
+  const awards = scoreChanges(nextPresentation);
+  if (!awards.some(({ points }) => points > 0)
+      || awards.some(({ points, teamIndex }) => points !== (expectedPoints.get(teamIndex) || 0))) return null;
+  const origins = awards.map(({ teamIndex }) => root.querySelector(
+    `.display-listing-result-row[data-team-index="${teamIndex}"] .display-listing-points`
+  )?.getBoundingClientRect() || null);
+  animatedListingRounds.add(round.id);
+  return { awards: awards.filter(({ points }) => points > 0), origins };
+}
+
 function jeopardyAnimationPlan(nextPresentation) {
   if (!presentation || presentation.screen !== "jeopardy-question"
       || nextPresentation.screen !== "jeopardy-question"
@@ -309,7 +326,9 @@ function jeopardyAnimationPlan(nextPresentation) {
 }
 
 function audienceAnimationPlan(nextPresentation) {
-  return jeopardyAnimationPlan(nextPresentation) || orderingAnimationPlan(nextPresentation);
+  return jeopardyAnimationPlan(nextPresentation)
+    || orderingAnimationPlan(nextPresentation)
+    || listingAnimationPlan(nextPresentation);
 }
 
 async function drainPresentationQueue() {
