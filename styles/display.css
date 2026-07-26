@@ -33,7 +33,8 @@ body { margin: 0; overflow: hidden; background: var(--blue); color: #fff; }
 .display-buzz-list li.active { border-color: var(--yellow); background: #fff; color: var(--blue-dark); box-shadow: 0 0 0.8rem rgb(255 244 92 / 38%); }
 .display-buzz-list li.active::before { color: var(--blue-dark); }
 .display-buzz-list li.answered { opacity: 0.42; text-decoration: line-through; }
-.display-ordering { display: grid; place-items: center; padding: 2rem; background: linear-gradient(145deg, #8845bd, #4b2179 58%, #211039); text-align: center; }
+.display-ordering { position: relative; display: grid; place-items: center; padding: 2rem; background: linear-gradient(145deg, #8845bd, #4b2179 58%, #211039); text-align: center; }
+.display-game-waiting-logo { position: absolute; z-index: 1; top: clamp(.75rem, 2vw, 1.5rem); left: clamp(.75rem, 2vw, 1.5rem); display: block; width: clamp(6rem, 13vw, 11rem); max-height: clamp(4rem, 14vh, 8rem); object-fit: contain; }
 .display-ordering h1 { margin: 0; font-size: clamp(2.5rem, 8vw, 6rem); }
 .display-ordering p { font-size: clamp(1.1rem, 2.7vw, 1.8rem); }
 .display-ordering-active { display: grid; justify-items: center; gap: clamp(.7rem, 2vh, 1.5rem); }
@@ -87,7 +88,7 @@ body { margin: 0; overflow: hidden; background: var(--blue); color: #fff; }
 @keyframes display-score-deduction { 0% { transform: scale(1); filter: brightness(1); } 38% { transform: scale(0.96); filter: brightness(1.25); border-color: #ff6577; box-shadow: 0 0 1.5rem #ff6577aa; } 100% { transform: scale(1); filter: brightness(1); } }
 @media (max-width: 650px) { :root { --scoreboard-height: 112px; } .display-scoreboard { gap: 0.3rem; padding: 0.4rem; } .display-team { padding: 0.3rem; } }
 @media (prefers-reduced-motion: reduce) { .display-standing.revealed, .display-podium-place.revealed { animation: none; opacity: 1; transform: none; } .display-team.points-arrived, .display-team.points-deducted { animation: none; } }
-.display-listing { display: grid; min-height: 0; place-items: center; padding: clamp(.65rem, 2vh, 1.5rem); overflow: hidden; background: radial-gradient(circle at 50% 0%, #16877c 0%, #0b5060 50%, #052a3d 100%); text-align: center; }
+.display-listing { position: relative; display: grid; min-height: 0; place-items: center; padding: clamp(.65rem, 2vh, 1.5rem); overflow: hidden; background: radial-gradient(circle at 50% 0%, #16877c 0%, #0b5060 50%, #052a3d 100%); text-align: center; }
 .display-listing > div { width: min(75rem, 100%); max-height: 100%; min-height: 0; margin: auto; overflow: hidden; }
 .display-listing-active { display: grid; height: 100%; grid-template-rows: auto minmax(0, auto) minmax(4rem, 1fr) auto; place-items: center; align-content: center; }
 .display-listing-active h1, .display-listing-results h1 { margin: 0; color: #ffe65c; font-size: clamp(2rem, 8vh, 6rem); line-height: 1; }

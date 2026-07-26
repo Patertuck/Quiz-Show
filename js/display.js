@@ -130,7 +130,7 @@ function ordering() {
   if (!round) {
     const content = element("div");
     content.append(element("h1", "", "Order Up"), element("p", "", "Macht euch bereit für die nächste Herausforderung."));
-    screen.append(content);
+    screen.append(logoImage("display-game-waiting-logo"), content);
     return screen;
   }
   if (round.phase === "active") {
@@ -181,7 +181,7 @@ function listing() {
   if (!round) {
     const content = element("div", "display-listing-waiting");
     content.append(element("h1", "", "List It"), element("p", "", "Macht euch bereit für die nächste Aufgabe."));
-    screen.append(content);
+    screen.append(logoImage("display-game-waiting-logo"), content);
     return screen;
   }
   if (round.phase === "active") {
