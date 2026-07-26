@@ -57,18 +57,13 @@
         <strong id="listing-team"></strong>
         <button id="listing-change-team" type="button">Wechseln</button>
       </div>
-      <h2 id="listing-title">List It</h2>
-      <p id="listing-prompt"></p>
-      <output id="listing-countdown" aria-label="Verbleibende Sekunden"></output>
       <form id="listing-entry-form" class="listing-entry-form">
         <label class="sr-only" for="listing-entry">Neuer Eintrag</label>
         <input id="listing-entry" maxlength="100" autocomplete="off" enterkeyhint="done" autofocus placeholder="Eintrag hinzufügen">
         <button type="submit">Hinzufügen</button>
       </form>
-      <p id="listing-limit"></p>
       <ul id="listing-items" class="listing-phone-items"></ul>
-      <button id="listing-submit" class="listing-submit" type="button">Liste abgeben</button>
-      <p id="listing-phone-status" class="buzz-status" role="status" aria-live="polite"></p>
+      <p id="listing-phone-status" class="sr-only" role="status" aria-live="polite"></p>
     </section>
   </main>
   <script type="module" src="js/player.js"></script>

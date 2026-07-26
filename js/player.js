@@ -19,14 +19,9 @@ const orderingList = document.querySelector("#ordering-list");
 const orderingStatus = document.querySelector("#ordering-phone-status");
 const listingStep = document.querySelector("#listing-step");
 const listingTeam = document.querySelector("#listing-team");
-const listingTitle = document.querySelector("#listing-title");
-const listingPrompt = document.querySelector("#listing-prompt");
-const listingCountdown = document.querySelector("#listing-countdown");
 const listingForm = document.querySelector("#listing-entry-form");
 const listingEntry = document.querySelector("#listing-entry");
-const listingLimit = document.querySelector("#listing-limit");
 const listingItems = document.querySelector("#listing-items");
-const listingSubmit = document.querySelector("#listing-submit");
 const listingStatus = document.querySelector("#listing-phone-status");
 
 let currentState = null;
@@ -38,7 +33,6 @@ let submitting = false;
 let orderingEvents;
 let listingEvents;
 let orderingTimer;
-let listingTimer;
 let listingPendingSaves = 0;
 let listingSaveChain = Promise.resolve();
 let listingLocalRoundId = null;
@@ -438,25 +432,14 @@ function renderListing() {
     listingLocalItems = [...(round.teamItems || listingLocalItems)];
   }
   listingTeam.textContent = listingState.teams[selectedTeamIndex] || "";
-  listingTitle.textContent = round.title;
-  listingPrompt.textContent = round.prompt;
-  listingCountdown.hidden = !active;
   listingForm.hidden = !active || round.teamSubmitted;
-  listingSubmit.hidden = !active || round.teamSubmitted;
   listingItems.hidden = !active;
-  listingLimit.hidden = !active;
   if (!active) {
-    listingStatus.textContent = round.phase === "classifying"
-      ? "Eure Liste wird geprüft."
-      : "Eure Liste ist gesperrt. Wartet auf das Ergebnis.";
+    listingStatus.textContent = "Eure Liste ist gesperrt.";
     return;
   }
   const items = listingLocalItems;
-  listingCountdown.dataset.deadline = round.deadlineAt;
-  listingCountdown.textContent = Math.max(0, Math.ceil((round.deadlineAt - Date.now()) / 1000));
-  listingLimit.textContent = `${items.length} von ${round.maxItems} Einträgen`;
   listingEntry.disabled = items.length >= round.maxItems;
-  listingSubmit.disabled = listingSubmissionQueued;
   listingItems.replaceChildren();
   items.forEach((text, index) => {
     const row = document.createElement("li");
@@ -466,7 +449,10 @@ function renderListing() {
     remove.type = "button";
     remove.className = "listing-remove";
     remove.setAttribute("aria-label", `${text} löschen`);
-    remove.textContent = "🗑";
+    remove.innerHTML = `
+      <svg aria-hidden="true" viewBox="0 0 24 24">
+        <path d="M8 3h8l1 2h4v2H3V5h4l1-2Zm-2 6h12l-1 12H7L6 9Zm3 2v8h2v-8H9Zm4 0v8h2v-8h-2Z"/>
+      </svg>`;
     remove.disabled = round.teamSubmitted || listingSubmissionQueued;
     remove.addEventListener("click", () => {
       saveListingItems(items.filter((_, itemIndex) => itemIndex !== index));
@@ -527,10 +513,6 @@ listingForm.addEventListener("submit", (event) => {
   listingEntry.value = "";
   listingEntry.focus({ preventScroll: true });
   saveListingItems([...currentItems, value]);
-});
-listingSubmit.addEventListener("click", () => {
-  if (!listingState?.round) return;
-  saveListingItems(listingLocalItems, true);
 });
 buzzButton.addEventListener("click", async () => {
   if (!currentState?.round.open || selectedTeamIndex === null || submitting) return;
@@ -602,13 +584,6 @@ orderingTimer = setInterval(() => {
     orderingList.classList.add("locked-pending");
     orderingStatus.textContent = "Die Zeit ist abgelaufen. Eure Antwort wird gesperrt…";
   }
-}, 200);
-
-listingTimer = setInterval(() => {
-  if (!listingState?.round || listingState.round.phase !== "active") return;
-  const seconds = Math.max(0, Math.ceil((listingState.round.deadlineAt - Date.now()) / 1000));
-  listingCountdown.textContent = seconds;
-  if (seconds === 0) listingStatus.textContent = "Die Zeit ist abgelaufen. Eure Liste wird automatisch abgegeben …";
 }, 200);
 
 window.addEventListener("pagehide", () => cancelDrag(false));
