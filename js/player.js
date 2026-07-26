@@ -39,7 +39,12 @@ let orderingEvents;
 let listingEvents;
 let orderingTimer;
 let listingTimer;
-let listingSaving = false;
+let listingPendingSaves = 0;
+let listingSaveChain = Promise.resolve();
+let listingLocalRoundId = null;
+let listingLocalItems = [];
+let listingSubmissionQueued = false;
+let listingSaveError = "";
 let activeDrag = null;
 let deferredOrderingState = null;
 const newDeviceId = () => crypto.randomUUID?.()
@@ -368,38 +373,70 @@ function connectOrderingEvents() {
   });
 }
 
-async function saveListingItems(items, submit = false) {
+function focusListingEntry() {
   const round = listingState?.round;
-  if (!round || selectedTeamIndex === null || round.phase !== "active" || round.teamSubmitted || listingSaving) return;
-  listingSaving = true;
-  listingStatus.textContent = submit ? "Liste wird abgegeben …" : "Wird gespeichert …";
-  try {
+  if (!round || round.phase !== "active" || round.teamSubmitted || listingSubmissionQueued
+      || listingLocalItems.length >= round.maxItems) return;
+  requestAnimationFrame(() => {
+    if (!listingEntry.hidden && !listingEntry.disabled && listingEntry.isConnected) {
+      listingEntry.focus({ preventScroll: true });
+    }
+  });
+}
+
+function saveListingItems(items, submit = false) {
+  const round = listingState?.round;
+  if (!round || selectedTeamIndex === null || round.phase !== "active"
+      || round.teamSubmitted || listingSubmissionQueued) return listingSaveChain;
+  const requestData = {
+    roundId: round.id,
+    teamsRevision: listingState.teamsRevision,
+    teamIndex: selectedTeamIndex,
+    items: [...items],
+    submit
+  };
+  listingLocalItems = [...items];
+  listingSaveError = "";
+  if (submit) listingSubmissionQueued = true;
+  listingPendingSaves += 1;
+  renderListing();
+  if (!submit) focusListingEntry();
+  listingSaveChain = listingSaveChain.catch(() => undefined).then(async () => {
     const response = await fetch("/api/listing/submission", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        roundId: round.id,
-        teamsRevision: listingState.teamsRevision,
-        teamIndex: selectedTeamIndex,
-        items,
-        submit
-      })
+      body: JSON.stringify(requestData)
     });
     const payload = await response.json().catch(() => ({}));
     if (payload.state) listingState = payload.state;
     if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
-    listingStatus.textContent = submit ? "Eure Liste wurde abgegeben." : "Gespeichert";
-  } catch (error) {
-    listingStatus.textContent = error.message || "Die Spielleitung konnte nicht erreicht werden.";
-  } finally {
-    listingSaving = false;
+  }).catch((error) => {
+    listingSaveError = error.message || "Die Spielleitung konnte nicht erreicht werden.";
+  }).finally(() => {
+    listingPendingSaves -= 1;
+    if (listingPendingSaves === 0 && listingState?.round?.id === listingLocalRoundId) {
+      listingLocalItems = [...(listingState.round.teamItems || listingLocalItems)];
+      listingSubmissionQueued = listingState.round.teamSubmitted;
+    }
     render();
-  }
+    if (!listingSubmissionQueued) focusListingEntry();
+  });
+  return listingSaveChain;
 }
 
 function renderListing() {
   const round = listingState.round;
   const active = round.phase === "active";
+  if (listingLocalRoundId !== round.id) {
+    listingLocalRoundId = round.id;
+    listingLocalItems = [...(round.teamItems || [])];
+    listingSubmissionQueued = round.teamSubmitted;
+    listingPendingSaves = 0;
+    listingSaveChain = Promise.resolve();
+    listingSaveError = "";
+  } else if (listingPendingSaves === 0 && !listingSubmissionQueued) {
+    listingLocalItems = [...(round.teamItems || listingLocalItems)];
+  }
   listingTeam.textContent = listingState.teams[selectedTeamIndex] || "";
   listingTitle.textContent = round.title;
   listingPrompt.textContent = round.prompt;
@@ -414,12 +451,12 @@ function renderListing() {
       : "Eure Liste ist gesperrt. Wartet auf das Ergebnis.";
     return;
   }
-  const items = round.teamItems || [];
+  const items = listingLocalItems;
   listingCountdown.dataset.deadline = round.deadlineAt;
   listingCountdown.textContent = Math.max(0, Math.ceil((round.deadlineAt - Date.now()) / 1000));
   listingLimit.textContent = `${items.length} von ${round.maxItems} Einträgen`;
-  listingEntry.disabled = listingSaving || items.length >= round.maxItems;
-  listingSubmit.disabled = listingSaving;
+  listingEntry.disabled = items.length >= round.maxItems;
+  listingSubmit.disabled = listingSubmissionQueued;
   listingItems.replaceChildren();
   items.forEach((text, index) => {
     const row = document.createElement("li");
@@ -430,16 +467,24 @@ function renderListing() {
     remove.className = "listing-remove";
     remove.setAttribute("aria-label", `${text} löschen`);
     remove.textContent = "🗑";
-    remove.disabled = listingSaving || round.teamSubmitted;
-    remove.addEventListener("click", () => saveListingItems(items.filter((_, itemIndex) => itemIndex !== index)));
+    remove.disabled = round.teamSubmitted || listingSubmissionQueued;
+    remove.addEventListener("click", () => {
+      saveListingItems(items.filter((_, itemIndex) => itemIndex !== index));
+      focusListingEntry();
+    });
     row.append(label, remove);
     listingItems.append(row);
   });
-  if (round.teamSubmitted) {
+  if (listingSaveError) {
+    listingStatus.textContent = listingSaveError;
+  } else if (round.teamSubmitted || listingSubmissionQueued) {
     listingStatus.textContent = "Eure Liste wurde abgegeben.";
-  } else if (!listingSaving) {
+  } else if (listingPendingSaves > 0) {
+    listingStatus.textContent = "Wird gespeichert …";
+  } else {
     listingStatus.textContent = "Ihr könnt bis zum Ablauf der Zeit weiterarbeiten oder frühzeitig abgeben.";
   }
+  focusListingEntry();
 }
 
 function connectListingEvents() {
@@ -472,17 +517,20 @@ listingForm.addEventListener("submit", (event) => {
   const round = listingState?.round;
   if (!value || !round || round.teamSubmitted) return;
   const items = round.teamItems || [];
-  if (items.some((item) => item.toLocaleLowerCase() === value.toLocaleLowerCase())) {
+  const currentItems = listingLocalRoundId === round.id ? listingLocalItems : items;
+  if (currentItems.some((item) => item.toLocaleLowerCase() === value.toLocaleLowerCase())) {
     listingStatus.textContent = "Dieser Eintrag steht bereits in eurer Liste.";
+    listingEntry.focus({ preventScroll: true });
     return;
   }
-  if (items.length >= round.maxItems) return;
+  if (currentItems.length >= round.maxItems) return;
   listingEntry.value = "";
-  saveListingItems([...items, value]);
+  listingEntry.focus({ preventScroll: true });
+  saveListingItems([...currentItems, value]);
 });
 listingSubmit.addEventListener("click", () => {
   if (!listingState?.round) return;
-  saveListingItems(listingState.round.teamItems || [], true);
+  saveListingItems(listingLocalItems, true);
 });
 buzzButton.addEventListener("click", async () => {
   if (!currentState?.round.open || selectedTeamIndex === null || submitting) return;
