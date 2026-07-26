@@ -67,6 +67,10 @@ export function publishOrdering() {
   return publishPresentation(base("ordering"));
 }
 
+export function publishListing() {
+  return publishPresentation(base("listing"));
+}
+
 export function publishVictory(steps, revealedCount) {
   return publishPresentation({ ...base("victory"), steps, revealedCount });
 }

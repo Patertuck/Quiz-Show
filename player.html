@@ -52,6 +52,24 @@
       <ol id="ordering-list" class="ordering-phone-list"></ol>
       <p id="ordering-phone-status" class="buzz-status" role="status" aria-live="polite"></p>
     </section>
+    <section id="listing-step" class="player-card listing-phone" hidden>
+      <div class="selected-team-row">
+        <strong id="listing-team"></strong>
+        <button id="listing-change-team" type="button">Wechseln</button>
+      </div>
+      <h2 id="listing-title">List It</h2>
+      <p id="listing-prompt"></p>
+      <output id="listing-countdown" aria-label="Verbleibende Sekunden"></output>
+      <form id="listing-entry-form" class="listing-entry-form">
+        <label class="sr-only" for="listing-entry">Neuer Eintrag</label>
+        <input id="listing-entry" maxlength="100" autocomplete="off" placeholder="Eintrag hinzufügen">
+        <button type="submit">Hinzufügen</button>
+      </form>
+      <p id="listing-limit"></p>
+      <ul id="listing-items" class="listing-phone-items"></ul>
+      <button id="listing-submit" class="listing-submit" type="button">Liste abgeben</button>
+      <p id="listing-phone-status" class="buzz-status" role="status" aria-live="polite"></p>
+    </section>
   </main>
   <script type="module" src="js/player.js"></script>
 </body>

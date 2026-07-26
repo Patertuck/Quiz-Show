@@ -94,6 +94,34 @@ export function validateConfig(config) {
       unique.add(key);
     });
   });
+  if (!config.listing || typeof config.listing !== "object" || Array.isArray(config.listing)) {
+    throw new Error("listing muss ein Objekt sein.");
+  }
+  if (!Array.isArray(config.listing.questions) || !config.listing.questions.length) {
+    throw new Error("listing.questions muss mindestens eine Frage enthalten.");
+  }
+  const listingIds = new Set();
+  config.listing.questions.forEach((question, index) => {
+    const path = `listing.questions[${index}]`;
+    requireString(question?.id, `${path}.id`);
+    requireString(question?.title, `${path}.title`);
+    requireString(question?.prompt, `${path}.prompt`);
+    requireString(question?.validationRule, `${path}.validationRule`);
+    if (!/^[a-z0-9][a-z0-9-]*$/i.test(question.id) || listingIds.has(question.id)) {
+      throw new Error(`${path}.id muss eindeutig sein und darf nur Buchstaben, Zahlen und Bindestriche enthalten.`);
+    }
+    listingIds.add(question.id);
+    if (!Number.isInteger(question.timeLimitSeconds) || question.timeLimitSeconds < 5 || question.timeLimitSeconds > 600) {
+      throw new Error(`${path}.timeLimitSeconds muss eine Ganzzahl von 5 bis 600 sein.`);
+    }
+    if (!Number.isInteger(question.maxItems) || question.maxItems < 1 || question.maxItems > 50) {
+      throw new Error(`${path}.maxItems muss eine Ganzzahl von 1 bis 50 sein.`);
+    }
+    if (!Array.isArray(question.placementPoints) || !question.placementPoints.length
+        || question.placementPoints.some((points) => !Number.isInteger(points) || points < 0)) {
+      throw new Error(`${path}.placementPoints muss nicht-negative Ganzzahlen enthalten.`);
+    }
+  });
   return config;
 }
 

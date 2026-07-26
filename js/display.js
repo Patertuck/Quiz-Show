@@ -5,7 +5,9 @@ const connection = document.querySelector("#display-connection");
 let presentation = null;
 let buzzer = null;
 let orderingState = null;
+let listingState = null;
 let orderingTicker;
+let listingTicker;
 let displayScoreAnimationActive = false;
 const presentationQueue = [];
 const animatedOrderingRounds = new Set();
@@ -172,6 +174,64 @@ function ordering() {
   return screen;
 }
 
+function listing() {
+  const screen = element("section", "display-screen display-listing");
+  const round = listingState?.round;
+  if (!round) {
+    const content = element("div", "display-listing-waiting");
+    content.append(element("h1", "", "List It"), element("p", "", "Macht euch bereit für die nächste Aufgabe."));
+    screen.append(content);
+    return screen;
+  }
+  if (round.phase === "active") {
+    const content = element("div", "display-listing-active");
+    const timer = element("output", "display-listing-timer", String(Math.max(0, Math.ceil((round.deadlineAt - Date.now()) / 1000))));
+    timer.dataset.deadline = round.deadlineAt;
+    content.append(
+      element("h1", "", round.title),
+      element("p", "display-listing-prompt", round.prompt),
+      timer,
+      element("p", "display-listing-progress", `${round.submittedCount} von ${listingState.teams.length} Teams haben abgegeben`)
+    );
+    screen.append(content);
+    return screen;
+  }
+  if (round.phase === "classifying") {
+    const content = element("div", "display-listing-classifying");
+    content.append(element("div", "display-listing-spinner"), element("h1", "", "Antworten werden geprüft …"));
+    screen.append(content);
+    return screen;
+  }
+  if (round.phase === "review" && round.review) {
+    const content = element("div", "display-listing-review");
+    content.append(
+      element("p", "display-listing-review-progress", `Prüfung ${round.review.index + 1} von ${round.review.total}`),
+      element("p", "display-listing-team", listingState.teams[round.review.teamIndex]),
+      element("h1", "display-listing-answer", round.review.text),
+      element("p", "display-listing-review-note", "Die Spielleitung entscheidet")
+    );
+    screen.append(content);
+    return screen;
+  }
+  const content = element("div", "display-listing-results");
+  content.append(element("h1", "", "Rangliste"));
+  const rows = element("div", "display-listing-result-rows");
+  [...(round.results || [])].sort((a, b) => a.place - b.place || a.teamIndex - b.teamIndex).forEach((result) => {
+    const row = element("section", "display-listing-result-row");
+    row.dataset.teamIndex = result.teamIndex;
+    row.append(
+      element("strong", "display-listing-place", `${result.place}.`),
+      element("span", "display-listing-result-team", listingState.teams[result.teamIndex]),
+      element("span", "display-listing-count", `${result.acceptedCount} gültig`),
+      element("strong", "display-listing-points", `+${result.points}`)
+    );
+    rows.append(row);
+  });
+  content.append(rows);
+  screen.append(content);
+  return screen;
+}
+
 function victory() {
   const screen = element("section", "display-screen display-victory");
   screen.append(element("h1", "", "Endstand"));
@@ -199,12 +259,13 @@ function victory() {
 function render() {
   if (!presentation) return;
   document.title = `${presentation.title} — Publikumsansicht`;
-  document.body.classList.toggle("with-scoreboard", ["jeopardy-board", "jeopardy-question", "ordering"].includes(presentation.screen));
+  document.body.classList.toggle("with-scoreboard", ["jeopardy-board", "jeopardy-question", "ordering", "listing"].includes(presentation.screen));
   const renderers = {
     standby,
     "jeopardy-board": jeopardyBoard,
     "jeopardy-question": jeopardyQuestion,
     ordering,
+    listing,
     victory
   };
   root.replaceChildren(renderers[presentation.screen]());
@@ -331,11 +392,23 @@ orderingEvents.addEventListener("state", (event) => {
   if (presentation?.screen === "ordering" && !displayScoreAnimationActive) render();
 });
 
-Promise.all([initialState("/api/presentation/state"), initialState("/api/buzzer/state"), initialState("/api/ordering/state?role=public")])
-  .then(([nextPresentation, nextBuzzer, nextOrdering]) => {
+const listingEvents = new EventSource("/api/listing/events?role=public");
+listingEvents.addEventListener("state", (event) => {
+  listingState = JSON.parse(event.data);
+  if (presentation?.screen === "listing" && !displayScoreAnimationActive) render();
+});
+
+Promise.all([
+  initialState("/api/presentation/state"),
+  initialState("/api/buzzer/state"),
+  initialState("/api/ordering/state?role=public"),
+  initialState("/api/listing/state?role=public")
+])
+  .then(([nextPresentation, nextBuzzer, nextOrdering, nextListing]) => {
     if (!presentation || nextPresentation.version >= presentation.version) presentation = nextPresentation;
     if (!buzzer || nextBuzzer.version >= buzzer.version) buzzer = nextBuzzer;
     orderingState = nextOrdering;
+    listingState = nextListing;
     if (!displayScoreAnimationActive) render();
   })
   .catch(() => {
@@ -345,6 +418,11 @@ Promise.all([initialState("/api/presentation/state"), initialState("/api/buzzer/
 
 orderingTicker = setInterval(() => {
   const timer = root.querySelector(".display-ordering-timer");
+  if (timer) timer.textContent = Math.max(0, Math.ceil((Number(timer.dataset.deadline) - Date.now()) / 1000));
+}, 200);
+
+listingTicker = setInterval(() => {
+  const timer = root.querySelector(".display-listing-timer");
   if (timer) timer.textContent = Math.max(0, Math.ceil((Number(timer.dataset.deadline) - Date.now()) / 1000));
 }, 200);
 

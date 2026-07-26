@@ -43,3 +43,16 @@ h1 { margin: 0; color: #fff45c; font-size: clamp(1.45rem, 7vw, 2.25rem); }
 .ordering-phone-list.saving, .ordering-phone-list.locked-pending { pointer-events: none; opacity: .72; }
 .ordering-is-dragging { cursor: grabbing; user-select: none; -webkit-user-select: none; }
 .ordering-item-text { font-weight: bold; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.listing-phone { align-self: start; background: rgb(4 62 67 / 88%); }
+.listing-phone h2 { margin-bottom: .35rem; color: #9fffe8; }
+#listing-prompt { margin: 0 0 .6rem; text-align: center; line-height: 1.35; }
+#listing-countdown { display: block; width: 3.7rem; margin: .35rem auto .7rem; padding: .4rem; border: 2px solid #ffe16d; border-radius: 999px; color: #ffe16d; font-size: 1.35rem; font-weight: bold; text-align: center; }
+.listing-entry-form { display: grid; grid-template-columns: 1fr auto; gap: .5rem; }
+.listing-entry-form input { min-width: 0; padding: .75rem; border: 2px solid #ffffff55; border-radius: .55rem; font-size: 1rem; }
+.listing-entry-form button, .listing-submit { padding: .75rem; border-radius: .55rem; background: #24a77f; color: #fff; font-weight: 800; }
+#listing-limit { margin: .55rem 0; color: #bdece4; font-size: .9rem; text-align: right; }
+.listing-phone-items { display: grid; max-height: min(42vh, 22rem); gap: .45rem; margin: 0; padding: 0; overflow-y: auto; list-style: none; }
+.listing-phone-items li { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: .5rem; padding: .55rem .65rem; border-radius: .55rem; background: #fff; color: #173b3d; font-weight: 700; overflow-wrap: anywhere; }
+.listing-remove { display: grid; width: 2.4rem; height: 2.4rem; place-items: center; padding: 0; border-radius: 50%; background: #ffe7e9; font-size: 1rem; }
+.listing-submit { width: 100%; margin-top: .8rem; background: #f0bf2e; color: #182132; }

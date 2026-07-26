@@ -17,14 +17,29 @@ const orderingPrompt = document.querySelector("#ordering-prompt");
 const orderingCountdown = document.querySelector("#ordering-countdown");
 const orderingList = document.querySelector("#ordering-list");
 const orderingStatus = document.querySelector("#ordering-phone-status");
+const listingStep = document.querySelector("#listing-step");
+const listingTeam = document.querySelector("#listing-team");
+const listingTitle = document.querySelector("#listing-title");
+const listingPrompt = document.querySelector("#listing-prompt");
+const listingCountdown = document.querySelector("#listing-countdown");
+const listingForm = document.querySelector("#listing-entry-form");
+const listingEntry = document.querySelector("#listing-entry");
+const listingLimit = document.querySelector("#listing-limit");
+const listingItems = document.querySelector("#listing-items");
+const listingSubmit = document.querySelector("#listing-submit");
+const listingStatus = document.querySelector("#listing-phone-status");
 
 let currentState = null;
 let orderingState = null;
+let listingState = null;
 let presentationState = null;
 let selectedTeamIndex = null;
 let submitting = false;
 let orderingEvents;
+let listingEvents;
 let orderingTimer;
+let listingTimer;
+let listingSaving = false;
 let activeDrag = null;
 let deferredOrderingState = null;
 const newDeviceId = () => crypto.randomUUID?.()
@@ -45,7 +60,9 @@ function showTeamSelection() {
   teamStep.hidden = false;
   buzzStep.hidden = true;
   orderingStep.hidden = true;
+  listingStep.hidden = true;
   connectOrderingEvents();
+  connectListingEvents();
 }
 
 function showNoGameWaiting() {
@@ -60,7 +77,9 @@ function showNoGameWaiting() {
   teamStep.hidden = true;
   buzzStep.hidden = true;
   orderingStep.hidden = true;
+  listingStep.hidden = true;
   if (hadSelection) connectOrderingEvents();
+  if (hadSelection) connectListingEvents();
 }
 
 function showActivityWaiting() {
@@ -72,6 +91,7 @@ function showActivityWaiting() {
   teamStep.hidden = true;
   buzzStep.hidden = true;
   orderingStep.hidden = true;
+  listingStep.hidden = true;
 }
 
 function selectTeam(index) {
@@ -81,6 +101,7 @@ function selectTeam(index) {
   teamStep.hidden = true;
   buzzStep.hidden = false;
   connectOrderingEvents();
+  connectListingEvents();
   render();
 }
 
@@ -104,27 +125,42 @@ function render() {
   }
   waitingStep.hidden = true;
   const saved = savedSelection();
+  let restoredSelection = false;
   if (selectedTeamIndex === null && saved?.revision === currentState.teamsRevision
       && Number.isInteger(saved.index) && saved.index >= 0 && saved.index < currentState.teams.length) {
     selectedTeamIndex = saved.index;
+    restoredSelection = true;
   }
   if (selectedTeamIndex !== null && (saved?.revision !== currentState.teamsRevision
       || selectedTeamIndex >= currentState.teams.length)) {
     showTeamSelection();
+  }
+  if (restoredSelection) {
+    connectOrderingEvents();
+    connectListingEvents();
   }
   renderTeams();
   if (selectedTeamIndex === null) {
     teamStep.hidden = false;
     buzzStep.hidden = true;
     orderingStep.hidden = true;
+    listingStep.hidden = true;
     return;
   }
 
   teamStep.hidden = true;
   if (presentationState?.screen === "ordering" && orderingState?.round) {
     buzzStep.hidden = true;
+    listingStep.hidden = true;
     orderingStep.hidden = false;
     renderOrdering();
+    return;
+  }
+  if (presentationState?.screen === "listing" && listingState?.round) {
+    buzzStep.hidden = true;
+    orderingStep.hidden = true;
+    listingStep.hidden = false;
+    renderListing();
     return;
   }
   if (!["jeopardy-board", "jeopardy-question"].includes(presentationState?.screen)) {
@@ -133,6 +169,7 @@ function render() {
   }
   waitingStep.hidden = true;
   orderingStep.hidden = true;
+  listingStep.hidden = true;
   buzzStep.hidden = false;
   selectedTeamLabel.textContent = currentState.teams[selectedTeamIndex];
   const round = currentState.round;
@@ -331,6 +368,93 @@ function connectOrderingEvents() {
   });
 }
 
+async function saveListingItems(items, submit = false) {
+  const round = listingState?.round;
+  if (!round || selectedTeamIndex === null || round.phase !== "active" || round.teamSubmitted || listingSaving) return;
+  listingSaving = true;
+  listingStatus.textContent = submit ? "Liste wird abgegeben …" : "Wird gespeichert …";
+  try {
+    const response = await fetch("/api/listing/submission", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        roundId: round.id,
+        teamsRevision: listingState.teamsRevision,
+        teamIndex: selectedTeamIndex,
+        items,
+        submit
+      })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (payload.state) listingState = payload.state;
+    if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+    listingStatus.textContent = submit ? "Eure Liste wurde abgegeben." : "Gespeichert";
+  } catch (error) {
+    listingStatus.textContent = error.message || "Die Spielleitung konnte nicht erreicht werden.";
+  } finally {
+    listingSaving = false;
+    render();
+  }
+}
+
+function renderListing() {
+  const round = listingState.round;
+  const active = round.phase === "active";
+  listingTeam.textContent = listingState.teams[selectedTeamIndex] || "";
+  listingTitle.textContent = round.title;
+  listingPrompt.textContent = round.prompt;
+  listingCountdown.hidden = !active;
+  listingForm.hidden = !active || round.teamSubmitted;
+  listingSubmit.hidden = !active || round.teamSubmitted;
+  listingItems.hidden = !active;
+  listingLimit.hidden = !active;
+  if (!active) {
+    listingStatus.textContent = round.phase === "classifying"
+      ? "Eure Liste wird geprüft."
+      : "Eure Liste ist gesperrt. Wartet auf das Ergebnis.";
+    return;
+  }
+  const items = round.teamItems || [];
+  listingCountdown.dataset.deadline = round.deadlineAt;
+  listingCountdown.textContent = Math.max(0, Math.ceil((round.deadlineAt - Date.now()) / 1000));
+  listingLimit.textContent = `${items.length} von ${round.maxItems} Einträgen`;
+  listingEntry.disabled = listingSaving || items.length >= round.maxItems;
+  listingSubmit.disabled = listingSaving;
+  listingItems.replaceChildren();
+  items.forEach((text, index) => {
+    const row = document.createElement("li");
+    const label = document.createElement("span");
+    label.textContent = text;
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "listing-remove";
+    remove.setAttribute("aria-label", `${text} löschen`);
+    remove.textContent = "🗑";
+    remove.disabled = listingSaving || round.teamSubmitted;
+    remove.addEventListener("click", () => saveListingItems(items.filter((_, itemIndex) => itemIndex !== index)));
+    row.append(label, remove);
+    listingItems.append(row);
+  });
+  if (round.teamSubmitted) {
+    listingStatus.textContent = "Eure Liste wurde abgegeben.";
+  } else if (!listingSaving) {
+    listingStatus.textContent = "Ihr könnt bis zum Ablauf der Zeit weiterarbeiten oder frühzeitig abgeben.";
+  }
+}
+
+function connectListingEvents() {
+  listingEvents?.close();
+  const query = selectedTeamIndex === null ? "" : `?teamIndex=${selectedTeamIndex}`;
+  listingEvents = new EventSource(`/api/listing/events${query}`);
+  listingEvents.addEventListener("state", (event) => {
+    listingState = JSON.parse(event.data);
+    render();
+  });
+  listingEvents.addEventListener("error", () => {
+    listingStatus.textContent = "Verbindung verloren. Verbindung wird wiederhergestellt …";
+  });
+}
+
 async function loadState() {
   const response = await fetch("/api/buzzer/state", { cache: "no-store" });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -341,6 +465,25 @@ async function loadState() {
 document.querySelector("#change-team").addEventListener("click", showTeamSelection);
 document.querySelector("#waiting-change-team").addEventListener("click", showTeamSelection);
 document.querySelector("#ordering-change-team").addEventListener("click", showTeamSelection);
+document.querySelector("#listing-change-team").addEventListener("click", showTeamSelection);
+listingForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const value = listingEntry.value.trim();
+  const round = listingState?.round;
+  if (!value || !round || round.teamSubmitted) return;
+  const items = round.teamItems || [];
+  if (items.some((item) => item.toLocaleLowerCase() === value.toLocaleLowerCase())) {
+    listingStatus.textContent = "Dieser Eintrag steht bereits in eurer Liste.";
+    return;
+  }
+  if (items.length >= round.maxItems) return;
+  listingEntry.value = "";
+  saveListingItems([...items, value]);
+});
+listingSubmit.addEventListener("click", () => {
+  if (!listingState?.round) return;
+  saveListingItems(listingState.round.teamItems || [], true);
+});
 buzzButton.addEventListener("click", async () => {
   if (!currentState?.round.open || selectedTeamIndex === null || submitting) return;
   submitting = true;
@@ -401,6 +544,7 @@ Promise.all([loadState(), loadPresentationState()]).catch(() => {
 });
 
 connectOrderingEvents();
+connectListingEvents();
 orderingTimer = setInterval(() => {
   if (!orderingState?.round || orderingState.round.phase !== "active") return;
   const seconds = Math.max(0, Math.ceil((orderingState.round.deadlineAt - Date.now()) / 1000));
@@ -410,6 +554,13 @@ orderingTimer = setInterval(() => {
     orderingList.classList.add("locked-pending");
     orderingStatus.textContent = "Die Zeit ist abgelaufen. Eure Antwort wird gesperrt…";
   }
+}, 200);
+
+listingTimer = setInterval(() => {
+  if (!listingState?.round || listingState.round.phase !== "active") return;
+  const seconds = Math.max(0, Math.ceil((listingState.round.deadlineAt - Date.now()) / 1000));
+  listingCountdown.textContent = seconds;
+  if (seconds === 0) listingStatus.textContent = "Die Zeit ist abgelaufen. Eure Liste wird automatisch abgegeben …";
 }, 200);
 
 window.addEventListener("pagehide", () => cancelDrag(false));

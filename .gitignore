@@ -2,4 +2,7 @@ game-state.json
 .game-state.tmp
 ordering-state.json
 .ordering-state.tmp
+listing-state.json
+.listing-state.json.tmp
+server-config.json
 __pycache__/

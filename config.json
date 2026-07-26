@@ -75,5 +75,27 @@
         "items": ["Observation", "Question", "Hypothesis", "Experiment", "Analysis", "Conclusion"]
       }
     ]
+  },
+  "listing": {
+    "questions": [
+      {
+        "id": "pets",
+        "title": "Haustiere",
+        "prompt": "Nennt verschiedene Haustiere.",
+        "validationRule": "Akzeptiere Tiere, die üblicherweise als Haustiere in einem Privathaushalt gehalten werden. Lehne reine Wildtiere, Nutztiere ohne übliche Haustierhaltung und erfundene Tiere ab.",
+        "timeLimitSeconds": 60,
+        "maxItems": 20,
+        "placementPoints": [300, 200, 100]
+      },
+      {
+        "id": "countries-europe",
+        "title": "Länder Europas",
+        "prompt": "Nennt Länder, die vollständig oder teilweise in Europa liegen.",
+        "validationRule": "Akzeptiere souveräne Staaten, deren Staatsgebiet vollständig oder teilweise geografisch in Europa liegt. Lehne Städte, Regionen und nicht anerkannte Fantasieländer ab.",
+        "timeLimitSeconds": 90,
+        "maxItems": 30,
+        "placementPoints": [300, 200, 100]
+      }
+    ]
   }
 }

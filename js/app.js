@@ -5,6 +5,7 @@ import * as setup from "./views/setup.js";
 import * as hub from "./views/hub.js";
 import * as jeopardy from "./games/jeopardy.js";
 import * as ordering from "./games/ordering.js";
+import * as listing from "./games/listing.js";
 import * as victory from "./views/victory.js";
 
 const app = document.querySelector("#app");
@@ -18,6 +19,7 @@ const routes = {
   hub: { template: "views/hub.html", controller: hub, scoreboard: "standings", requiresGame: true },
   jeopardy: { template: "views/jeopardy.html", controller: jeopardy, scoreboard: "game", requiresGame: true },
   ordering: { template: "views/ordering.html", controller: ordering, scoreboard: "standings", requiresGame: true },
+  listing: { template: "views/listing.html", controller: listing, scoreboard: "standings", requiresGame: true },
   victory: { template: "views/victory.html", controller: victory, scoreboard: "hidden", requiresGame: true }
 };
 
