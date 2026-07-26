@@ -271,6 +271,7 @@ class ListingState:
                 "reviewQueue": [],
                 "reviewIndex": 0,
                 "decisions": {},
+                "resultView": None,
                 "warning": None,
             }
             self._classification_round_id = None
@@ -382,6 +383,7 @@ class ListingState:
             self.round["decisions"] = {}
             self.round["warning"] = warning
             self.round["phase"] = "review" if self.round["reviewQueue"] else "results"
+            self.round["resultView"] = None if self.round["reviewQueue"] else {"mode": "team", "teamPosition": 0}
             self._classification_round_id = None
             self._changed_unlocked()
 
@@ -425,21 +427,42 @@ class ListingState:
     def _results_unlocked(self) -> list[dict]:
         if not self.round:
             return []
-        counts = []
+        team_items: list[list[dict]] = [[] for _ in self.teams]
+        counts: list[int] = []
         for team_index in range(len(self.teams)):
-            canonicals = {
-                entry["canonical"] for entry in self.round["entries"]
-                if entry["teamIndex"] == team_index and self._accepted_unlocked(entry)
-            }
-            counts.append(len(canonicals))
+            counted_canonicals: set[str] = set()
+            for entry in self.round["entries"]:
+                if entry["teamIndex"] != team_index:
+                    continue
+                if not self._accepted_unlocked(entry):
+                    status = "rejected"
+                elif entry["canonical"] in counted_canonicals:
+                    status = "duplicate"
+                else:
+                    status = "counted"
+                    counted_canonicals.add(entry["canonical"])
+                team_items[team_index].append({"text": entry["text"], "status": status})
+            counts.append(len(counted_canonicals))
         sorted_counts = sorted(counts, reverse=True)
         results = []
         for team_index, count in enumerate(counts):
             place = sorted_counts.index(count) + 1
             points = (self.round["placementPoints"][place - 1]
                       if count > 0 and place <= len(self.round["placementPoints"]) else 0)
-            results.append({"teamIndex": team_index, "acceptedCount": count, "place": place, "points": points})
+            results.append({
+                "teamIndex": team_index,
+                "acceptedCount": count,
+                "place": place,
+                "points": points,
+                "items": team_items[team_index],
+            })
         return results
+
+    def _ordered_results_unlocked(self) -> list[dict]:
+        return sorted(
+            self._results_unlocked(),
+            key=lambda item: (item["place"], -item["acceptedCount"], item["teamIndex"]),
+        )
 
     def control(self, payload: dict) -> dict:
         action = payload.get("action")
@@ -490,10 +513,28 @@ class ListingState:
                     if any(item_id not in self.round["decisions"] for item_id in self.round["reviewQueue"]):
                         raise ValueError("Entscheidet zuerst über alle Einträge.")
                     self.round["phase"] = "results"
+                    self.round["resultView"] = {"mode": "team", "teamPosition": 0}
+                elif action == "result-navigate":
+                    if self.round["phase"] != "results":
+                        raise ValueError("Die Teamseiten sind momentan nicht verfügbar.")
+                    position = payload.get("teamPosition")
+                    if (not isinstance(position, int) or isinstance(position, bool)
+                            or not 0 <= position < len(self.teams)):
+                        raise ValueError("Ungültige Teamseite.")
+                    self.round["resultView"] = {"mode": "team", "teamPosition": position}
+                elif action == "result-ranking":
+                    if self.round["phase"] != "results":
+                        raise ValueError("Die Rangliste ist momentan nicht verfügbar.")
+                    self.round["resultView"] = {"mode": "ranking", "teamPosition": 0}
+                elif action == "result-teams":
+                    if self.round["phase"] != "results":
+                        raise ValueError("Die Teamseiten sind momentan nicht verfügbar.")
+                    self.round["resultView"] = {"mode": "team", "teamPosition": 0}
                 elif action == "confirm-distribution":
                     if self.round["phase"] != "results":
                         raise ValueError("Die Ergebnisse sind noch nicht bereit.")
                     self.round["phase"] = "distributed"
+                    self.round["resultView"] = {"mode": "ranking", "teamPosition": 0}
                     if self.round["questionId"] not in self.completed:
                         self.completed.append(self.round["questionId"])
                 elif action == "close":
@@ -553,7 +594,14 @@ class ListingState:
             if role == "host":
                 round_data["review"].update({"verdict": entry["verdict"], "reason": entry["reason"]})
         if source["phase"] in {"results", "distributed"}:
-            round_data["results"] = self._results_unlocked()
+            round_data["results"] = self._ordered_results_unlocked()
+            result_view = source.get("resultView")
+            if not isinstance(result_view, dict) or result_view.get("mode") not in {"team", "ranking"}:
+                result_view = {
+                    "mode": "ranking" if source["phase"] == "distributed" else "team",
+                    "teamPosition": 0,
+                }
+            round_data["resultView"] = result_view
         if role == "host":
             round_data["drafts"] = source["drafts"]
             round_data["decisions"] = source["decisions"]

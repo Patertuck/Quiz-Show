@@ -214,6 +214,42 @@ function listing() {
     screen.append(content);
     return screen;
   }
+  if (round.phase === "results" && round.resultView?.mode === "team") {
+    const position = round.resultView.teamPosition || 0;
+    const result = round.results?.[position];
+    const content = element("div", "display-listing-team-result");
+    if (!result) {
+      content.append(element("h1", "", "Keine Teamergebnisse"));
+      screen.append(content);
+      return screen;
+    }
+    const heading = element("header", "display-listing-team-heading");
+    heading.append(
+      element("strong", "display-listing-team-place", `${result.place}. Platz`),
+      element("h1", "", listingState.teams[result.teamIndex]),
+      element("span", "display-listing-team-count", `${result.acceptedCount} gewertet`)
+    );
+    const items = element("div", "display-listing-items");
+    if (!result.items?.length) {
+      items.append(element("p", "display-listing-empty", "Keine Begriffe eingereicht"));
+    } else {
+      result.items.forEach((item) => {
+        const card = element("div", `display-listing-item ${item.status}`);
+        card.append(
+          element("span", "display-listing-item-icon", item.status === "counted" ? "✓" : (item.status === "duplicate" ? "=" : "✕")),
+          element("span", "display-listing-item-text", item.text),
+          element("small", "display-listing-item-status",
+            item.status === "counted" ? "Gewertet" : (item.status === "duplicate" ? "Duplikat" : "Abgelehnt"))
+        );
+        items.append(card);
+      });
+    }
+    content.append(heading, items, element(
+      "p", "display-listing-team-page", `Team ${position + 1} von ${round.results.length}`
+    ));
+    screen.append(content);
+    return screen;
+  }
   const content = element("div", "display-listing-results");
   content.append(element("h1", "", "Rangliste"));
   const rows = element("div", "display-listing-result-rows");

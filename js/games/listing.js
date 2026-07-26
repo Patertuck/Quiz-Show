@@ -188,7 +188,72 @@ function resultTable(round) {
   return table;
 }
 
-function renderResults(round) {
+function itemStatusLabel(status) {
+  if (status === "counted") return "Gewertet";
+  if (status === "duplicate") return "Duplikat";
+  return "Abgelehnt";
+}
+
+function resultItems(items) {
+  const list = document.createElement("div");
+  list.className = "listing-result-items";
+  if (!items.length) {
+    const empty = document.createElement("p");
+    empty.className = "listing-result-empty";
+    empty.textContent = "Keine Begriffe eingereicht";
+    list.append(empty);
+    return list;
+  }
+  items.forEach((item) => {
+    const card = document.createElement("div");
+    card.className = `listing-result-item ${item.status}`;
+    card.title = `${item.text} · ${itemStatusLabel(item.status)}`;
+    const icon = document.createElement("span");
+    icon.className = "listing-result-item-icon";
+    icon.textContent = item.status === "counted" ? "✓" : (item.status === "duplicate" ? "=" : "✕");
+    const text = document.createElement("span");
+    text.textContent = item.text;
+    const status = document.createElement("small");
+    status.textContent = itemStatusLabel(item.status);
+    card.append(icon, text, status);
+    list.append(card);
+  });
+  return list;
+}
+
+function renderTeamResult(round) {
+  const position = round.resultView?.teamPosition || 0;
+  const result = round.results[position];
+  if (!result) {
+    request("result-ranking").catch((error) => setStatus(error.message));
+    return;
+  }
+  setStatus(`Teamseite ${position + 1} von ${round.results.length} · absteigend nach Platzierung.`);
+  const panel = document.createElement("section");
+  panel.className = "listing-team-result-panel";
+  const heading = document.createElement("header");
+  heading.className = "listing-team-result-heading";
+  const place = document.createElement("strong");
+  place.textContent = `${result.place}. Platz`;
+  const title = document.createElement("h2");
+  title.textContent = listingState.teams[result.teamIndex];
+  const count = document.createElement("span");
+  count.textContent = `${result.acceptedCount} gewertet`;
+  heading.append(place, title, count);
+  const actions = document.createElement("div");
+  actions.className = "listing-actions";
+  actions.append(
+    button("← Vorheriges Team", "secondary-button",
+      () => request("result-navigate", { teamPosition: position - 1 }), position === 0),
+    button("Nächstes Team →", "secondary-button",
+      () => request("result-navigate", { teamPosition: position + 1 }), position + 1 >= round.results.length),
+    button("Direkt zur Rangliste", "primary-button", () => request("result-ranking"))
+  );
+  panel.append(heading, resultItems(result.items || []), actions);
+  content.replaceChildren(panel);
+}
+
+function renderRanking(round) {
   setStatus(round.warning || (round.phase === "distributed" ? "Punkte wurden verteilt." : "Ergebnisse bereit."));
   const panel = document.createElement("section");
   panel.className = "listing-result-panel";
@@ -199,10 +264,18 @@ function renderResults(round) {
   if (round.phase === "distributed") {
     actions.append(button("Zurück zu den Aufgaben", "primary-button", () => request("close")));
   } else {
-    actions.append(button("Punkte verteilen", "primary-button", distribute));
+    actions.append(
+      button("Teamseiten anzeigen", "secondary-button", () => request("result-teams")),
+      button("Punkte verteilen", "primary-button", distribute)
+    );
   }
   panel.append(title, resultTable(round), actions);
   content.replaceChildren(panel);
+}
+
+function renderResults(round) {
+  if (round.phase === "results" && round.resultView?.mode === "team") renderTeamResult(round);
+  else renderRanking(round);
 }
 
 async function distribute() {

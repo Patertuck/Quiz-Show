@@ -86,6 +86,21 @@ class ListingStateTests(unittest.TestCase):
             [(0, 2, 1, 300), (1, 1, 2, 200)],
             [(item["teamIndex"], item["acceptedCount"], item["place"], item["points"]) for item in results],
         )
+        self.assertEqual(
+            [
+                {"text": "Hund", "status": "counted"},
+                {"text": "Katze", "status": "counted"},
+                {"text": "Tiger", "status": "rejected"},
+            ],
+            results[0]["items"],
+        )
+        self.assertEqual({"mode": "team", "teamPosition": 0}, state.snapshot("public")["round"]["resultView"])
+        state.control({"action": "result-navigate", "teamPosition": 1})
+        self.assertEqual(1, state.snapshot("public")["round"]["resultView"]["teamPosition"])
+        state.control({"action": "result-ranking"})
+        self.assertEqual("ranking", state.snapshot("public")["round"]["resultView"]["mode"])
+        public_item = state.snapshot("public")["round"]["results"][0]["items"][0]
+        self.assertEqual({"text", "status"}, set(public_item))
         awards = state.awards()
         self.assertEqual("listing:", awards["awardId"][:8])
         self.assertEqual([300, 200], [item["points"] for item in awards["awards"]])
@@ -143,6 +158,30 @@ class ListingStateTests(unittest.TestCase):
         state.control({"action": "decide", "itemId": second["itemId"], "accepted": True})
         state.control({"action": "finish-review"})
         self.assertEqual(2, state.snapshot("host")["round"]["results"][0]["acceptedCount"])
+
+    def test_accepted_synonyms_are_visible_but_only_count_once(self):
+        def classifier(_question, entries):
+            return [
+                {"id": entry["id"], "verdict": "correct", "canonical": "hund", "reason": "ok"}
+                for entry in entries
+            ], None
+
+        state = self.make_state(classifier)
+        state.start(QUESTION)
+        self.submit(state, 0, ["Hund", "Köter"])
+        state.control({"action": "lock"})
+        snapshot = wait_until(state, "results")
+        result = snapshot["round"]["results"][0]
+        self.assertEqual(1, result["acceptedCount"])
+        self.assertEqual(["counted", "duplicate"], [item["status"] for item in result["items"]])
+
+    def test_result_navigation_rejects_invalid_positions(self):
+        state = self.make_state(lambda _question, _entries: ([], None))
+        state.start(QUESTION)
+        state.control({"action": "lock"})
+        wait_until(state, "results")
+        with self.assertRaisesRegex(ValueError, "Ungültige Teamseite"):
+            state.control({"action": "result-navigate", "teamPosition": 2})
 
 
 class GroqClassifierTests(unittest.TestCase):
