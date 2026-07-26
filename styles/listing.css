@@ -25,12 +25,13 @@
 @keyframes listing-spin { to { transform: rotate(360deg); } }
 .listing-review { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto auto auto; align-items: center; }
 .listing-review-progress { margin: 0; color: #b8dbe0; font-size: clamp(.72rem, 1.7vh, 1rem); font-weight: bold; }
-.listing-review-team { display: inline-block; justify-self: center; margin: clamp(.2rem, .7vh, .45rem); padding: .3rem .7rem; border-radius: 999px; background: #1b7480; font-size: clamp(.75rem, 1.8vh, 1rem); font-weight: 800; }
-.listing-review h2 { max-height: 2.4em; margin: clamp(.3rem, 1vh, .75rem) 0; overflow: hidden; font-size: clamp(1.5rem, 5.5vh, 3.4rem); line-height: 1.15; overflow-wrap: anywhere; }
+.listing-review-team { display: inline-block; justify-self: center; margin: clamp(.2rem, .7vh, .45rem); padding: .4rem 1rem; border: 2px solid #74d8d2; border-radius: 999px; background: #1b7480; box-shadow: 0 .25rem .7rem #0005; color: #fff; font-size: clamp(1rem, 2.3vh, 1.3rem); font-weight: 900; }
+.listing-review h2 { margin: clamp(.3rem, 1vh, .75rem) 0; padding-bottom: .12em; font-size: clamp(1.5rem, 5.5vh, 3.4rem); line-height: 1.2; overflow-wrap: anywhere; }
 .listing-ai-note { max-height: 3.3em; padding: clamp(.45rem, 1.2vh, .75rem); overflow: hidden; border-radius: .6rem; background: #ca8b1d33; color: #ffe5ad; font-size: clamp(.68rem, 1.6vh, .95rem); }
 .listing-ai-note.wrong { background: #b4283633; color: #ffc3c9; }
 .listing-accept { background: #168750; color: #fff; }
 .listing-reject { background: #ac2b38; color: #fff; }
+.listing-reject-neutral { background: #6d5960; color: #fff; }
 .listing-decision-actions .selected { outline: 4px solid var(--yellow); }
 .listing-result-panel { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; }
 .listing-results { display: grid; min-height: 0; grid-template-columns: 1fr; gap: clamp(.3rem, .8vh, .55rem); align-content: center; }
@@ -50,6 +51,7 @@
 .listing-result-item.counted { border-color: #79d8a3; background: #187449; }
 .listing-result-item.duplicate { border-color: #eb8995; background: #842d3b; }
 .listing-result-item.rejected { border-color: #eb8995; background: #842d3b; }
+.listing-result-item.penalized { border-color: #ff6b7c; background: #a4192d; }
 .listing-result-empty { width: 100%; align-self: center; color: #b8dbe0; font-weight: 800; text-align: center; }
 @media (max-height: 560px) {
   .listing-heading p { margin-top: .15rem; }

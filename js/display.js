@@ -208,8 +208,7 @@ function listing() {
     content.append(
       element("p", "display-listing-review-progress", `Prüfung ${round.review.index + 1} von ${round.review.total}`),
       element("p", "display-listing-team", listingState.teams[round.review.teamIndex]),
-      element("h1", "display-listing-answer", round.review.text),
-      element("p", "display-listing-review-note", "Die Spielleitung entscheidet")
+      element("h1", "display-listing-answer", round.review.text)
     );
     screen.append(content);
     return screen;
@@ -241,7 +240,7 @@ function listing() {
     }
     content.append(heading, items, element(
       "p", "display-listing-team-count",
-      `${result.acceptedCount} ${result.acceptedCount === 1 ? "Begriff" : "Begriffe"} gewertet`
+      `${result.acceptedCount} Punkte`
     ));
     screen.append(content);
     return screen;

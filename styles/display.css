@@ -98,11 +98,10 @@ body { margin: 0; overflow: hidden; background: var(--blue); color: #fff; }
 .display-listing-classifying h1, .display-listing-waiting h1 { margin: clamp(.5rem, 2vh, 1.2rem) 0; font-size: clamp(2rem, 8vh, 6rem); }
 .display-listing-spinner { width: clamp(4rem, 18vh, 8rem); aspect-ratio: 1; margin: 0 auto; border: clamp(.4rem, 1.5vh, .8rem) solid #ffffff35; border-top-color: #ffe65c; border-radius: 50%; animation: display-listing-spin .8s linear infinite; }
 @keyframes display-listing-spin { to { transform: rotate(360deg); } }
-.display-listing-review { grid-template-rows: auto auto minmax(0, 1fr) auto; align-items: center; }
+.display-listing-review { grid-template-rows: auto auto minmax(0, 1fr); align-items: center; }
 .display-listing-review-progress { margin: 0; color: #bceae4; font-size: clamp(.9rem, 2.5vh, 1.8rem); font-weight: 800; }
-.display-listing-team { justify-self: center; margin: clamp(.3rem, 1vh, .7rem); padding: .4rem 1.1rem; border-radius: 999px; background: #1c7f86; font-size: clamp(1.1rem, 3.5vh, 2.3rem); font-weight: 900; }
-.display-listing-answer { max-width: 90vw; max-height: 2.3em; margin: clamp(.4rem, 2vh, 1.5rem) auto; overflow: hidden; color: #ffe65c; font-size: clamp(2.8rem, 15vh, 9rem); line-height: 1.1; overflow-wrap: anywhere; text-shadow: 0 .3rem .8rem #0008; }
-.display-listing-review-note { margin: 0; font-size: clamp(.9rem, 2.5vh, 1.8rem); }
+.display-listing-team { justify-self: center; margin: clamp(.3rem, 1vh, .7rem); padding: .55rem 1.5rem; border: clamp(.12rem, .35vh, .25rem) solid #74d8d2; border-radius: 999px; background: #1c7f86; box-shadow: 0 .35rem 1rem #0006; color: #fff; font-size: clamp(1.5rem, 4.5vh, 3rem); font-weight: 900; }
+.display-listing-answer { max-width: 90vw; margin: clamp(.4rem, 2vh, 1.5rem) auto; padding-bottom: .12em; color: #ffe65c; font-size: clamp(2.8rem, 15vh, 9rem); line-height: 1.2; overflow-wrap: anywhere; text-shadow: 0 .3rem .8rem #0008; }
 .display-listing-results { display: grid; height: 100%; grid-template-rows: auto minmax(0, 1fr); align-content: center; }
 .display-listing-result-rows { display: grid; width: min(60rem, 94vw); min-height: 0; grid-template-columns: 1fr; gap: clamp(.35rem, 1vh, .75rem); align-content: center; margin: clamp(.4rem, 1.5vh, 1rem) auto 0; }
 .display-listing-result-row { display: grid; width: 100%; min-width: 0; grid-template-columns: 4.5rem minmax(0, 1fr) minmax(0, 1fr) 7.5rem; align-items: center; gap: 1rem; padding: clamp(.45rem, 1.3vh, 1rem); border: 2px solid #ffffff44; border-radius: 1rem; background: #ffffff15; font-size: clamp(1.05rem, 2.9vh, 2rem); text-align: left; }
@@ -120,5 +119,6 @@ body { margin: 0; overflow: hidden; background: var(--blue); color: #fff; }
 .display-listing-item.counted { border-color: #79d8a3; background: #187449; }
 .display-listing-item.duplicate { border-color: #eb8995; background: #842d3b; }
 .display-listing-item.rejected { border-color: #eb8995; background: #842d3b; }
+.display-listing-item.penalized { border-color: #ff6b7c; background: #a4192d; }
 .display-listing-empty { width: 100%; align-self: center; color: #b8dbe0; font-size: clamp(1rem, 3vh, 2rem); font-weight: 800; text-align: center; }
 .display-listing-team-count { justify-self: center; margin: 0; color: #ffe65c; font-size: clamp(1rem, 3vh, 2rem); font-weight: 900; }

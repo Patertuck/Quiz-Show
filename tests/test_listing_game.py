@@ -159,6 +159,32 @@ class ListingStateTests(unittest.TestCase):
         state.control({"action": "finish-review"})
         self.assertEqual(2, state.snapshot("host")["round"]["results"][0]["acceptedCount"])
 
+    def test_wrong_answer_can_count_as_minus_one_or_zero(self):
+        def classifier(_question, entries):
+            verdicts = {"Hund": "correct", "Stein": "wrong", "Holz": "wrong"}
+            return [
+                {"id": entry["id"], "verdict": verdicts[entry["text"]],
+                 "canonical": entry["text"].casefold(), "reason": "Test"}
+                for entry in entries
+            ], None
+
+        state = self.make_state(classifier)
+        state.start(QUESTION)
+        self.submit(state, 0, ["Hund", "Stein"])
+        self.submit(state, 1, ["Holz"])
+        state.control({"action": "lock"})
+        wait_until(state, "review")
+        state.control({"action": "decide", "itemId": "t0-i1", "countImpact": -1})
+        state.control({"action": "decide", "itemId": "t1-i0", "countImpact": 0})
+        state.control({"action": "finish-review"})
+
+        results = state.snapshot("host")["round"]["results"]
+        by_team = {result["teamIndex"]: result for result in results}
+        self.assertEqual(0, by_team[0]["acceptedCount"])
+        self.assertEqual(0, by_team[1]["acceptedCount"])
+        self.assertEqual("penalized", by_team[0]["items"][1]["status"])
+        self.assertEqual("rejected", by_team[1]["items"][0]["status"])
+
     def test_accepted_synonyms_are_visible_but_only_count_once(self):
         def classifier(_question, entries):
             return [

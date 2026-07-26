@@ -149,10 +149,12 @@ function renderReview(round) {
   const decisions = document.createElement("div");
   decisions.className = "listing-decision-actions";
   decisions.append(
-    button("✓ Richtig", `listing-accept${review.decision === true ? " selected" : ""}`,
-      () => request("decide", { itemId: review.itemId, accepted: true })),
-    button("✕ Falsch", `listing-reject${review.decision === false ? " selected" : ""}`,
-      () => request("decide", { itemId: review.itemId, accepted: false }))
+    button("✓ Richtig (+1)", `listing-accept${review.decision === 1 || review.decision === true ? " selected" : ""}`,
+      () => request("decide", { itemId: review.itemId, countImpact: 1 })),
+    button("✕ Falsch (−1)", `listing-reject${review.decision === -1 ? " selected" : ""}`,
+      () => request("decide", { itemId: review.itemId, countImpact: -1 })),
+    button("Falsch (0)", `listing-reject-neutral${review.decision === 0 || review.decision === false ? " selected" : ""}`,
+      () => request("decide", { itemId: review.itemId, countImpact: 0 }))
   );
   const navigation = document.createElement("div");
   navigation.className = "listing-actions";
@@ -225,7 +227,7 @@ function renderTeamResult(round) {
   const title = document.createElement("h2");
   title.textContent = listingState.teams[result.teamIndex];
   const count = document.createElement("span");
-  count.textContent = `${result.acceptedCount} gewertet`;
+  count.textContent = `${result.acceptedCount} Punkte`;
   heading.append(place, title, count);
   const actions = document.createElement("div");
   actions.className = "listing-actions";

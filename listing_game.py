@@ -422,7 +422,17 @@ class ListingState:
     def _accepted_unlocked(self, entry: dict) -> bool:
         if entry["verdict"] == "correct":
             return True
-        return self.round["decisions"].get(entry["id"]) is True
+        return self.round["decisions"].get(entry["id"]) in (True, 1)
+
+    def _count_impact_unlocked(self, entry: dict) -> int:
+        if entry["verdict"] == "correct":
+            return 1
+        decision = self.round["decisions"].get(entry["id"])
+        if decision is True or decision == 1:
+            return 1
+        if decision == -1:
+            return -1
+        return 0
 
     def _results_unlocked(self) -> list[dict]:
         if not self.round:
@@ -431,10 +441,15 @@ class ListingState:
         counts: list[int] = []
         for team_index in range(len(self.teams)):
             counted_canonicals: set[str] = set()
+            penalties = 0
             for entry in self.round["entries"]:
                 if entry["teamIndex"] != team_index:
                     continue
-                if not self._accepted_unlocked(entry):
+                impact = self._count_impact_unlocked(entry)
+                if impact == -1:
+                    status = "penalized"
+                    penalties += 1
+                elif impact == 0:
                     status = "rejected"
                 elif entry["canonical"] in counted_canonicals:
                     status = "duplicate"
@@ -442,7 +457,7 @@ class ListingState:
                     status = "counted"
                     counted_canonicals.add(entry["canonical"])
                 team_items[team_index].append({"text": entry["text"], "status": status})
-            counts.append(len(counted_canonicals))
+            counts.append(len(counted_canonicals) - penalties)
         sorted_counts = sorted(counts, reverse=True)
         results = []
         for team_index, count in enumerate(counts):
@@ -494,10 +509,13 @@ class ListingState:
                     if self.round["phase"] != "review":
                         raise ValueError("Es gibt momentan keinen Eintrag zu prüfen.")
                     item_id = payload.get("itemId")
-                    accepted = payload.get("accepted")
-                    if item_id not in self.round["reviewQueue"] or not isinstance(accepted, bool):
+                    impact = payload.get("countImpact")
+                    if impact is None and isinstance(payload.get("accepted"), bool):
+                        impact = 1 if payload["accepted"] else 0
+                    if (item_id not in self.round["reviewQueue"]
+                            or isinstance(impact, bool) or impact not in {-1, 0, 1}):
                         raise ValueError("Ungültige Prüfentscheidung.")
-                    self.round["decisions"][item_id] = accepted
+                    self.round["decisions"][item_id] = impact
                     current = self.round["reviewQueue"].index(item_id)
                     self.round["reviewIndex"] = min(current + 1, len(self.round["reviewQueue"]) - 1)
                 elif action == "navigate":
