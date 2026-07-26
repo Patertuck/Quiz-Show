@@ -226,8 +226,7 @@ function listing() {
     const heading = element("header", "display-listing-team-heading");
     heading.append(
       element("strong", "display-listing-team-place", `${result.place}. Platz`),
-      element("h1", "", listingState.teams[result.teamIndex]),
-      element("span", "display-listing-team-count", `${result.acceptedCount} gewertet`)
+      element("h1", "", listingState.teams[result.teamIndex])
     );
     const items = element("div", "display-listing-items");
     if (!result.items?.length) {
@@ -235,17 +234,14 @@ function listing() {
     } else {
       result.items.forEach((item) => {
         const card = element("div", `display-listing-item ${item.status}`);
-        card.append(
-          element("span", "display-listing-item-icon", item.status === "counted" ? "✓" : (item.status === "duplicate" ? "=" : "✕")),
-          element("span", "display-listing-item-text", item.text),
-          element("small", "display-listing-item-status",
-            item.status === "counted" ? "Gewertet" : (item.status === "duplicate" ? "Duplikat" : "Abgelehnt"))
-        );
+        card.textContent = item.text;
+        card.title = item.text;
         items.append(card);
       });
     }
     content.append(heading, items, element(
-      "p", "display-listing-team-page", `Team ${position + 1} von ${round.results.length}`
+      "p", "display-listing-team-count",
+      `${result.acceptedCount} ${result.acceptedCount === 1 ? "Begriff" : "Begriffe"} gewertet`
     ));
     screen.append(content);
     return screen;

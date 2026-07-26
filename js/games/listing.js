@@ -188,12 +188,6 @@ function resultTable(round) {
   return table;
 }
 
-function itemStatusLabel(status) {
-  if (status === "counted") return "Gewertet";
-  if (status === "duplicate") return "Duplikat";
-  return "Abgelehnt";
-}
-
 function resultItems(items) {
   const list = document.createElement("div");
   list.className = "listing-result-items";
@@ -207,15 +201,8 @@ function resultItems(items) {
   items.forEach((item) => {
     const card = document.createElement("div");
     card.className = `listing-result-item ${item.status}`;
-    card.title = `${item.text} · ${itemStatusLabel(item.status)}`;
-    const icon = document.createElement("span");
-    icon.className = "listing-result-item-icon";
-    icon.textContent = item.status === "counted" ? "✓" : (item.status === "duplicate" ? "=" : "✕");
-    const text = document.createElement("span");
-    text.textContent = item.text;
-    const status = document.createElement("small");
-    status.textContent = itemStatusLabel(item.status);
-    card.append(icon, text, status);
+    card.title = item.text;
+    card.textContent = item.text;
     list.append(card);
   });
   return list;
