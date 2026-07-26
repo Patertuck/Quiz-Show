@@ -49,11 +49,26 @@ function renderOverview() {
   grid.className = "listing-question-grid";
   state.config.listing.questions.forEach((question) => {
     const complete = listingState.completedQuestionIds.includes(question.id);
-    const card = button(question.title, "listing-question-card", () => {
+    const card = button(question.title, `listing-question-card${complete ? " completed" : ""}`, () => {
+      if (complete) return;
       selectedQuestion = question;
       renderPreview();
-    }, complete);
-    if (complete) card.title = "Bereits abgeschlossen";
+    });
+    if (complete) {
+      card.title = "Bereits abgeschlossen · mit Rechtsklick erneut freischalten";
+      card.setAttribute("aria-disabled", "true");
+      card.setAttribute("aria-label", `${question.title}, abgeschlossen. Mit Rechtsklick erneut freischalten.`);
+      card.addEventListener("contextmenu", async (event) => {
+        event.preventDefault();
+        try {
+          await request("reopen-question", { questionId: question.id });
+          setStatus(`${question.title} kann erneut gespielt werden.`);
+        } catch (error) {
+          console.error(error);
+          setStatus(error.message);
+        }
+      });
+    }
     grid.append(card);
   });
   content.replaceChildren(grid);

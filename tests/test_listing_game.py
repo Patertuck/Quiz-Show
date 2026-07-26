@@ -209,6 +209,14 @@ class ListingStateTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Ungültige Teamseite"):
             state.control({"action": "result-navigate", "teamPosition": 2})
 
+    def test_completed_question_can_be_reopened(self):
+        state = self.make_state(lambda _question, _entries: ([], None))
+        state.completed.append("pets")
+        state.control({"action": "reopen-question", "questionId": "pets"})
+        self.assertNotIn("pets", state.snapshot("host")["completedQuestionIds"])
+        state.start(QUESTION)
+        self.assertEqual("active", state.snapshot("host")["round"]["phase"])
+
 
 class GroqClassifierTests(unittest.TestCase):
     def test_request_uses_application_user_agent(self):

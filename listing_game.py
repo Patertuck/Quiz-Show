@@ -493,7 +493,7 @@ class ListingState:
         else:
             with self.condition:
                 self._expire_unlocked()
-                if not self.round:
+                if not self.round and action != "reopen-question":
                     raise ValueError("Es gibt keine aktuelle List-It-Runde.")
                 if action == "lock":
                     self._begin_classification_unlocked()
@@ -505,6 +505,13 @@ class ListingState:
                     if self.round["phase"] in {"results", "distributed"}:
                         raise ValueError("Eine ausgewertete Runde kann nicht mehr abgebrochen werden.")
                     self.round = None
+                elif action == "reopen-question":
+                    if self.round:
+                        raise ValueError("Beendet zuerst die aktuelle List-It-Runde.")
+                    question_id = payload.get("questionId")
+                    if not isinstance(question_id, str) or question_id not in self.completed:
+                        raise ValueError("Diese List-It-Frage ist nicht abgeschlossen.")
+                    self.completed.remove(question_id)
                 elif action == "decide":
                     if self.round["phase"] != "review":
                         raise ValueError("Es gibt momentan keinen Eintrag zu prüfen.")
