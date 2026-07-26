@@ -1,4 +1,5 @@
 import { animateScoreDistribution } from "./display-score-animation.js";
+import qrcode from "../assets/vendor/qrcode.js";
 
 const root = document.querySelector("#display-root");
 const connection = document.querySelector("#display-connection");
@@ -302,6 +303,24 @@ function render() {
   };
   root.replaceChildren(renderers[presentation.screen]());
   if (document.body.classList.contains("with-scoreboard")) root.append(scoreboard(presentation.teams));
+  if (presentation.joinOverlay?.joinUrl) {
+    const overlay = element("aside", "display-join-overlay");
+    const card = element("div", "display-join-card");
+    const code = element("div", "display-join-qr");
+    const qr = qrcode(0, "M");
+    qr.addData(presentation.joinOverlay.joinUrl);
+    qr.make();
+    code.innerHTML = qr.createSvgTag({
+      cellSize: 10, margin: 16, scalable: true, title: "QR-Code für Quizspieler"
+    });
+    card.append(
+      element("h1", "", "Mit dem Handy teilnehmen"),
+      code,
+      element("p", "", presentation.joinOverlay.joinUrl)
+    );
+    overlay.append(card);
+    root.append(overlay);
+  }
   updateBuzzerBanner();
 }
 

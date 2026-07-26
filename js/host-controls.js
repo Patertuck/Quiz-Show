@@ -1,5 +1,6 @@
 import { saveState } from "./store.js";
 import qrcode from "../assets/vendor/qrcode.js";
+import { setJoinOverlay } from "./presentation-host.js";
 
 export function initializeHostControls({ navigate }) {
   const setupButton = document.querySelector("#team-setup-button");
@@ -33,9 +34,13 @@ export function initializeHostControls({ navigate }) {
       code.addData(joinUrl);
       code.make();
       qrContainer.innerHTML = code.createSvgTag({ cellSize: 8, margin: 16, scalable: true, title: "QR-Code für Quizspieler" });
+      if (playerDialog.open) await setJoinOverlay(joinUrl);
     } catch (error) {
       qrContainer.textContent = `Der QR-Code konnte nicht erstellt werden: ${error.message}`;
     }
+  });
+  playerDialog.addEventListener("close", () => {
+    setJoinOverlay().catch((error) => console.error("Could not hide QR code on audience display:", error));
   });
 
   setupButton.addEventListener("click", async () => {

@@ -1,13 +1,14 @@
 import { state } from "./store.js";
 
 let publishChain = Promise.resolve();
+let joinOverlay = null;
 
 function teams() {
   return state.teams.map(({ name, score }) => ({ name, score }));
 }
 
 function base(screen) {
-  return { screen, title: state.config?.title || "Quiz Show", teams: teams() };
+  return { screen, title: state.config?.title || "Quiz Show", teams: teams(), joinOverlay };
 }
 
 function media(image) {
@@ -69,6 +70,14 @@ export function publishOrdering() {
 
 export function publishListing() {
   return publishPresentation(base("listing"));
+}
+
+export async function setJoinOverlay(joinUrl = null) {
+  joinOverlay = typeof joinUrl === "string" && joinUrl ? { joinUrl } : null;
+  const response = await fetch("/api/presentation/state", { cache: "no-store" });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const { version: _version, ...current } = await response.json();
+  return publishPresentation({ ...current, joinOverlay });
 }
 
 export function publishVictory(steps, revealedCount) {

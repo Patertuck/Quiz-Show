@@ -542,6 +542,14 @@ def validate_presentation(payload: object) -> dict:
         clean_teams.append({"name": team["name"], "score": score})
 
     clean: dict = {"screen": payload["screen"], "title": title, "teams": clean_teams}
+    join_overlay = payload.get("joinOverlay")
+    if join_overlay is not None:
+        if not isinstance(join_overlay, dict) or not isinstance(join_overlay.get("joinUrl"), str):
+            raise ValueError("Presentation join overlay is invalid.")
+        join_url = join_overlay["joinUrl"]
+        if not re.fullmatch(r"https?://[^/\s]+/player", join_url):
+            raise ValueError("Presentation join URL is invalid.")
+        clean["joinOverlay"] = {"joinUrl": join_url}
     if payload["screen"] == "jeopardy-board":
         board = payload.get("board")
         if not isinstance(board, dict):
