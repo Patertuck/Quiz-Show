@@ -23,10 +23,7 @@ class SyncState:
         self.roster_locked = False
         self.participants: list[dict] = []
         self.completed: list[str] = []
-        self.sync_totals: list[int] = []
         self.round: dict | None = None
-        self.finished = False
-        self.distributed = False
         self.game_id = secrets.token_urlsafe(9)
         self.connections: dict[str, int] = {}
         self._load()
@@ -51,10 +48,7 @@ class SyncState:
             self.roster_locked = data.get("rosterLocked", False)
             self.participants = data.get("participants", [])
             self.completed = data.get("completedQuestionIds", [])
-            self.sync_totals = data.get("syncTotals", [0] * len(self.teams))
             self.round = data.get("round")
-            self.finished = data.get("finished", False)
-            self.distributed = data.get("distributed", False)
             self.game_id = data.get("gameId") or secrets.token_urlsafe(9)
         except (OSError, UnicodeError, json.JSONDecodeError):
             self.round = None
@@ -68,10 +62,7 @@ class SyncState:
             "rosterLocked": self.roster_locked,
             "participants": self.participants,
             "completedQuestionIds": self.completed,
-            "syncTotals": self.sync_totals,
             "round": self.round,
-            "finished": self.finished,
-            "distributed": self.distributed,
             "gameId": self.game_id,
         }
         encoded = (json.dumps(data, ensure_ascii=False, indent=2) + "\n").encode()
@@ -102,10 +93,7 @@ class SyncState:
         self.roster_locked = False
         self.participants = []
         self.completed = []
-        self.sync_totals = [0] * len(self.teams)
         self.round = None
-        self.finished = False
-        self.distributed = False
         self.game_id = secrets.token_urlsafe(9)
         self.connections = {}
 
@@ -166,19 +154,61 @@ class SyncState:
             self._changed_unlocked()
             return 200, {"registered": True, "participantId": existing["id"], "state": self._snapshot_unlocked("player", device_id)}
 
+    def reconnect(self, payload: dict) -> tuple[int, dict]:
+        device_id = payload.get("deviceId")
+        participant_id = payload.get("participantId")
+        team_index = payload.get("teamIndex")
+        if not isinstance(device_id, str) or not 8 <= len(device_id) <= 100:
+            raise ValueError("Eine gültige deviceId ist erforderlich.")
+        if not isinstance(participant_id, str) or not participant_id:
+            raise ValueError("Eine gültige participantId ist erforderlich.")
+        if not isinstance(team_index, int) or isinstance(team_index, bool):
+            raise ValueError("teamIndex muss eine Ganzzahl sein.")
+        with self.condition:
+            if payload.get("teamsRevision") != self.teams_revision or not 0 <= team_index < len(self.teams):
+                return 409, {"error": "Die Teamliste wurde geändert. Wählt euer Team erneut.",
+                             "state": self._snapshot_unlocked("player", device_id)}
+            existing_device = self._participant_by_device_unlocked(device_id)
+            if existing_device:
+                return 200, {
+                    "reconnected": True,
+                    "participantId": existing_device["id"],
+                    "state": self._snapshot_unlocked("player", device_id),
+                }
+            participant = next((item for item in self.participants
+                                if item["id"] == participant_id and item["teamIndex"] == team_index), None)
+            if not participant:
+                raise ValueError("Dieses Spielerkonto gehört nicht zu eurem Team.")
+            if self.connections.get(participant_id, 0) > 0:
+                return 409, {"error": "Dieses Spielerkonto ist momentan aktiv.",
+                             "state": self._snapshot_unlocked("player", device_id)}
+            participant["deviceId"] = device_id
+            self._changed_unlocked()
+            return 200, {
+                "reconnected": True,
+                "participantId": participant_id,
+                "state": self._snapshot_unlocked("player", device_id),
+            }
+
     def _validate_question(self, question: object) -> dict:
         if not isinstance(question, dict):
             raise ValueError("Eine Frage ist erforderlich.")
         question_id = question.get("id")
         prompt = question.get("prompt")
         seconds = question.get("timeLimitSeconds")
+        points = question.get("pointsPerSync")
         if not isinstance(question_id, str) or question_id not in self.question_ids:
             raise ValueError("Die Frage gehört nicht zur Sync-Up-Konfiguration.")
         if not isinstance(prompt, str) or not prompt.strip():
             raise ValueError("Der Prompt darf nicht leer sein.")
         if not isinstance(seconds, int) or isinstance(seconds, bool) or not 1 <= seconds <= 60:
             raise ValueError("timeLimitSeconds muss zwischen 1 und 60 liegen.")
-        return {"id": question_id, "prompt": prompt.strip(), "timeLimitSeconds": seconds}
+        if not isinstance(points, int) or isinstance(points, bool) or points <= 0:
+            raise ValueError("pointsPerSync muss eine positive Ganzzahl sein.")
+        return {
+            "id": question_id, "prompt": prompt.strip(),
+            "timeLimitSeconds": seconds, "pointsPerSync": points,
+        }
 
     def _expire_unlocked(self) -> None:
         if not self.round or self.round["phase"] != "active":
@@ -190,11 +220,10 @@ class SyncState:
             members = [item for item in self.participants if item["teamIndex"] == team_index]
             selections = [self.round["votes"].get(item["id"]) for item in members]
             synced = bool(members) and all(selections) and len(set(selections)) == 1
-            if synced:
-                self.sync_totals[team_index] += 1
             results.append({
                 "teamIndex": team_index,
                 "synced": synced,
+                "points": self.round["pointsPerSync"] if synced else 0,
                 "selectedParticipantId": selections[0] if synced else None,
                 "votes": [{"participantId": item["id"], "selectedParticipantId": self.round["votes"].get(item["id"])}
                           for item in members],
@@ -265,7 +294,7 @@ class SyncState:
             elif action == "prepare":
                 if not self.roster_locked:
                     raise ValueError("Sperrt zuerst die Teilnehmerliste.")
-                if self.finished or self.round:
+                if self.round:
                     raise ValueError("Beendet zuerst die aktuelle Sync-Up-Ansicht.")
                 question = self._validate_question(payload.get("question"))
                 if question["id"] in self.completed:
@@ -275,6 +304,7 @@ class SyncState:
                     "questionId": question["id"],
                     "prompt": question["prompt"],
                     "timeLimitSeconds": question["timeLimitSeconds"],
+                    "pointsPerSync": question["pointsPerSync"],
                     "deadlineAt": None,
                     "phase": "prepared",
                     "votes": {},
@@ -299,43 +329,27 @@ class SyncState:
                     raise ValueError("Diese Runde kann nicht mehr abgebrochen werden.")
                 self.round = None
             elif action == "close":
-                if not self.round or self.round["phase"] != "results":
-                    raise ValueError("Es sind keine Rundenergebnisse geöffnet.")
+                if not self.round or self.round["phase"] != "distributed":
+                    raise ValueError("Verteilt zuerst die Punkte dieser Runde.")
                 self.round = None
-            elif action == "finish":
-                if self.round or not self.completed:
-                    raise ValueError("Schliesst die Runde und spielt mindestens einen Prompt.")
-                self.finished = True
             elif action == "confirm-distribution":
-                if not self.finished:
-                    raise ValueError("Beendet zuerst Sync Up.")
-                self.distributed = True
+                if not self.round or self.round["phase"] != "results":
+                    raise ValueError("Die Rundenergebnisse sind nicht bereit.")
+                self.round["phase"] = "distributed"
             else:
                 raise ValueError("Unbekannte Sync-Up-Aktion.")
             self._changed_unlocked()
             return self._snapshot_unlocked("host")
 
-    def _standings_unlocked(self) -> list[dict]:
-        results = []
-        for team_index, total in enumerate(self.sync_totals):
-            rank = 1 + sum(1 for other in self.sync_totals if other > total)
-            results.append({"teamIndex": team_index, "syncCount": total, "rank": rank})
-        return sorted(results, key=lambda item: (item["rank"], item["teamIndex"]))
-
-    def awards(self, placement_points: object) -> dict:
-        if (not isinstance(placement_points, list) or not placement_points
-                or any(not isinstance(item, int) or isinstance(item, bool) or item < 0 for item in placement_points)):
-            raise ValueError("placementPoints muss nicht-negative Ganzzahlen enthalten.")
+    def awards(self) -> dict:
         with self.condition:
             self._expire_unlocked()
-            if not self.finished:
-                raise ValueError("Beendet zuerst Sync Up.")
-            standings = self._standings_unlocked()
+            if not self.round or self.round["phase"] not in {"results", "distributed"}:
+                raise ValueError("Die Rundenergebnisse sind nicht bereit.")
             return {
-                "awardId": f"sync:{self.game_id}",
-                "awards": [{"teamIndex": item["teamIndex"],
-                            "points": placement_points[item["rank"] - 1] if item["rank"] <= len(placement_points) else 0}
-                           for item in standings],
+                "awardId": f"sync:{self.round['id']}",
+                "awards": [{"teamIndex": item["teamIndex"], "points": item["points"]}
+                           for item in self.round["results"]],
             }
 
     def _public_participants_unlocked(self) -> list[dict]:
@@ -354,13 +368,9 @@ class SyncState:
             "rosterLocked": self.roster_locked,
             "participants": public_participants,
             "completedQuestionIds": self.completed,
-            "syncTotals": self.sync_totals,
-            "standings": self._standings_unlocked(),
-            "finished": self.finished,
-            "distributed": self.distributed,
             "round": None,
         }
-        if role == "host":
+        if role in {"host", "player"}:
             result["connectedParticipantIds"] = sorted(self.connections)
         if role == "player" and participant:
             result["selfParticipantId"] = participant["id"]
@@ -368,12 +378,12 @@ class SyncState:
             return result
         source = self.round
         round_data = {key: source[key] for key in (
-            "id", "questionId", "prompt", "timeLimitSeconds", "deadlineAt", "phase"
+            "id", "questionId", "prompt", "timeLimitSeconds", "pointsPerSync", "deadlineAt", "phase"
         )}
         round_data["submittedCount"] = len(source["votes"])
         if role == "player" and participant:
             round_data["ownSelectionId"] = source["votes"].get(participant["id"])
-        if source["phase"] == "results":
+        if source["phase"] in {"results", "distributed"}:
             round_data["results"] = source["results"]
         result["round"] = round_data
         return result
@@ -394,19 +404,19 @@ class SyncState:
             self._expire_unlocked()
             return self._snapshot_unlocked(role, device_id) if self.version != version else None
 
-    def connect(self, device_id: str) -> None:
+    def connect(self, device_id: str) -> str | None:
         with self.condition:
             participant = self._participant_by_device_unlocked(device_id)
             if participant:
                 participant_id = participant["id"]
                 self.connections[participant_id] = self.connections.get(participant_id, 0) + 1
                 self._changed_unlocked(False)
+                return participant_id
+            return None
 
-    def disconnect(self, device_id: str) -> None:
+    def disconnect(self, participant_id: str | None) -> None:
         with self.condition:
-            participant = self._participant_by_device_unlocked(device_id)
-            if participant and participant["id"] in self.connections:
-                participant_id = participant["id"]
+            if participant_id in self.connections:
                 self.connections[participant_id] -= 1
                 if self.connections[participant_id] <= 0:
                     del self.connections[participant_id]

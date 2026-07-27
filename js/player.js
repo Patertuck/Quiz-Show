@@ -28,6 +28,8 @@ const syncRegisterTeam = document.querySelector("#sync-register-team");
 const syncRegisterForm = document.querySelector("#sync-register-form");
 const syncName = document.querySelector("#sync-name");
 const syncRegisterStatus = document.querySelector("#sync-register-status");
+const syncExistingAccounts = document.querySelector("#sync-existing-accounts");
+const syncAccountChoices = document.querySelector("#sync-account-choices");
 const syncStep = document.querySelector("#sync-step");
 const syncTeam = document.querySelector("#sync-team");
 const syncEditRegistration = document.querySelector("#sync-edit-registration");
@@ -532,10 +534,56 @@ function showSyncRegistration() {
   syncName.value = own?.name || "";
   syncName.disabled = closed;
   syncRegisterForm.querySelector("button[type=submit]").disabled = closed;
-  syncRegisterStatus.textContent = closed ? "Die Teilnehmerliste wurde bereits gesperrt." : "";
+  syncRegisterForm.hidden = closed;
+  syncRegisterStatus.textContent = closed ? "Wähle dein bestehendes Spielerkonto." : "";
+  renderSyncAccountChoices(own);
   syncRegisterStep.hidden = false;
   syncStep.hidden = true;
   queueMicrotask(() => syncName.focus({ preventScroll: true }));
+}
+
+function renderSyncAccountChoices(own) {
+  const activeIds = new Set(syncState?.connectedParticipantIds || []);
+  const accounts = (syncState?.participants || []).filter((person) =>
+    person.teamIndex === selectedTeamIndex && person.id !== own?.id && !person.isTest
+  );
+  syncExistingAccounts.hidden = !accounts.length || Boolean(own);
+  syncAccountChoices.replaceChildren();
+  accounts.forEach((person) => {
+    const active = activeIds.has(person.id);
+    const choice = document.createElement("button");
+    choice.type = "button";
+    choice.className = "sync-account-choice";
+    choice.textContent = active ? `${person.name} · aktiv` : person.name;
+    choice.disabled = active;
+    choice.addEventListener("click", () => reconnectSyncParticipant(person.id));
+    syncAccountChoices.append(choice);
+  });
+}
+
+async function reconnectSyncParticipant(participantId) {
+  syncRegisterStatus.textContent = "Wird wieder verbunden …";
+  try {
+    const response = await fetch("/api/sync/reconnect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        deviceId,
+        participantId,
+        teamIndex: selectedTeamIndex,
+        teamsRevision: syncState.teamsRevision
+      })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (payload.state) syncState = payload.state;
+    if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+    editingSyncRegistration = false;
+    connectSyncEvents();
+    render();
+  } catch (error) {
+    syncRegisterStatus.textContent = error.message || "Das Spielerkonto konnte nicht verbunden werden.";
+    renderSyncAccountChoices(ownSyncParticipant());
+  }
 }
 
 function renderSync() {
@@ -558,13 +606,13 @@ function renderSync() {
     return;
   }
   if (!round) {
-    syncPrompt.textContent = syncState.finished ? "Sync Up ist beendet" : "Warten auf den nächsten Prompt";
+    syncPrompt.textContent = "Warten auf den nächsten Prompt";
     syncCountdown.textContent = "";
-    syncStatus.textContent = syncState.finished ? "Danke fürs Mitspielen!" : "Bleibt bereit.";
+    syncStatus.textContent = "Bleibt bereit.";
     return;
   }
   syncPrompt.textContent = round.phase === "prepared"
-    ? "Gleich geht es los"
+    ? ""
     : round.phase === "active" ? "Wähle eine Person" : "Ergebnis";
   const active = round.phase === "active";
   syncCountdown.textContent = active
@@ -580,7 +628,7 @@ function renderSync() {
     choice.addEventListener("click", () => saveSyncVote(person.id));
     syncChoices.append(choice);
   });
-  if (round.phase === "prepared") syncStatus.textContent = "Die Spielleitung liest den Prompt vor. Gleich geht es los.";
+  if (round.phase === "prepared") syncStatus.textContent = "";
   else if (active) syncStatus.textContent = round.ownSelectionId
     ? `Aktuell gewählt: ${teammates.find((item) => item.id === round.ownSelectionId)?.name || ""}. Du kannst noch wechseln.`
     : "Wähle eine Person. Du kannst bis zum Ablauf der Zeit wechseln.";

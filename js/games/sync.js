@@ -42,25 +42,6 @@ function participantName(id) {
   return syncState.participants.find((item) => item.id === id)?.name || "Keine Auswahl";
 }
 
-function standings(compact = false) {
-  const panel = document.createElement("section");
-  panel.className = `sync-standings${compact ? " compact" : ""}`;
-  const title = document.createElement("h2");
-  title.textContent = "Zwischenstand";
-  panel.append(title);
-  syncState.standings.forEach((result) => {
-    const row = document.createElement("div");
-    row.className = "sync-standing-row";
-    row.append(
-      Object.assign(document.createElement("strong"), { textContent: `${result.rank}.` }),
-      Object.assign(document.createElement("span"), { textContent: syncState.teams[result.teamIndex] }),
-      Object.assign(document.createElement("strong"), { textContent: `${result.syncCount} Sync${result.syncCount === 1 ? "" : "s"}` })
-    );
-    panel.append(row);
-  });
-  return panel;
-}
-
 function renderLobby() {
   const connected = new Set(syncState.connectedParticipantIds || []);
   statusLine.textContent = syncState.rosterLocked
@@ -106,18 +87,21 @@ function renderOverview() {
   state.config.syncUp.questions.forEach((question) => {
     const complete = syncState.completedQuestionIds.includes(question.id);
     prompts.append(button(question.prompt, `sync-question-card${complete ? " completed" : ""}`, () => request("prepare", {
-      question: { ...question, timeLimitSeconds: state.config.syncUp.timeLimitSeconds }
+      question: {
+        ...question,
+        timeLimitSeconds: state.config.syncUp.timeLimitSeconds,
+        pointsPerSync: state.config.syncUp.pointsPerSync
+      }
     }), complete));
   });
   const actions = document.createElement("div");
   actions.className = "sync-actions";
   actions.append(
-    button("Sync Up beenden", "primary-button", () => request("finish"), !syncState.completedQuestionIds.length),
     button("Spiel zurücksetzen", "danger-button", async () => {
       if (window.confirm("Teilnehmer, Antworten und Sync-Punkte wirklich löschen?")) await request("reset-game");
     })
   );
-  layout.append(prompts, standings());
+  layout.append(prompts);
   content.replaceChildren(layout, actions);
 }
 
@@ -167,7 +151,11 @@ function resultTeams(round) {
     card.className = `sync-result-team${result.synced ? " synced" : ""}`;
     const title = document.createElement("h2");
     title.textContent = syncState.teams[result.teamIndex];
-    card.append(title);
+    const points = document.createElement("strong");
+    points.className = "sync-result-points";
+    points.textContent = `+${result.points}`;
+    card.dataset.teamIndex = result.teamIndex;
+    card.append(title, points);
     result.votes.forEach((vote) => {
       const voter = participantName(vote.participantId);
       const choice = participantName(vote.selectedParticipantId);
@@ -189,43 +177,28 @@ function renderResults(round) {
   heading.textContent = round.prompt;
   const actions = document.createElement("div");
   actions.className = "sync-actions";
-  actions.append(button("Weiter", "primary-button", () => request("close")));
-  content.replaceChildren(heading, resultTeams(round), standings(true), actions);
+  if (round.phase === "distributed") {
+    actions.append(button("Weiter", "primary-button", () => request("close")));
+  } else {
+    actions.append(button("Punkte verteilen", "primary-button", distribute));
+  }
+  content.replaceChildren(heading, resultTeams(round), actions);
 }
 
 async function distribute() {
-  const award = await request("awards", { placementPoints: state.config.syncUp.placementPoints });
+  const award = await request("awards");
   if (applyAward(award.awardId, award.awards)) renderScoreboard();
   await saveState();
   await request("confirm-distribution");
   await publishSync();
 }
 
-function renderFinished() {
-  statusLine.textContent = syncState.distributed ? "Die Platzierungspunkte wurden verteilt." : "Finale Rangliste";
-  const awards = new Map(syncState.standings.map((item) => [
-    item.teamIndex,
-    item.rank <= state.config.syncUp.placementPoints.length
-      ? state.config.syncUp.placementPoints[item.rank - 1] : 0
-  ]));
-  const ranking = standings();
-  ranking.querySelectorAll(".sync-standing-row").forEach((row, index) => {
-    const result = syncState.standings[index];
-    row.append(Object.assign(document.createElement("strong"), { textContent: `+${awards.get(result.teamIndex)}` }));
-  });
-  const actions = document.createElement("div");
-  actions.className = "sync-actions";
-  if (!syncState.distributed) actions.append(button("Punkte verteilen", "primary-button", distribute));
-  content.replaceChildren(ranking, actions);
-}
-
 function render(snapshot) {
   syncState = snapshot;
   root.querySelector(".sync-heading").hidden = false;
-  if (syncState.finished) renderFinished();
-  else if (syncState.round?.phase === "prepared") renderPrepared(syncState.round);
+  if (syncState.round?.phase === "prepared") renderPrepared(syncState.round);
   else if (syncState.round?.phase === "active") renderActive(syncState.round);
-  else if (syncState.round?.phase === "results") renderResults(syncState.round);
+  else if (["results", "distributed"].includes(syncState.round?.phase)) renderResults(syncState.round);
   else if (!syncState.rosterLocked) renderLobby();
   else renderOverview();
 }

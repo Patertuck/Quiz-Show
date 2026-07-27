@@ -724,8 +724,9 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
             device_id = query.get("deviceId", [None])[0]
             requested_role = query.get("role", [""])[0]
             role = "player" if device_id else ("public" if requested_role == "public" else ("host" if self.is_host else "public"))
+            connected_participant_id = None
             if role == "player":
-                SYNC.connect(device_id)
+                connected_participant_id = SYNC.connect(device_id)
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream; charset=utf-8")
             self.send_header("Cache-Control", "no-store")
@@ -746,7 +747,7 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
                 pass
             finally:
                 if role == "player":
-                    SYNC.disconnect(device_id)
+                    SYNC.disconnect(connected_participant_id)
             return
         if self.request_path == "/api/listing/state":
             query = parse_qs(urlsplit(self.path).query)
@@ -957,6 +958,14 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
                 return
             self.send_json(status, response)
             return
+        if self.request_path == "/api/sync/reconnect":
+            try:
+                status, response = SYNC.reconnect(self.read_json(MAX_PRESENTATION_BODY_BYTES))
+            except (UnicodeError, json.JSONDecodeError, ValueError, OSError) as error:
+                self.send_json(400, {"error": str(error)})
+                return
+            self.send_json(status, response)
+            return
         if self.request_path == "/api/sync/vote":
             try:
                 status, response = SYNC.vote(self.read_json(MAX_PRESENTATION_BODY_BYTES))
@@ -970,7 +979,7 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
                 return
             try:
                 payload = self.read_json(MAX_PRESENTATION_BODY_BYTES)
-                response = (SYNC.awards(payload.get("placementPoints"))
+                response = (SYNC.awards()
                             if payload.get("action") == "awards" else SYNC.control(payload))
             except (UnicodeError, json.JSONDecodeError, ValueError, OSError) as error:
                 self.send_json(400, {"error": str(error)})

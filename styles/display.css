@@ -141,8 +141,5 @@ body { margin: 0; overflow: hidden; background: var(--blue); color: #fff; }
 .display-sync-result-grid { min-height: 0; align-content: center; }
 .display-sync-result-team.synced { border-color: #60ef96; background: linear-gradient(145deg, #197347, #0d462c); box-shadow: 0 0 2rem #43ec7c66; }
 .display-sync-result-team:not(.synced) { border-color: #ff7887; background: linear-gradient(145deg, #92283b, #551426); box-shadow: 0 0 1.7rem #ff405055; }
+.display-sync-result-points { display: block; margin: -.35rem 0 .55rem; color: #ffe65c; font-size: clamp(1.2rem, 3vh, 2rem); text-align: center; }
 .display-sync-vote { margin: .35rem 0; padding: .45rem; border-radius: .45rem; background: #0002; font-weight: 800; }
-.display-sync-mini-ranking { display: flex; flex-wrap: wrap; justify-content: center; gap: .8rem; }
-.display-sync-mini-ranking > div, .display-sync-standing { padding: .55rem 1rem; border-radius: .7rem; background: #ffffff18; }
-.display-sync-mini-ranking strong, .display-sync-standing { font-weight: 900; }
-.display-sync-standing { display: grid; min-width: min(36rem, 90vw); grid-template-columns: 3rem 1fr auto; gap: 1rem; font-size: clamp(1.2rem, 4vh, 2.5rem); text-align: left; }

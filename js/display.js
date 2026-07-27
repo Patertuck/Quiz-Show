@@ -15,6 +15,7 @@ let displayScoreAnimationActive = false;
 const presentationQueue = [];
 const animatedOrderingRounds = new Set();
 const animatedListingRounds = new Set();
+const animatedSyncRounds = new Set();
 const standbyLogoSource = "assets/Logo-1024.webp";
 const standbyLogoRetryDelay = 2000;
 
@@ -285,28 +286,13 @@ function sync() {
     screen.append(lobby);
     return screen;
   }
-  if (syncState.finished) {
-    const panel = element("div", "display-sync-ranking");
-    panel.append(element("h1", "", "Sync Up · Rangliste"));
-    syncState.standings.forEach((result) => {
-      const row = element("section", "display-sync-standing");
-      row.append(
-        element("strong", "", `${result.rank}.`),
-        element("span", "", syncState.teams[result.teamIndex]),
-        element("strong", "", `${result.syncCount} Sync${result.syncCount === 1 ? "" : "s"}`)
-      );
-      panel.append(row);
-    });
-    screen.append(panel);
-    return screen;
-  }
   if (!round) {
     const waiting = element("div", "display-sync-waiting");
     waiting.append(element("h1", "", "Sync Up"), element("p", "", "Warten auf den nächsten Prompt"));
     screen.append(waiting);
     return screen;
   }
-  if (round.phase !== "results") {
+  if (!["results", "distributed"].includes(round.phase)) {
     const active = element("div", "display-sync-active");
     active.append(element("h1", "display-sync-prompt", round.prompt));
     const timer = element("output", "display-sync-timer",
@@ -323,7 +309,11 @@ function sync() {
   const teams = element("div", "display-sync-result-grid");
   round.results.forEach((result) => {
     const card = element("section", `display-sync-result-team${result.synced ? " synced" : ""}`);
-    card.append(element("h2", "", syncState.teams[result.teamIndex]));
+    card.dataset.teamIndex = result.teamIndex;
+    card.append(
+      element("h2", "", syncState.teams[result.teamIndex]),
+      element("strong", "display-sync-result-points", `+${result.points}`)
+    );
     result.votes.forEach((vote) => {
       const voter = syncState.participants.find((person) => person.id === vote.participantId)?.name || "?";
       const selected = syncState.participants.find((person) => person.id === vote.selectedParticipantId)?.name || "Keine Auswahl";
@@ -331,16 +321,7 @@ function sync() {
     });
     teams.append(card);
   });
-  const ranking = element("aside", "display-sync-mini-ranking");
-  syncState.standings.forEach((result) => {
-    const item = element("div");
-    item.append(
-      document.createTextNode(`${result.rank}. ${syncState.teams[result.teamIndex]} · `),
-      element("strong", "", `${result.syncCount} Sync${result.syncCount === 1 ? "" : "s"}`)
-    );
-    ranking.append(item);
-  });
-  content.append(teams, ranking);
+  content.append(teams);
   screen.append(content);
   return screen;
 }
@@ -446,6 +427,22 @@ function listingAnimationPlan(nextPresentation) {
   return { awards: awards.filter(({ points }) => points > 0), origins };
 }
 
+function syncAnimationPlan(nextPresentation) {
+  const round = syncState?.round;
+  if (!presentation || presentation.screen !== "sync" || nextPresentation.screen !== "sync"
+      || !round || animatedSyncRounds.has(round.id)
+      || !["results", "distributed"].includes(round.phase) || !Array.isArray(round.results)) return null;
+  const expectedPoints = new Map(round.results.map(({ teamIndex, points }) => [teamIndex, points]));
+  const awards = scoreChanges(nextPresentation);
+  if (!awards.some(({ points }) => points > 0)
+      || awards.some(({ points, teamIndex }) => points !== (expectedPoints.get(teamIndex) || 0))) return null;
+  const origins = awards.map(({ teamIndex }) => root.querySelector(
+    `.display-sync-result-team[data-team-index="${teamIndex}"] .display-sync-result-points`
+  )?.getBoundingClientRect() || null);
+  animatedSyncRounds.add(round.id);
+  return { awards: awards.filter(({ points }) => points > 0), origins };
+}
+
 function jeopardyAnimationPlan(nextPresentation) {
   if (!presentation || presentation.screen !== "jeopardy-question"
       || nextPresentation.screen !== "jeopardy-question"
@@ -459,7 +456,8 @@ function jeopardyAnimationPlan(nextPresentation) {
 function audienceAnimationPlan(nextPresentation) {
   return jeopardyAnimationPlan(nextPresentation)
     || orderingAnimationPlan(nextPresentation)
-    || listingAnimationPlan(nextPresentation);
+    || listingAnimationPlan(nextPresentation)
+    || syncAnimationPlan(nextPresentation);
 }
 
 async function drainPresentationQueue() {

@@ -100,7 +100,7 @@
   },
   "syncUp": {
     "timeLimitSeconds": 5,
-    "placementPoints": [300, 200, 100],
+    "pointsPerSync": 100,
     "questions": [
       {
         "id": "verschlafen",

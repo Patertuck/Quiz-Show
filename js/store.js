@@ -129,9 +129,8 @@ export function validateConfig(config) {
       || config.syncUp.timeLimitSeconds < 1 || config.syncUp.timeLimitSeconds > 60) {
     throw new Error("syncUp.timeLimitSeconds muss eine Ganzzahl von 1 bis 60 sein.");
   }
-  if (!Array.isArray(config.syncUp.placementPoints) || !config.syncUp.placementPoints.length
-      || config.syncUp.placementPoints.some((points) => !Number.isInteger(points) || points < 0)) {
-    throw new Error("syncUp.placementPoints muss nicht-negative Ganzzahlen enthalten.");
+  if (!Number.isInteger(config.syncUp.pointsPerSync) || config.syncUp.pointsPerSync <= 0) {
+    throw new Error("syncUp.pointsPerSync muss eine positive Ganzzahl sein.");
   }
   if (!Array.isArray(config.syncUp.questions) || !config.syncUp.questions.length) {
     throw new Error("syncUp.questions muss mindestens einen Prompt enthalten.");
