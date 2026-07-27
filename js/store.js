@@ -122,6 +122,30 @@ export function validateConfig(config) {
       throw new Error(`${path}.placementPoints muss nicht-negative Ganzzahlen enthalten.`);
     }
   });
+  if (!config.syncUp || typeof config.syncUp !== "object" || Array.isArray(config.syncUp)) {
+    throw new Error("syncUp muss ein Objekt sein.");
+  }
+  if (!Number.isInteger(config.syncUp.timeLimitSeconds)
+      || config.syncUp.timeLimitSeconds < 1 || config.syncUp.timeLimitSeconds > 60) {
+    throw new Error("syncUp.timeLimitSeconds muss eine Ganzzahl von 1 bis 60 sein.");
+  }
+  if (!Array.isArray(config.syncUp.placementPoints) || !config.syncUp.placementPoints.length
+      || config.syncUp.placementPoints.some((points) => !Number.isInteger(points) || points < 0)) {
+    throw new Error("syncUp.placementPoints muss nicht-negative Ganzzahlen enthalten.");
+  }
+  if (!Array.isArray(config.syncUp.questions) || !config.syncUp.questions.length) {
+    throw new Error("syncUp.questions muss mindestens einen Prompt enthalten.");
+  }
+  const syncIds = new Set();
+  config.syncUp.questions.forEach((question, index) => {
+    const path = `syncUp.questions[${index}]`;
+    requireString(question?.id, `${path}.id`);
+    requireString(question?.prompt, `${path}.prompt`);
+    if (!/^[a-z0-9][a-z0-9-]*$/i.test(question.id) || syncIds.has(question.id)) {
+      throw new Error(`${path}.id muss eindeutig sein und darf nur Buchstaben, Zahlen und Bindestriche enthalten.`);
+    }
+    syncIds.add(question.id);
+  });
   return config;
 }
 
@@ -251,10 +275,10 @@ export function resumeRuntime(teams) {
 
 export function applyAward(awardId, awards) {
   if (state.appliedAwards.has(awardId)) return false;
-  if (typeof awardId !== "string" || !awardId || !Array.isArray(awards)) throw new Error("Die Punktevergabe von Order Up ist ungültig.");
+  if (typeof awardId !== "string" || !awardId || !Array.isArray(awards)) throw new Error("Die Punktevergabe ist ungültig.");
   awards.forEach(({ teamIndex, points }) => {
     if (!Number.isInteger(teamIndex) || !state.teams[teamIndex] || !Number.isInteger(points) || points < 0) {
-      throw new Error("Die Punktevergabe von Order Up enthält ungültige Teampunkte.");
+      throw new Error("Die Punktevergabe enthält ungültige Teampunkte.");
     }
   });
   awards.forEach(({ teamIndex, points }) => { state.teams[teamIndex].score += points; });

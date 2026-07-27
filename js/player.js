@@ -23,15 +23,30 @@ const listingForm = document.querySelector("#listing-entry-form");
 const listingEntry = document.querySelector("#listing-entry");
 const listingItems = document.querySelector("#listing-items");
 const listingStatus = document.querySelector("#listing-phone-status");
+const syncRegisterStep = document.querySelector("#sync-register-step");
+const syncRegisterTeam = document.querySelector("#sync-register-team");
+const syncRegisterForm = document.querySelector("#sync-register-form");
+const syncName = document.querySelector("#sync-name");
+const syncRegisterStatus = document.querySelector("#sync-register-status");
+const syncStep = document.querySelector("#sync-step");
+const syncTeam = document.querySelector("#sync-team");
+const syncEditRegistration = document.querySelector("#sync-edit-registration");
+const syncPrompt = document.querySelector("#sync-prompt");
+const syncCountdown = document.querySelector("#sync-countdown");
+const syncChoices = document.querySelector("#sync-person-choices");
+const syncStatus = document.querySelector("#sync-phone-status");
 
 let currentState = null;
 let orderingState = null;
 let listingState = null;
 let presentationState = null;
+let syncState = null;
 let selectedTeamIndex = null;
 let submitting = false;
 let orderingEvents;
 let listingEvents;
+let syncEvents;
+let editingSyncRegistration = false;
 let orderingTimer;
 let listingPendingSaves = 0;
 let listingSaveChain = Promise.resolve();
@@ -60,8 +75,11 @@ function showTeamSelection() {
   buzzStep.hidden = true;
   orderingStep.hidden = true;
   listingStep.hidden = true;
+  syncRegisterStep.hidden = true;
+  syncStep.hidden = true;
   connectOrderingEvents();
   connectListingEvents();
+  connectSyncEvents();
 }
 
 function showNoGameWaiting() {
@@ -77,6 +95,8 @@ function showNoGameWaiting() {
   buzzStep.hidden = true;
   orderingStep.hidden = true;
   listingStep.hidden = true;
+  syncRegisterStep.hidden = true;
+  syncStep.hidden = true;
   if (hadSelection) connectOrderingEvents();
   if (hadSelection) connectListingEvents();
 }
@@ -91,6 +111,8 @@ function showActivityWaiting() {
   buzzStep.hidden = true;
   orderingStep.hidden = true;
   listingStep.hidden = true;
+  syncRegisterStep.hidden = true;
+  syncStep.hidden = true;
 }
 
 function selectTeam(index) {
@@ -101,6 +123,7 @@ function selectTeam(index) {
   buzzStep.hidden = false;
   connectOrderingEvents();
   connectListingEvents();
+  connectSyncEvents();
   render();
 }
 
@@ -144,6 +167,8 @@ function render() {
     buzzStep.hidden = true;
     orderingStep.hidden = true;
     listingStep.hidden = true;
+    syncRegisterStep.hidden = true;
+    syncStep.hidden = true;
     return;
   }
 
@@ -162,6 +187,13 @@ function render() {
     renderListing();
     return;
   }
+  if (presentationState?.screen === "sync") {
+    buzzStep.hidden = true;
+    orderingStep.hidden = true;
+    listingStep.hidden = true;
+    renderSync();
+    return;
+  }
   if (!["jeopardy-board", "jeopardy-question"].includes(presentationState?.screen)) {
     showActivityWaiting();
     return;
@@ -169,6 +201,8 @@ function render() {
   waitingStep.hidden = true;
   orderingStep.hidden = true;
   listingStep.hidden = true;
+  syncRegisterStep.hidden = true;
+  syncStep.hidden = true;
   buzzStep.hidden = false;
   selectedTeamLabel.textContent = currentState.teams[selectedTeamIndex];
   const round = currentState.round;
@@ -486,6 +520,105 @@ function connectListingEvents() {
   });
 }
 
+function ownSyncParticipant() {
+  return syncState?.participants.find((item) => item.id === syncState.selfParticipantId) || null;
+}
+
+function showSyncRegistration() {
+  editingSyncRegistration = true;
+  const own = ownSyncParticipant();
+  const closed = Boolean(syncState?.rosterLocked && !own);
+  syncRegisterTeam.textContent = currentState?.teams[selectedTeamIndex] || "";
+  syncName.value = own?.name || "";
+  syncName.disabled = closed;
+  syncRegisterForm.querySelector("button[type=submit]").disabled = closed;
+  syncRegisterStatus.textContent = closed ? "Die Teilnehmerliste wurde bereits gesperrt." : "";
+  syncRegisterStep.hidden = false;
+  syncStep.hidden = true;
+  queueMicrotask(() => syncName.focus({ preventScroll: true }));
+}
+
+function renderSync() {
+  const own = ownSyncParticipant();
+  if (syncState?.rosterLocked && own) editingSyncRegistration = false;
+  if (!syncState || !own || editingSyncRegistration) {
+    showSyncRegistration();
+    return;
+  }
+  syncRegisterStep.hidden = true;
+  syncStep.hidden = false;
+  syncTeam.textContent = `${syncState.teams[own.teamIndex]} · ${own.name}`;
+  syncEditRegistration.hidden = syncState.rosterLocked;
+  const round = syncState.round;
+  syncChoices.replaceChildren();
+  if (!syncState.rosterLocked) {
+    syncPrompt.textContent = "Warten auf alle Mitspielenden";
+    syncCountdown.textContent = "";
+    syncStatus.textContent = "Die Spielleitung sperrt die Teilnehmerliste, sobald alle registriert sind.";
+    return;
+  }
+  if (!round) {
+    syncPrompt.textContent = syncState.finished ? "Sync Up ist beendet" : "Warten auf den nächsten Prompt";
+    syncCountdown.textContent = "";
+    syncStatus.textContent = syncState.finished ? "Danke fürs Mitspielen!" : "Bleibt bereit.";
+    return;
+  }
+  syncPrompt.textContent = round.prompt;
+  const active = round.phase === "active";
+  syncCountdown.textContent = active
+    ? Math.max(0, Math.ceil((round.deadlineAt - Date.now()) / 1000))
+    : round.phase === "prepared" ? String(round.timeLimitSeconds) : "0";
+  const teammates = syncState.participants.filter((item) => item.teamIndex === own.teamIndex);
+  teammates.forEach((person) => {
+    const choice = document.createElement("button");
+    choice.type = "button";
+    choice.className = `sync-person-choice${round.ownSelectionId === person.id ? " selected" : ""}`;
+    choice.textContent = person.id === own.id ? `${person.name} (ich)` : person.name;
+    choice.disabled = !active;
+    choice.addEventListener("click", () => saveSyncVote(person.id));
+    syncChoices.append(choice);
+  });
+  if (round.phase === "prepared") syncStatus.textContent = "Die Spielleitung liest den Prompt vor. Gleich geht es los.";
+  else if (active) syncStatus.textContent = round.ownSelectionId
+    ? `Aktuell gewählt: ${teammates.find((item) => item.id === round.ownSelectionId)?.name || ""}. Du kannst noch wechseln.`
+    : "Wähle eine Person. Du kannst bis zum Ablauf der Zeit wechseln.";
+  else {
+    const teamResult = round.results?.find((item) => item.teamIndex === own.teamIndex);
+    syncStatus.textContent = teamResult?.synced ? "Ihr wart synchron!" : "Diesmal wart ihr nicht synchron.";
+  }
+}
+
+async function saveSyncVote(selectedParticipantId) {
+  const round = syncState?.round;
+  if (!round || round.phase !== "active") return;
+  try {
+    const response = await fetch("/api/sync/vote", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ deviceId, roundId: round.id, selectedParticipantId })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (payload.state) syncState = payload.state;
+    if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+    if (navigator.vibrate) navigator.vibrate(40);
+    render();
+  } catch (error) {
+    syncStatus.textContent = error.message || "Die Auswahl konnte nicht gespeichert werden.";
+  }
+}
+
+function connectSyncEvents() {
+  syncEvents?.close();
+  syncEvents = new EventSource(`/api/sync/events?deviceId=${encodeURIComponent(deviceId)}`);
+  syncEvents.addEventListener("state", (event) => {
+    syncState = JSON.parse(event.data);
+    render();
+  });
+  syncEvents.addEventListener("error", () => {
+    if (!syncStep.hidden) syncStatus.textContent = "Verbindung verloren. Verbindung wird wiederhergestellt …";
+  });
+}
+
 async function loadState() {
   const response = await fetch("/api/buzzer/state", { cache: "no-store" });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -497,6 +630,34 @@ document.querySelector("#change-team").addEventListener("click", showTeamSelecti
 document.querySelector("#waiting-change-team").addEventListener("click", showTeamSelection);
 document.querySelector("#ordering-change-team").addEventListener("click", showTeamSelection);
 document.querySelector("#listing-change-team").addEventListener("click", showTeamSelection);
+document.querySelector("#sync-register-change-team").addEventListener("click", showTeamSelection);
+syncEditRegistration.addEventListener("click", showSyncRegistration);
+syncRegisterForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const name = syncName.value.trim();
+  if (!name || selectedTeamIndex === null || !syncState) return;
+  syncRegisterStatus.textContent = "Wird registriert …";
+  try {
+    const response = await fetch("/api/sync/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        deviceId,
+        teamsRevision: syncState.teamsRevision,
+        teamIndex: selectedTeamIndex,
+        name
+      })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (payload.state) syncState = payload.state;
+    if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+    editingSyncRegistration = false;
+    connectSyncEvents();
+    render();
+  } catch (error) {
+    syncRegisterStatus.textContent = error.message || "Die Registrierung ist fehlgeschlagen.";
+  }
+});
 listingForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const value = listingEntry.value.trim();
@@ -575,6 +736,7 @@ Promise.all([loadState(), loadPresentationState()]).catch(() => {
 
 connectOrderingEvents();
 connectListingEvents();
+connectSyncEvents();
 orderingTimer = setInterval(() => {
   if (!orderingState?.round || orderingState.round.phase !== "active") return;
   const seconds = Math.max(0, Math.ceil((orderingState.round.deadlineAt - Date.now()) / 1000));
@@ -585,5 +747,10 @@ orderingTimer = setInterval(() => {
     orderingStatus.textContent = "Die Zeit ist abgelaufen. Eure Antwort wird gesperrt…";
   }
 }, 200);
+
+setInterval(() => {
+  if (presentationState?.screen !== "sync" || syncState?.round?.phase !== "active") return;
+  syncCountdown.textContent = Math.max(0, Math.ceil((syncState.round.deadlineAt - Date.now()) / 1000));
+}, 100);
 
 window.addEventListener("pagehide", () => cancelDrag(false));

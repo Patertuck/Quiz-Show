@@ -7,8 +7,10 @@ let presentation = null;
 let buzzer = null;
 let orderingState = null;
 let listingState = null;
+let syncState = null;
 let orderingTicker;
 let listingTicker;
+let syncTicker;
 let displayScoreAnimationActive = false;
 const presentationQueue = [];
 const animatedOrderingRounds = new Set();
@@ -265,6 +267,79 @@ function listing() {
   return screen;
 }
 
+function sync() {
+  const screen = element("section", "display-screen display-sync");
+  const round = syncState?.round;
+  if (!syncState?.rosterLocked) {
+    const lobby = element("div", "display-sync-lobby");
+    lobby.append(element("h1", "", "Sync Up"), element("p", "", "Registriert euch mit Namen auf euren Handys."));
+    const teams = element("div", "display-sync-roster");
+    syncState?.teams.forEach((team, teamIndex) => {
+      const card = element("section", "display-sync-roster-team");
+      card.append(element("h2", "", team));
+      syncState.participants.filter((person) => person.teamIndex === teamIndex)
+        .forEach((person) => card.append(element("div", "", person.name)));
+      teams.append(card);
+    });
+    lobby.append(teams);
+    screen.append(lobby);
+    return screen;
+  }
+  if (syncState.finished) {
+    const panel = element("div", "display-sync-ranking");
+    panel.append(element("h1", "", "Sync Up · Rangliste"));
+    syncState.standings.forEach((result) => {
+      const row = element("section", "display-sync-standing");
+      row.append(
+        element("strong", "", `${result.rank}.`),
+        element("span", "", syncState.teams[result.teamIndex]),
+        element("strong", "", `${result.syncCount} Sync${result.syncCount === 1 ? "" : "s"}`)
+      );
+      panel.append(row);
+    });
+    screen.append(panel);
+    return screen;
+  }
+  if (!round) {
+    const waiting = element("div", "display-sync-waiting");
+    waiting.append(element("h1", "", "Sync Up"), element("p", "", "Warten auf den nächsten Prompt"));
+    screen.append(waiting);
+    return screen;
+  }
+  if (round.phase !== "results") {
+    const active = element("div", "display-sync-active");
+    active.append(element("h1", "display-sync-prompt", round.prompt));
+    const timer = element("output", "display-sync-timer",
+      round.phase === "active" ? String(Math.max(0, Math.ceil((round.deadlineAt - Date.now()) / 1000))) : String(round.timeLimitSeconds));
+    if (round.deadlineAt) timer.dataset.deadline = round.deadlineAt;
+    active.append(timer, element("p", "", round.phase === "active"
+      ? `${round.submittedCount} von ${syncState.participants.length} gewählt`
+      : "Die Spielleitung liest den Prompt vor."));
+    screen.append(active);
+    return screen;
+  }
+  const content = element("div", "display-sync-results");
+  content.append(element("h1", "display-sync-prompt", round.prompt));
+  const teams = element("div", "display-sync-result-grid");
+  round.results.forEach((result) => {
+    const card = element("section", `display-sync-result-team${result.synced ? " synced" : ""}`);
+    card.append(element("h2", "", `${syncState.teams[result.teamIndex]}${result.synced ? " · SYNC!" : ""}`));
+    result.votes.forEach((vote) => {
+      const voter = syncState.participants.find((person) => person.id === vote.participantId)?.name || "?";
+      const selected = syncState.participants.find((person) => person.id === vote.selectedParticipantId)?.name || "Keine Auswahl";
+      card.append(element("div", "display-sync-vote", `${voter} → ${selected}`));
+    });
+    teams.append(card);
+  });
+  const ranking = element("aside", "display-sync-mini-ranking");
+  syncState.standings.forEach((result) => ranking.append(
+    element("div", "", `${result.rank}. ${syncState.teams[result.teamIndex]} · ${result.syncCount}`)
+  ));
+  content.append(teams, ranking);
+  screen.append(content);
+  return screen;
+}
+
 function victory() {
   const screen = element("section", "display-screen display-victory");
   screen.append(element("h1", "", "Endstand"));
@@ -292,13 +367,14 @@ function victory() {
 function render() {
   if (!presentation) return;
   document.title = `${presentation.title} — Publikumsansicht`;
-  document.body.classList.toggle("with-scoreboard", ["jeopardy-board", "jeopardy-question", "ordering", "listing"].includes(presentation.screen));
+  document.body.classList.toggle("with-scoreboard", ["jeopardy-board", "jeopardy-question", "ordering", "listing", "sync"].includes(presentation.screen));
   const renderers = {
     standby,
     "jeopardy-board": jeopardyBoard,
     "jeopardy-question": jeopardyQuestion,
     ordering,
     listing,
+    sync,
     victory
   };
   root.replaceChildren(renderers[presentation.screen]());
@@ -467,17 +543,25 @@ listingEvents.addEventListener("state", (event) => {
   if (presentation?.screen === "listing" && !displayScoreAnimationActive) render();
 });
 
+const syncEvents = new EventSource("/api/sync/events?role=public");
+syncEvents.addEventListener("state", (event) => {
+  syncState = JSON.parse(event.data);
+  if (presentation?.screen === "sync" && !displayScoreAnimationActive) render();
+});
+
 Promise.all([
   initialState("/api/presentation/state"),
   initialState("/api/buzzer/state"),
   initialState("/api/ordering/state?role=public"),
-  initialState("/api/listing/state?role=public")
+  initialState("/api/listing/state?role=public"),
+  initialState("/api/sync/state?role=public")
 ])
-  .then(([nextPresentation, nextBuzzer, nextOrdering, nextListing]) => {
+  .then(([nextPresentation, nextBuzzer, nextOrdering, nextListing, nextSync]) => {
     if (!presentation || nextPresentation.version >= presentation.version) presentation = nextPresentation;
     if (!buzzer || nextBuzzer.version >= buzzer.version) buzzer = nextBuzzer;
     orderingState = nextOrdering;
     listingState = nextListing;
+    syncState = nextSync;
     if (!displayScoreAnimationActive) render();
   })
   .catch(() => {
@@ -494,6 +578,11 @@ listingTicker = setInterval(() => {
   const timer = root.querySelector(".display-listing-timer");
   if (timer) timer.textContent = Math.max(0, Math.ceil((Number(timer.dataset.deadline) - Date.now()) / 1000));
 }, 200);
+
+syncTicker = setInterval(() => {
+  const timer = root.querySelector(".display-sync-timer[data-deadline]");
+  if (timer) timer.textContent = Math.max(0, Math.ceil((Number(timer.dataset.deadline) - Date.now()) / 1000));
+}, 100);
 
 window.addEventListener("resize", () => {
   const board = root.querySelector(".display-board");

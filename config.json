@@ -97,5 +97,23 @@
         "placementPoints": [300, 200, 100]
       }
     ]
+  },
+  "syncUp": {
+    "timeLimitSeconds": 5,
+    "placementPoints": [300, 200, 100],
+    "questions": [
+      {
+        "id": "verschlafen",
+        "prompt": "Wer verschläft eher?"
+      },
+      {
+        "id": "reise-planen",
+        "prompt": "Wer plant am ehesten spontan eine Reise?"
+      },
+      {
+        "id": "handy-verlieren",
+        "prompt": "Wer verliert am ehesten das Handy?"
+      }
+    ]
   }
 }

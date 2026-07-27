@@ -4,5 +4,7 @@ ordering-state.json
 .ordering-state.tmp
 listing-state.json
 .listing-state.json.tmp
+sync-state.json
+.sync-state.json.tmp
 server-config.json
 __pycache__/

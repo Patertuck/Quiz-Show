@@ -65,6 +65,29 @@
       <ul id="listing-items" class="listing-phone-items"></ul>
       <p id="listing-phone-status" class="sr-only" role="status" aria-live="polite"></p>
     </section>
+    <section id="sync-register-step" class="player-card sync-phone" hidden>
+      <div class="selected-team-row">
+        <strong id="sync-register-team"></strong>
+        <button id="sync-register-change-team" type="button">Team wechseln</button>
+      </div>
+      <h2>Für Sync Up registrieren</h2>
+      <form id="sync-register-form" class="sync-register-form">
+        <label for="sync-name">Dein Name</label>
+        <input id="sync-name" maxlength="40" autocomplete="name" required placeholder="Name">
+        <button type="submit">Registrieren</button>
+      </form>
+      <p id="sync-register-status" class="buzz-status" role="status" aria-live="polite"></p>
+    </section>
+    <section id="sync-step" class="player-card sync-phone" hidden>
+      <div class="selected-team-row">
+        <strong id="sync-team"></strong>
+        <button id="sync-edit-registration" type="button">Ändern</button>
+      </div>
+      <h2 id="sync-prompt">Sync Up</h2>
+      <output id="sync-countdown" aria-label="Verbleibende Sekunden"></output>
+      <div id="sync-person-choices" class="sync-person-choices"></div>
+      <p id="sync-phone-status" class="buzz-status" role="status" aria-live="polite"></p>
+    </section>
   </main>
   <script type="module" src="js/player.js"></script>
 </body>

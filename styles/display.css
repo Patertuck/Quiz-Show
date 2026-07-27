@@ -129,3 +129,18 @@ body { margin: 0; overflow: hidden; background: var(--blue); color: #fff; }
 .display-listing-item.penalized { border-color: #ff6b7c; background: #a4192d; }
 .display-listing-empty { width: 100%; align-self: center; color: #b8dbe0; font-size: clamp(1rem, 3vh, 2rem); font-weight: 800; text-align: center; }
 .display-listing-team-count { justify-self: center; margin: 0; color: #ffe65c; font-size: clamp(1rem, 3vh, 2rem); font-weight: 900; }
+.display-sync { padding: clamp(1rem, 3vw, 2rem); }
+.display-sync-lobby, .display-sync-waiting, .display-sync-active, .display-sync-ranking { display: grid; height: 100%; place-content: center; gap: 1rem; text-align: center; }
+.display-sync-lobby h1, .display-sync-waiting h1, .display-sync-ranking h1 { margin: 0; color: #ffe65c; font-size: clamp(3rem, 9vh, 7rem); }
+.display-sync-roster, .display-sync-result-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: 1rem; }
+.display-sync-roster-team, .display-sync-result-team { padding: 1rem; border: 3px solid #ffffff38; border-radius: 1rem; background: #ffffff12; }
+.display-sync-roster-team h2, .display-sync-result-team h2 { margin: 0 0 .7rem; color: #ffe65c; }
+.display-sync-prompt { max-width: 18ch; margin: 0 auto; font-size: clamp(2.2rem, 8vh, 6rem); text-align: center; }
+.display-sync-timer { display: grid; width: clamp(6rem, 22vh, 12rem); aspect-ratio: 1; place-items: center; margin: 1rem auto; border: clamp(.35rem, 1vh, .65rem) solid #ffe65c; border-radius: 50%; color: #ffe65c; font-size: clamp(3rem, 12vh, 7rem); font-weight: 900; }
+.display-sync-results { display: grid; height: 100%; min-height: 0; grid-template-rows: auto minmax(0, 1fr) auto; gap: 1rem; }
+.display-sync-result-grid { min-height: 0; align-content: center; }
+.display-sync-result-team.synced { border-color: #60ef96; background: linear-gradient(145deg, #197347, #0d462c); box-shadow: 0 0 2rem #43ec7c66; }
+.display-sync-vote { margin: .35rem 0; padding: .45rem; border-radius: .45rem; background: #0002; font-weight: 800; }
+.display-sync-mini-ranking { display: flex; flex-wrap: wrap; justify-content: center; gap: .8rem; }
+.display-sync-mini-ranking > div, .display-sync-standing { padding: .55rem 1rem; border-radius: .7rem; background: #ffffff18; font-weight: 900; }
+.display-sync-standing { display: grid; min-width: min(36rem, 90vw); grid-template-columns: 3rem 1fr auto; gap: 1rem; font-size: clamp(1.2rem, 4vh, 2.5rem); text-align: left; }

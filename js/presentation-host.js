@@ -72,6 +72,10 @@ export function publishListing() {
   return publishPresentation(base("listing"));
 }
 
+export function publishSync() {
+  return publishPresentation(base("sync"));
+}
+
 export async function setJoinOverlay(joinUrl = null) {
   joinOverlay = typeof joinUrl === "string" && joinUrl ? { joinUrl } : null;
   const response = await fetch("/api/presentation/state", { cache: "no-store" });

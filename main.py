@@ -20,6 +20,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
 from listing_game import GroqClassifier, ListingState
+from sync_game import SyncState
 
 
 BIND_HOST = "0.0.0.0"
@@ -31,13 +32,14 @@ STATE_TEMP_FILE = PROJECT_DIRECTORY / ".game-state.tmp"
 ORDERING_FILE = PROJECT_DIRECTORY / "ordering-state.json"
 ORDERING_TEMP_FILE = PROJECT_DIRECTORY / ".ordering-state.tmp"
 LISTING_FILE = PROJECT_DIRECTORY / "listing-state.json"
+SYNC_FILE = PROJECT_DIRECTORY / "sync-state.json"
 SERVER_CONFIG_FILE = PROJECT_DIRECTORY / "server-config.json"
 MAX_STATE_BYTES = 1_000_000
 STATE_LOCK = threading.Lock()
 TILE_ID_PATTERN = re.compile(r"^\d+:\d+$")
 MAX_BUZZER_BODY_BYTES = 16_384
 MAX_PRESENTATION_BODY_BYTES = 262_144
-PRESENTATION_SCREENS = {"standby", "jeopardy-board", "jeopardy-question", "ordering", "listing", "victory"}
+PRESENTATION_SCREENS = {"standby", "jeopardy-board", "jeopardy-question", "ordering", "listing", "sync", "victory"}
 
 
 def find_lan_address() -> str:
@@ -510,6 +512,7 @@ class OrderingState:
 
 ORDERING = OrderingState()
 LISTING = ListingState(LISTING_FILE, GroqClassifier(SERVER_CONFIG_FILE))
+SYNC = SyncState(SYNC_FILE)
 
 
 def validate_presentation_image(image: object, field: str) -> dict | None:
@@ -709,6 +712,42 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self) -> None:  # noqa: N802 - required by BaseHTTPRequestHandler
+        if self.request_path == "/api/sync/state":
+            query = parse_qs(urlsplit(self.path).query)
+            device_id = query.get("deviceId", [None])[0]
+            requested_role = query.get("role", [""])[0]
+            role = "player" if device_id else ("public" if requested_role == "public" else ("host" if self.is_host else "public"))
+            self.send_json(200, SYNC.snapshot(role, device_id))
+            return
+        if self.request_path == "/api/sync/events":
+            query = parse_qs(urlsplit(self.path).query)
+            device_id = query.get("deviceId", [None])[0]
+            requested_role = query.get("role", [""])[0]
+            role = "player" if device_id else ("public" if requested_role == "public" else ("host" if self.is_host else "public"))
+            if role == "player":
+                SYNC.connect(device_id)
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Connection", "keep-alive")
+            self.end_headers()
+            version = -1
+            try:
+                while True:
+                    state = SYNC.wait_for_change(version, role, device_id)
+                    if state is None:
+                        self.wfile.write(b": heartbeat\n\n")
+                    else:
+                        version = state["version"]
+                        data = json.dumps(state, ensure_ascii=False, separators=(",", ":"))
+                        self.wfile.write(f"event: state\nid: {version}\ndata: {data}\n\n".encode("utf-8"))
+                    self.wfile.flush()
+            except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+                pass
+            finally:
+                if role == "player":
+                    SYNC.disconnect(device_id)
+            return
         if self.request_path == "/api/listing/state":
             query = parse_qs(urlsplit(self.path).query)
             try:
@@ -858,7 +897,8 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
         if self.request_path in {
             "/game-state.json", "/.game-state.tmp", "/ordering-state.json", "/.ordering-state.tmp",
-            "/listing-state.json", "/.listing-state.json.tmp", "/server-config.json",
+            "/listing-state.json", "/.listing-state.json.tmp", "/sync-state.json",
+            "/.sync-state.json.tmp", "/server-config.json",
         }:
             self.send_error(404)
             return
@@ -909,6 +949,34 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
         super().do_HEAD()
 
     def do_POST(self) -> None:  # noqa: N802 - required by BaseHTTPRequestHandler
+        if self.request_path == "/api/sync/register":
+            try:
+                status, response = SYNC.register(self.read_json(MAX_PRESENTATION_BODY_BYTES))
+            except (UnicodeError, json.JSONDecodeError, ValueError, OSError) as error:
+                self.send_json(400, {"error": str(error)})
+                return
+            self.send_json(status, response)
+            return
+        if self.request_path == "/api/sync/vote":
+            try:
+                status, response = SYNC.vote(self.read_json(MAX_PRESENTATION_BODY_BYTES))
+            except (UnicodeError, json.JSONDecodeError, ValueError, OSError) as error:
+                self.send_json(400, {"error": str(error)})
+                return
+            self.send_json(status, response)
+            return
+        if self.request_path == "/api/sync/control":
+            if not self.require_host():
+                return
+            try:
+                payload = self.read_json(MAX_PRESENTATION_BODY_BYTES)
+                response = (SYNC.awards(payload.get("placementPoints"))
+                            if payload.get("action") == "awards" else SYNC.control(payload))
+            except (UnicodeError, json.JSONDecodeError, ValueError, OSError) as error:
+                self.send_json(400, {"error": str(error)})
+                return
+            self.send_json(200, response)
+            return
         if self.request_path == "/api/listing/submission":
             try:
                 status, response = LISTING.update_submission(self.read_json(MAX_PRESENTATION_BODY_BYTES))
@@ -1036,6 +1104,7 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
         BUZZER.sync_teams(None)
         ORDERING.reset()
         LISTING.reset()
+        SYNC.reset()
         self.send_json(200, {"deleted": True})
 
 
