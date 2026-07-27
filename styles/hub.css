@@ -21,23 +21,19 @@
 #buzzer-url { display: block; color: #233fb0; font-weight: bold; overflow-wrap: anywhere; text-decoration: underline; }
 #buzzer-local-url { display: inline-block; margin-top: 0.75rem; color: #596080; font-size: 0.85rem; text-decoration: underline; }
 .buzzer-dialog-note { margin-bottom: 0; color: #555b7c; font-size: 0.85rem; line-height: 1.4; }
-.game-cards { display: grid; width: min(68rem, 100%); height: 100%; min-height: 0; grid-template: repeat(2, minmax(0, 1fr)) / repeat(2, minmax(0, 1fr)); gap: clamp(1rem, 3vw, 2rem); justify-self: center; }
-.game-card { display: grid; min-height: 0; place-items: center; padding: clamp(1.2rem, 3vw, 2.3rem); overflow: hidden; border: 2px solid rgb(255 255 255 / 30%); border-radius: 1.2rem; color: #fff; text-align: center; box-shadow: 0 1rem 2.5rem rgb(0 0 0 / 28%); transition: transform 180ms ease, border-color 180ms ease, filter 180ms ease; }
-.sync-card { background: linear-gradient(145deg, #178653, #123a68); }
-.game-card:hover, .game-card:focus-visible { border-color: var(--yellow); filter: brightness(1.08); transform: translateY(-0.3rem); }
-.game-card.jeopardy-card { background: linear-gradient(145deg, #334bd0 0%, #142780 58%, #09133f 100%); }
-.game-card.ordering-card { background: linear-gradient(145deg, #9a4ed0 0%, #5a288c 58%, #281044 100%); }
-.game-card.listing-card { background: linear-gradient(145deg, #20a986 0%, #126b65 58%, #073b43 100%); }
-.game-card h2 { margin: 0; font-size: clamp(1.6rem, 4vw, 3rem); }
+.game-card-area { display: grid; min-width: 0; min-height: 0; container-type: size; place-items: center; }
+.game-cards { display: grid; width: min(100cqw, 400cqh); aspect-ratio: 4; grid-template: minmax(0, 1fr) / repeat(4, minmax(0, 1fr)); gap: clamp(1rem, 3vw, 2rem); }
+.game-card { display: grid; min-width: 0; min-height: 0; place-items: center; }
+.game-card img { display: block; width: 100%; height: 100%; object-fit: contain; border: 3px solid transparent; border-radius: 1.2rem; box-shadow: 0 1rem 2.5rem rgb(0 0 0 / 28%); transition: border-color 180ms ease, filter 180ms ease, transform 180ms ease; }
+.game-card:hover img, .game-card:focus-visible img { border-color: var(--yellow); filter: brightness(1.08); transform: translateY(-0.3rem); }
+.game-card:focus-visible { outline: none; }
 @media (max-width: 650px) {
   #hub-view > h1 { max-width: calc(100% - 10rem); font-size: clamp(1.3rem, 5vw, 2rem); text-align: left; }
-  .game-cards { grid-template: none / 1fr; grid-auto-rows: minmax(7rem, 1fr); overflow: auto; }
-  .game-card { min-height: 7rem; }
+  .game-cards { gap: clamp(0.6rem, 3vw, 1rem); }
 }
 @media (max-height: 550px) {
   #hub-view { gap: 0.5rem; padding: 0.55rem; }
   #hub-view > h1 { font-size: 1.5rem; }
-  .game-cards { grid-template: minmax(0, 1fr) / repeat(4, minmax(0, 1fr)); gap: 0.55rem; overflow: visible; }
-  .game-card { min-height: 0; padding: 0.8rem; }
-  .game-card h2 { font-size: 1.35rem; }
+  .game-cards { gap: 0.55rem; }
+  .game-card img { border-radius: 0.75rem; }
 }

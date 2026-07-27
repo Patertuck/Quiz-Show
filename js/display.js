@@ -16,7 +16,7 @@ const presentationQueue = [];
 const animatedOrderingRounds = new Set();
 const animatedListingRounds = new Set();
 const animatedSyncRounds = new Set();
-const standbyLogoSource = "assets/Logo-1024.webp";
+const standbyLogoSource = "assets/Logos/Logo-1024.webp";
 const standbyLogoRetryDelay = 2000;
 
 function element(tag, className, text) {
