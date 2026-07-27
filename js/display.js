@@ -332,9 +332,14 @@ function sync() {
     teams.append(card);
   });
   const ranking = element("aside", "display-sync-mini-ranking");
-  syncState.standings.forEach((result) => ranking.append(
-    element("div", "", `${result.rank}. ${syncState.teams[result.teamIndex]} · ${result.syncCount}`)
-  ));
+  syncState.standings.forEach((result) => {
+    const item = element("div");
+    item.append(
+      document.createTextNode(`${result.rank}. ${syncState.teams[result.teamIndex]} · `),
+      element("strong", "", `${result.syncCount} Sync${result.syncCount === 1 ? "" : "s"}`)
+    );
+    ranking.append(item);
+  });
   content.append(teams, ranking);
   screen.append(content);
   return screen;

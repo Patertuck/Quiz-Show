@@ -182,7 +182,8 @@ function resultTeams(round) {
 }
 
 function renderResults(round) {
-  statusLine.textContent = "Die Antworten sind gesperrt und wurden automatisch aufgedeckt.";
+  root.querySelector(".sync-heading").hidden = true;
+  statusLine.textContent = "";
   const heading = document.createElement("h2");
   heading.className = "sync-result-prompt";
   heading.textContent = round.prompt;
@@ -220,6 +221,7 @@ function renderFinished() {
 
 function render(snapshot) {
   syncState = snapshot;
+  root.querySelector(".sync-heading").hidden = false;
   if (syncState.finished) renderFinished();
   else if (syncState.round?.phase === "prepared") renderPrepared(syncState.round);
   else if (syncState.round?.phase === "active") renderActive(syncState.round);
