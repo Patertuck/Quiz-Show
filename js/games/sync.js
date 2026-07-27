@@ -42,9 +42,9 @@ function participantName(id) {
   return syncState.participants.find((item) => item.id === id)?.name || "Keine Auswahl";
 }
 
-function standings() {
+function standings(compact = false) {
   const panel = document.createElement("section");
-  panel.className = "sync-standings";
+  panel.className = `sync-standings${compact ? " compact" : ""}`;
   const title = document.createElement("h2");
   title.textContent = "Zwischenstand";
   panel.append(title);
@@ -166,7 +166,7 @@ function resultTeams(round) {
     const card = document.createElement("section");
     card.className = `sync-result-team${result.synced ? " synced" : ""}`;
     const title = document.createElement("h2");
-    title.textContent = `${syncState.teams[result.teamIndex]}${result.synced ? " · SYNC!" : ""}`;
+    title.textContent = syncState.teams[result.teamIndex];
     card.append(title);
     result.votes.forEach((vote) => {
       const voter = participantName(vote.participantId);
@@ -189,7 +189,7 @@ function renderResults(round) {
   const actions = document.createElement("div");
   actions.className = "sync-actions";
   actions.append(button("Weiter", "primary-button", () => request("close")));
-  content.replaceChildren(heading, resultTeams(round), standings(), actions);
+  content.replaceChildren(heading, resultTeams(round), standings(true), actions);
 }
 
 async function distribute() {

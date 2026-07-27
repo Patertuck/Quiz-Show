@@ -323,7 +323,7 @@ function sync() {
   const teams = element("div", "display-sync-result-grid");
   round.results.forEach((result) => {
     const card = element("section", `display-sync-result-team${result.synced ? " synced" : ""}`);
-    card.append(element("h2", "", `${syncState.teams[result.teamIndex]}${result.synced ? " · SYNC!" : ""}`));
+    card.append(element("h2", "", syncState.teams[result.teamIndex]));
     result.votes.forEach((vote) => {
       const voter = syncState.participants.find((person) => person.id === vote.participantId)?.name || "?";
       const selected = syncState.participants.find((person) => person.id === vote.selectedParticipantId)?.name || "Keine Auswahl";

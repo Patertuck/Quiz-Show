@@ -563,7 +563,9 @@ function renderSync() {
     syncStatus.textContent = syncState.finished ? "Danke fürs Mitspielen!" : "Bleibt bereit.";
     return;
   }
-  syncPrompt.textContent = round.prompt;
+  syncPrompt.textContent = round.phase === "prepared"
+    ? "Gleich geht es los"
+    : round.phase === "active" ? "Wähle eine Person" : "Ergebnis";
   const active = round.phase === "active";
   syncCountdown.textContent = active
     ? Math.max(0, Math.ceil((round.deadlineAt - Date.now()) / 1000))
@@ -583,8 +585,7 @@ function renderSync() {
     ? `Aktuell gewählt: ${teammates.find((item) => item.id === round.ownSelectionId)?.name || ""}. Du kannst noch wechseln.`
     : "Wähle eine Person. Du kannst bis zum Ablauf der Zeit wechseln.";
   else {
-    const teamResult = round.results?.find((item) => item.teamIndex === own.teamIndex);
-    syncStatus.textContent = teamResult?.synced ? "Ihr wart synchron!" : "Diesmal wart ihr nicht synchron.";
+    syncStatus.textContent = "";
   }
 }
 

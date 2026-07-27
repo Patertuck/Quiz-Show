@@ -140,6 +140,7 @@ body { margin: 0; overflow: hidden; background: var(--blue); color: #fff; }
 .display-sync-results { display: grid; height: 100%; min-height: 0; grid-template-rows: auto minmax(0, 1fr) auto; gap: 1rem; }
 .display-sync-result-grid { min-height: 0; align-content: center; }
 .display-sync-result-team.synced { border-color: #60ef96; background: linear-gradient(145deg, #197347, #0d462c); box-shadow: 0 0 2rem #43ec7c66; }
+.display-sync-result-team:not(.synced) { border-color: #ff7887; background: linear-gradient(145deg, #92283b, #551426); box-shadow: 0 0 1.7rem #ff405055; }
 .display-sync-vote { margin: .35rem 0; padding: .45rem; border-radius: .45rem; background: #0002; font-weight: 800; }
 .display-sync-mini-ranking { display: flex; flex-wrap: wrap; justify-content: center; gap: .8rem; }
 .display-sync-mini-ranking > div, .display-sync-standing { padding: .55rem 1rem; border-radius: .7rem; background: #ffffff18; font-weight: 900; }
