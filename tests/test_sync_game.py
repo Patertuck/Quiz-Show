@@ -144,6 +144,23 @@ class SyncStateTest(unittest.TestCase):
             loaded._changed_unlocked()
         self.assertNotEqual(first_award, loaded.awards([300, 200, 100])["awardId"])
 
+    def test_host_can_seed_and_vote_test_players(self):
+        self.register("real-device-0001", 0, "Anna")
+        snapshot = self.state.control({"action": "seed-test-players"})
+        self.assertEqual(len([item for item in snapshot["participants"] if item["teamIndex"] == 0]), 1)
+        self.assertEqual(len([item for item in snapshot["participants"] if item["teamIndex"] == 1]), 2)
+        self.assertTrue(all(item["isTest"] for item in snapshot["participants"] if item["teamIndex"] == 1))
+        self.state.control({"action": "lock-roster"})
+        round_id = self.prepare_and_start()
+        self.state.vote({
+            "deviceId": "real-device-0001",
+            "roundId": round_id,
+            "selectedParticipantId": next(item["id"] for item in snapshot["participants"] if item["teamIndex"] == 0),
+        })
+        self.state.control({"action": "vote-test-players"})
+        result = self.expire()
+        self.assertEqual(result["syncTotals"], [1, 1, 1])
+
 
 if __name__ == "__main__":
     unittest.main()

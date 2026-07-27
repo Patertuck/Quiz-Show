@@ -248,6 +248,20 @@ class SyncState:
                 self.roster_locked = False
             elif action == "reset-game":
                 self._reset_game_unlocked()
+            elif action == "seed-test-players":
+                if self.roster_locked:
+                    raise ValueError("Entsperrt zuerst die Teilnehmerliste.")
+                for team_index in range(len(self.teams)):
+                    if any(item["teamIndex"] == team_index for item in self.participants):
+                        continue
+                    for player_index in range(2):
+                        self.participants.append({
+                            "id": secrets.token_urlsafe(9),
+                            "deviceId": f"sync-test-{self.game_id}-{team_index}-{player_index}",
+                            "teamIndex": team_index,
+                            "name": f"Test {team_index + 1}.{player_index + 1}",
+                            "isTest": True,
+                        })
             elif action == "prepare":
                 if not self.roster_locked:
                     raise ValueError("Sperrt zuerst die Teilnehmerliste.")
@@ -271,6 +285,15 @@ class SyncState:
                     raise ValueError("Bereitet zuerst einen Prompt vor.")
                 self.round["phase"] = "active"
                 self.round["deadlineAt"] = int(time.time() * 1000) + self.round["timeLimitSeconds"] * 1000
+            elif action == "vote-test-players":
+                if not self.round or self.round["phase"] != "active":
+                    raise ValueError("Testantworten sind nur während der Abstimmung möglich.")
+                for team_index in range(len(self.teams)):
+                    members = [item for item in self.participants if item["teamIndex"] == team_index]
+                    target = members[0]["id"] if members else None
+                    for participant in members:
+                        if participant.get("isTest") and target:
+                            self.round["votes"][participant["id"]] = target
             elif action == "cancel":
                 if not self.round or self.round["phase"] not in {"prepared", "active"}:
                     raise ValueError("Diese Runde kann nicht mehr abgebrochen werden.")
@@ -316,7 +339,8 @@ class SyncState:
             }
 
     def _public_participants_unlocked(self) -> list[dict]:
-        return [{"id": item["id"], "teamIndex": item["teamIndex"], "name": item["name"]}
+        return [{"id": item["id"], "teamIndex": item["teamIndex"], "name": item["name"],
+                 "isTest": bool(item.get("isTest"))}
                 for item in self.participants]
 
     def _snapshot_unlocked(self, role: str, device_id: str | None = None) -> dict:

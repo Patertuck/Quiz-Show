@@ -87,7 +87,10 @@ function renderLobby() {
   const actions = document.createElement("div");
   actions.className = "sync-actions";
   if (!syncState.rosterLocked) {
-    actions.append(button("Teilnehmerliste sperren", "primary-button", () => request("lock-roster")));
+    actions.append(
+      button("Teilnehmerliste sperren", "primary-button", () => request("lock-roster")),
+      button("Testspieler hinzufügen", "secondary-button", () => request("seed-test-players"))
+    );
   } else {
     actions.append(button("Teilnehmerliste entsperren", "secondary-button", () => request("unlock-roster")));
   }
@@ -146,7 +149,13 @@ function renderActive(round) {
   timer.className = "sync-host-timer";
   timer.dataset.deadline = round.deadlineAt;
   timer.textContent = Math.max(0, Math.ceil((round.deadlineAt - Date.now()) / 1000));
-  panel.append(prompt, timer, button("Runde abbrechen", "danger-button", () => request("cancel")));
+  const actions = document.createElement("div");
+  actions.className = "sync-actions";
+  actions.append(
+    button("Testspieler abstimmen lassen", "secondary-button", () => request("vote-test-players")),
+    button("Runde abbrechen", "danger-button", () => request("cancel"))
+  );
+  panel.replaceChildren(prompt, timer, actions);
   content.replaceChildren(panel);
 }
 
