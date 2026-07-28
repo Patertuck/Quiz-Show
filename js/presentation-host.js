@@ -37,6 +37,10 @@ export function publishStandby() {
   return publishPresentation(base("standby"));
 }
 
+export function publishHub(highlightedGame = null) {
+  return publishPresentation({ ...base("hub"), highlightedGame });
+}
+
 export function publishJeopardy() {
   if (!state.activeQuestion) {
     return publishPresentation({

@@ -79,6 +79,32 @@ function standby() {
   return screen;
 }
 
+const hubGames = [
+  { id: "jeopardy", src: "assets/Logos/Logo_Jeopardy.png", alt: "Jeopardy" },
+  { id: "ordering", src: "assets/Logos/Logo_Order_Up.png", alt: "Order Up" },
+  { id: "listing", src: "assets/Logos/Logo_List_It.png", alt: "List It" },
+  { id: "sync", src: "assets/Logos/Logo_Sync_Up.png", alt: "Sync Up" }
+];
+
+function hub() {
+  const screen = element("section", "display-screen display-hub");
+  screen.append(element("h1", "", presentation.title));
+  const area = element("div", "display-hub-game-area");
+  const games = element("div", "display-hub-games");
+  hubGames.forEach((game) => {
+    const card = element("div", `display-hub-game${presentation.highlightedGame === game.id ? " highlighted" : ""}`);
+    card.dataset.game = game.id;
+    const image = element("img");
+    image.src = game.src;
+    image.alt = game.alt;
+    card.append(image);
+    games.append(card);
+  });
+  area.append(games);
+  screen.append(area);
+  return screen;
+}
+
 function jeopardyBoard() {
   const screen = element("section", "display-screen display-board-screen");
   screen.append(element("h1", "display-game-title", presentation.title));
@@ -353,9 +379,10 @@ function victory() {
 function render() {
   if (!presentation) return;
   document.title = `${presentation.title} — Publikumsansicht`;
-  document.body.classList.toggle("with-scoreboard", ["jeopardy-board", "jeopardy-question", "ordering", "listing", "sync"].includes(presentation.screen));
+  document.body.classList.toggle("with-scoreboard", ["hub", "jeopardy-board", "jeopardy-question", "ordering", "listing", "sync"].includes(presentation.screen));
   const renderers = {
     standby,
+    hub,
     "jeopardy-board": jeopardyBoard,
     "jeopardy-question": jeopardyQuestion,
     ordering,

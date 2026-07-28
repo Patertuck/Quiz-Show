@@ -39,7 +39,8 @@ STATE_LOCK = threading.Lock()
 TILE_ID_PATTERN = re.compile(r"^\d+:\d+$")
 MAX_BUZZER_BODY_BYTES = 16_384
 MAX_PRESENTATION_BODY_BYTES = 262_144
-PRESENTATION_SCREENS = {"standby", "jeopardy-board", "jeopardy-question", "ordering", "listing", "sync", "victory"}
+PRESENTATION_SCREENS = {"standby", "hub", "jeopardy-board", "jeopardy-question", "ordering", "listing", "sync", "victory"}
+HUB_GAME_IDS = {"jeopardy", "ordering", "listing", "sync"}
 
 
 def find_lan_address() -> str:
@@ -553,7 +554,12 @@ def validate_presentation(payload: object) -> dict:
         if not re.fullmatch(r"https?://[^/\s]+/player", join_url):
             raise ValueError("Presentation join URL is invalid.")
         clean["joinOverlay"] = {"joinUrl": join_url}
-    if payload["screen"] == "jeopardy-board":
+    if payload["screen"] == "hub":
+        highlighted_game = payload.get("highlightedGame")
+        if highlighted_game is not None and highlighted_game not in HUB_GAME_IDS:
+            raise ValueError("Highlighted hub game is invalid.")
+        clean["highlightedGame"] = highlighted_game
+    elif payload["screen"] == "jeopardy-board":
         board = payload.get("board")
         if not isinstance(board, dict):
             raise ValueError("Jeopardy board data is required.")
