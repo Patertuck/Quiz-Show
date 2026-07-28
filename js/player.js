@@ -91,6 +91,7 @@ function showNoGameWaiting() {
   localStorage.removeItem("quiz-buzzer-team");
   waitingTeamRow.hidden = true;
   waitingTitle.textContent = "Warten auf ein Spiel";
+  waitingStatus.hidden = false;
   waitingStatus.textContent = "Die Spielleitung hat noch kein Spiel gestartet. Lasst diese Seite geöffnet.";
   waitingStep.hidden = false;
   teamStep.hidden = true;
@@ -107,7 +108,8 @@ function showActivityWaiting() {
   waitingTeam.textContent = currentState.teams[selectedTeamIndex];
   waitingTeamRow.hidden = false;
   waitingTitle.textContent = "Warten auf das nächste Spiel";
-  waitingStatus.textContent = "Euer Team ist bereit. Wartet auf das nächste Spiel.";
+  waitingStatus.hidden = true;
+  waitingStatus.textContent = "";
   waitingStep.hidden = false;
   teamStep.hidden = true;
   buzzStep.hidden = true;
@@ -780,6 +782,7 @@ async function loadPresentationState() {
 
 Promise.all([loadState(), loadPresentationState()]).catch(() => {
   connectionStatus.textContent = "Offline";
+  waitingStatus.hidden = false;
   waitingStatus.textContent = "Die Quiz-Spielleitung konnte nicht erreicht werden. Prüft die WLAN-Verbindung.";
 });
 
