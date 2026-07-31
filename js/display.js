@@ -79,6 +79,26 @@ function standby() {
   return screen;
 }
 
+function intro() {
+  const screen = element("section", "display-screen display-intro");
+  const background = element("video", "display-intro-background");
+  background.src = "assets/Logos/background animation loop.mp4";
+  background.autoplay = true;
+  background.muted = true;
+  background.loop = true;
+  background.playsInline = true;
+  background.setAttribute("aria-hidden", "true");
+  const logo = element("video", "display-intro-logo");
+  logo.src = "assets/Logos/Logo_animated_alpha.webm";
+  logo.autoplay = true;
+  logo.muted = true;
+  logo.loop = true;
+  logo.playsInline = true;
+  logo.setAttribute("aria-hidden", "true");
+  screen.append(background, logo);
+  return screen;
+}
+
 const hubGames = [
   { id: "jeopardy", src: "assets/Logos/Logo_Jeopardy.png", alt: "Jeopardy" },
   { id: "ordering", src: "assets/Logos/Logo_Order_Up.png", alt: "Order Up" },
@@ -382,6 +402,7 @@ function render() {
   document.body.classList.toggle("with-scoreboard", ["hub", "jeopardy-board", "jeopardy-question", "ordering", "listing", "sync"].includes(presentation.screen));
   const renderers = {
     standby,
+    intro,
     hub,
     "jeopardy-board": jeopardyBoard,
     "jeopardy-question": jeopardyQuestion,

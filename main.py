@@ -39,7 +39,7 @@ STATE_LOCK = threading.Lock()
 TILE_ID_PATTERN = re.compile(r"^\d+:\d+$")
 MAX_BUZZER_BODY_BYTES = 16_384
 MAX_PRESENTATION_BODY_BYTES = 262_144
-PRESENTATION_SCREENS = {"standby", "hub", "jeopardy-board", "jeopardy-question", "ordering", "listing", "sync", "victory"}
+PRESENTATION_SCREENS = {"standby", "intro", "hub", "jeopardy-board", "jeopardy-question", "ordering", "listing", "sync", "victory"}
 HUB_GAME_IDS = {"jeopardy", "ordering", "listing", "sync"}
 
 

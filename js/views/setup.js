@@ -69,7 +69,7 @@ export function mount(root, { navigate }) {
     startRuntime(selected);
     renderScoreboard();
     await saveState().catch(() => undefined);
-    navigate("hub");
+    navigate("intro");
   });
 
   resumeButton.addEventListener("click", async () => {
@@ -93,7 +93,7 @@ export function mount(root, { navigate }) {
     startRuntime(resetTeams);
     renderScoreboard();
     await saveState().catch(() => undefined);
-    navigate("hub");
+    navigate("intro");
   });
 
   if (!saved) {

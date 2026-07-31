@@ -2,6 +2,7 @@ import { state, loadApplicationData, stateSnapshot, resumeRuntime } from "./stor
 import { initializeScoreboard, renderScoreboard, setScoreboard, updateScoreControls } from "./scoreboard.js";
 import { initializeHostControls } from "./host-controls.js";
 import * as setup from "./views/setup.js";
+import * as intro from "./views/intro.js";
 import * as hub from "./views/hub.js";
 import * as jeopardy from "./games/jeopardy.js";
 import * as ordering from "./games/ordering.js";
@@ -16,7 +17,8 @@ initializeScoreboard(scoreboardElement);
 initializeHostControls({ navigate });
 
 const routes = {
-  setup: { template: "views/setup.html", controller: setup, scoreboard: "hidden", requiresGame: false },
+  setup: { template: "views/setup.html", controller: setup, scoreboard: "hidden", requiresGame: false, hostControls: false },
+  intro: { template: "views/intro.html", controller: intro, scoreboard: "hidden", requiresGame: true, hostControls: false },
   hub: { template: "views/hub.html", controller: hub, scoreboard: "standings", requiresGame: true },
   jeopardy: { template: "views/jeopardy.html", controller: jeopardy, scoreboard: "game", requiresGame: true },
   ordering: { template: "views/ordering.html", controller: ordering, scoreboard: "standings", requiresGame: true },
@@ -75,7 +77,7 @@ async function renderRoute() {
     }
     setScoreboard(route.scoreboard);
     document.body.classList.toggle("app-active", name !== "setup");
-    hostControls.hidden = name === "setup";
+    hostControls.hidden = route.hostControls === false;
     const template = await templateFor(route.template);
     if (thisNavigation !== navigationId) return;
     app.innerHTML = template;

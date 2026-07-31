@@ -1,0 +1,68 @@
+.intro-screen {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  background: #050505;
+}
+
+.intro-background {
+  position: absolute;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.intro-logo {
+  position: absolute;
+  z-index: 1;
+  inset: 50% auto auto 50%;
+  width: min(72vw, 68rem);
+  max-height: 72vh;
+  transform: translate(-50%, -50%);
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.intro-continue {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+}
+
+.intro-continue span {
+  position: absolute;
+  right: 1.5rem;
+  bottom: 1.25rem;
+  padding: 0.55rem 0.85rem;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 45%);
+  font-size: clamp(0.75rem, 1.2vw, 1rem);
+  letter-spacing: 0.04em;
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+.intro-continue:hover span,
+.intro-continue:focus-visible span {
+  opacity: 1;
+}
+
+.intro-continue:focus-visible {
+  outline: 3px solid var(--yellow);
+  outline-offset: -6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-continue span {
+    transition: none;
+  }
+}

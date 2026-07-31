@@ -37,6 +37,10 @@ export function publishStandby() {
   return publishPresentation(base("standby"));
 }
 
+export function publishIntro() {
+  return publishPresentation(base("intro"));
+}
+
 export function publishHub(highlightedGame = null) {
   return publishPresentation({ ...base("hub"), highlightedGame });
 }
