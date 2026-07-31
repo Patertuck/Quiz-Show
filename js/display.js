@@ -12,6 +12,10 @@ let orderingTicker;
 let listingTicker;
 let syncTicker;
 let displayScoreAnimationActive = false;
+const SCREEN_TRANSITION_DURATION_MS = 650;
+let lastRenderedSceneKey = null;
+let activeScreenTransition = null;
+let fallbackTransitionTimer;
 const presentationQueue = [];
 const animatedOrderingRounds = new Set();
 const animatedListingRounds = new Set();
@@ -396,7 +400,37 @@ function victory() {
   return screen;
 }
 
-function render() {
+function sceneKey() {
+  if (!presentation) return null;
+  if (presentation.screen === "jeopardy-question") {
+    return `${presentation.screen}:${presentation.question?.id}:${presentation.question?.answerRevealed ? "answer" : "question"}`;
+  }
+  if (presentation.screen === "ordering") {
+    const round = orderingState?.round;
+    const view = !round ? "waiting" : round.phase === "active" ? "active" : "results";
+    return `ordering:${round?.id || "none"}:${view}`;
+  }
+  if (presentation.screen === "listing") {
+    const round = listingState?.round;
+    if (!round) return "listing:waiting";
+    if (round.phase === "review") return `listing:${round.id}:review:${round.review?.index ?? 0}`;
+    if (["results", "distributed"].includes(round.phase)) {
+      const resultView = round.resultView;
+      return `listing:${round.id}:results:${resultView?.mode || "ranking"}:${resultView?.teamPosition ?? 0}`;
+    }
+    return `listing:${round.id}:${round.phase}`;
+  }
+  if (presentation.screen === "sync") {
+    const round = syncState?.round;
+    if (!syncState?.rosterLocked) return "sync:lobby";
+    if (!round) return "sync:waiting";
+    const view = ["results", "distributed"].includes(round.phase) ? "results" : round.phase;
+    return `sync:${round.id}:${view}`;
+  }
+  return presentation.screen;
+}
+
+function renderImmediately() {
   if (!presentation) return;
   document.title = `${presentation.title} — Publikumsansicht`;
   document.body.classList.toggle("with-scoreboard", ["hub", "jeopardy-board", "jeopardy-question", "ordering", "listing", "sync"].includes(presentation.screen));
@@ -432,6 +466,37 @@ function render() {
     root.append(overlay);
   }
   updateBuzzerBanner();
+}
+
+function render() {
+  if (!presentation) return;
+  const nextSceneKey = sceneKey();
+  const shouldAnimate = lastRenderedSceneKey !== null
+    && nextSceneKey !== lastRenderedSceneKey
+    && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  lastRenderedSceneKey = nextSceneKey;
+
+  if (!shouldAnimate) {
+    renderImmediately();
+    return;
+  }
+
+  if (typeof document.startViewTransition === "function") {
+    activeScreenTransition?.skipTransition();
+    const transition = document.startViewTransition(renderImmediately);
+    activeScreenTransition = transition;
+    transition.finished.finally(() => {
+      if (activeScreenTransition === transition) activeScreenTransition = null;
+    });
+    return;
+  }
+
+  renderImmediately();
+  clearTimeout(fallbackTransitionTimer);
+  root.querySelectorAll(":scope > *").forEach((node) => node.classList.add("display-transition-enter"));
+  fallbackTransitionTimer = setTimeout(() => {
+    root.querySelectorAll(".display-transition-enter").forEach((node) => node.classList.remove("display-transition-enter"));
+  }, SCREEN_TRANSITION_DURATION_MS);
 }
 
 function scoreChanges(nextPresentation) {
