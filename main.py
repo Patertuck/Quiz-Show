@@ -147,7 +147,6 @@ class BuzzerState:
         self.question_id: str | None = None
         self.is_open = False
         self.buzzes: list[int] = []
-        self.active_position = 0
 
     @staticmethod
     def team_revision(teams: list[str]) -> str:
@@ -170,7 +169,6 @@ class BuzzerState:
             self.question_id = None
             self.is_open = False
             self.buzzes = []
-            self.active_position = 0
             self._changed()
 
     def control(self, action: str, question_id: str | None = None, team_index: int | None = None) -> dict:
@@ -184,17 +182,18 @@ class BuzzerState:
                 self.question_id = question_id
                 self.is_open = True
                 self.buzzes = []
-                self.active_position = 0
                 self._changed()
             elif action == "close":
                 self.is_open = False
                 self._changed()
-            elif action == "advance":
-                active = self.buzzes[self.active_position] if self.active_position < len(self.buzzes) else None
-                if active is None or team_index != active:
-                    raise ValueError("Nur das hervorgehobene Team kann die Buzzer-Reihenfolge fortsetzen.")
-                self.active_position += 1
-                self._changed()
+            elif action == "remove":
+                if not self.is_open or question_id != self.question_id:
+                    raise ValueError("Die Buzzer-Runde ist nicht mehr aktuell.")
+                if not isinstance(team_index, int) or isinstance(team_index, bool) or not 0 <= team_index < len(self.teams):
+                    raise ValueError("Ein gültiger teamIndex ist erforderlich.")
+                if team_index in self.buzzes:
+                    self.buzzes.remove(team_index)
+                    self._changed()
             else:
                 raise ValueError("Unbekannte Buzzer-Aktion.")
             return self._snapshot_unlocked()
@@ -221,7 +220,7 @@ class BuzzerState:
             return 201, {"accepted": True, "position": position, "state": self._snapshot_unlocked()}
 
     def _snapshot_unlocked(self) -> dict:
-        active = self.buzzes[self.active_position] if self.active_position < len(self.buzzes) else None
+        active = self.buzzes[0] if self.buzzes else None
         return {
             "version": self.version,
             "teams": self.teams,

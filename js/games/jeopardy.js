@@ -29,14 +29,32 @@ export function mount(root) {
   function renderBuzzer() {
     buzzOrder.replaceChildren();
     const round = currentRound();
-    const activePosition = round
-      ? round.buzzes.findIndex((buzz) => buzz.teamIndex === round.activeTeamIndex)
-      : -1;
+    const activePosition = round?.buzzes.length ? 0 : -1;
     (round?.buzzes || []).forEach((buzz, index) => {
       const item = document.createElement("li");
-      item.textContent = buzz.teamName;
+      const name = document.createElement("span");
+      name.textContent = buzz.teamName;
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "buzz-remove-button";
+      remove.textContent = "×";
+      remove.setAttribute("aria-label", `${buzz.teamName} aus der Buzzer-Reihenfolge entfernen`);
+      remove.title = `${buzz.teamName} entfernen`;
+      remove.addEventListener("click", async () => {
+        remove.disabled = true;
+        try {
+          buzzerState = await controlBuzzer("remove", {
+            questionId: activeQuestionId(),
+            teamIndex: buzz.teamIndex
+          });
+          renderBuzzer();
+        } catch (error) {
+          buzzerStatus.textContent = `Team konnte nicht entfernt werden: ${error.message}`;
+          remove.disabled = false;
+        }
+      });
+      item.append(name, remove);
       item.classList.toggle("active", index === activePosition);
-      item.classList.toggle("answered", activePosition === -1 ? round.buzzes.length > 0 : index < activePosition);
       buzzOrder.append(item);
     });
     if (!round?.open) {
@@ -85,7 +103,7 @@ export function mount(root) {
     const round = currentRound();
     if (!round?.open || round.activeTeamIndex !== event.detail.teamIndex) return;
     try {
-      buzzerState = await controlBuzzer("advance", {
+      buzzerState = await controlBuzzer("remove", {
         questionId: activeQuestionId(),
         teamIndex: event.detail.teamIndex
       });
