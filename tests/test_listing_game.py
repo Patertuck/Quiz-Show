@@ -221,7 +221,7 @@ class ListingStateTests(unittest.TestCase):
 class GroqClassifierTests(unittest.TestCase):
     def test_request_uses_application_user_agent(self):
         with tempfile.TemporaryDirectory() as temporary:
-            config = Path(temporary) / "server-config.json"
+            config = Path(temporary) / "server-questions.json"
             config.write_text('{"groqApiKey":"secret","groqModel":"openai/gpt-oss-20b"}', encoding="utf-8")
             response_body = (
                 b'{"choices":[{"message":{"content":"'

@@ -33,7 +33,7 @@ ORDERING_FILE = PROJECT_DIRECTORY / "ordering-state.json"
 ORDERING_TEMP_FILE = PROJECT_DIRECTORY / ".ordering-state.tmp"
 LISTING_FILE = PROJECT_DIRECTORY / "listing-state.json"
 SYNC_FILE = PROJECT_DIRECTORY / "sync-state.json"
-SERVER_CONFIG_FILE = PROJECT_DIRECTORY / "server-config.json"
+SERVER_CONFIG_FILE = PROJECT_DIRECTORY / "server-questions.json"
 MAX_STATE_BYTES = 1_000_000
 STATE_LOCK = threading.Lock()
 TILE_ID_PATTERN = re.compile(r"^\d+:\d+$")
@@ -904,7 +904,7 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
         if self.request_path in {
             "/game-state.json", "/.game-state.tmp", "/ordering-state.json", "/.ordering-state.tmp",
             "/listing-state.json", "/.listing-state.json.tmp", "/sync-state.json",
-            "/.sync-state.json.tmp", "/server-config.json",
+            "/.sync-state.json.tmp", "/server-questions.json",
         }:
             self.send_error(404)
             return

@@ -36,7 +36,7 @@ function validateSide(item, textKey, imageKey, path) {
 }
 
 export function validateConfig(config) {
-  if (!config || typeof config !== "object" || Array.isArray(config)) throw new Error("config.json muss ein Objekt enthalten.");
+  if (!config || typeof config !== "object" || Array.isArray(config)) throw new Error("questions.json muss ein Objekt enthalten.");
   requireString(config.title, "title");
   if (!Array.isArray(config.teams) || !config.teams.length) throw new Error("teams muss mindestens ein Team enthalten.");
   config.teams.forEach((team, index) => {

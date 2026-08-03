@@ -23,9 +23,9 @@ def load_server_config(path: Path) -> dict:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError) as error:
-        raise RuntimeError(f"server-config.json konnte nicht gelesen werden: {error}") from error
+        raise RuntimeError(f"server-questions.json konnte nicht gelesen werden: {error}") from error
     if not isinstance(value, dict):
-        raise RuntimeError("server-config.json muss ein JSON-Objekt enthalten.")
+        raise RuntimeError("server-questions.json muss ein JSON-Objekt enthalten.")
     result = {**defaults, **value}
     if not isinstance(result["groqApiKey"], str) or not isinstance(result["groqModel"], str):
         raise RuntimeError("groqApiKey und groqModel müssen Zeichenfolgen sein.")
@@ -43,7 +43,7 @@ class GroqClassifier:
         config = load_server_config(self.config_path)
         api_key = config["groqApiKey"].strip()
         if not api_key:
-            raise RuntimeError("In server-config.json ist kein Groq-API-Key eingetragen.")
+            raise RuntimeError("In server-questions.json ist kein Groq-API-Key eingetragen.")
         ids = [entry["id"] for entry in entries]
         classification_schema = {
             "type": "object",
