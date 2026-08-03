@@ -204,8 +204,8 @@ async function loadSavedState() {
 }
 
 export async function loadApplicationData() {
-  const response = await fetch("config.json", { cache: "no-store" });
-  if (!response.ok) throw new Error(`config.json konnte nicht geladen werden (HTTP ${response.status}).`);
+  const response = await fetch("questions.json", { cache: "no-store" });
+  if (!response.ok) throw new Error(`questions.json konnte nicht geladen werden (HTTP ${response.status}).`);
   state.config = validateConfig(await response.json());
   state.configFingerprint = await fingerprint(state.config);
   state.savedState = await loadSavedState();

@@ -7,4 +7,5 @@ listing-state.json
 sync-state.json
 .sync-state.json.tmp
 server-config.json
+questions.json
 __pycache__/
