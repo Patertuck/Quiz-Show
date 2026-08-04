@@ -53,7 +53,9 @@ function logoImage(className) {
 }
 
 function renderMedia(container, text, image) {
-  if (typeof text === "string" && text.trim()) container.append(element("div", "", text));
+  if (typeof text === "string" && text.trim()) {
+    container.append(element("div", text.length > 280 ? "long-text" : "", text));
+  }
   if (image) {
     const picture = document.createElement("img");
     picture.src = image.src;

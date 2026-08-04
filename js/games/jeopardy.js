@@ -181,6 +181,7 @@ export function mount(root) {
     if (typeof text === "string" && text.trim()) {
       const element = document.createElement("div");
       element.textContent = text;
+      element.classList.toggle("long-text", text.length > 280);
       container.append(element);
     }
     if (image) {
