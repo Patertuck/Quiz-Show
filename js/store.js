@@ -27,11 +27,24 @@ function validateImage(image, path) {
   }
 }
 
-function validateSide(item, textKey, imageKey, path) {
+function validateAudio(audio, path) {
+  if (audio === undefined) return;
+  if (!audio || typeof audio !== "object" || Array.isArray(audio)) throw new Error(`${path} muss ein Objekt sein.`);
+  requireString(audio.src, `${path}.src`);
+  requireString(audio.label, `${path}.label`);
+  const src = audio.src.replaceAll("\\", "/");
+  if (!src.startsWith("assets/") || src.split("/").includes("..") || /^[a-z]+:/i.test(src)) {
+    throw new Error(`${path}.src muss ein relativer Pfad innerhalb von assets/ sein.`);
+  }
+}
+
+function validateSide(item, textKey, imageKey, audioKey, path) {
   if (item[textKey] !== undefined && typeof item[textKey] !== "string") throw new Error(`${path}.${textKey} muss eine Zeichenfolge sein.`);
   validateImage(item[imageKey], `${path}.${imageKey}`);
-  if (!(typeof item[textKey] === "string" && item[textKey].trim()) && item[imageKey] === undefined) {
-    throw new Error(`${path} needs ${textKey} text, ${imageKey}, or both.`);
+  validateAudio(item[audioKey], `${path}.${audioKey}`);
+  if (!(typeof item[textKey] === "string" && item[textKey].trim())
+      && item[imageKey] === undefined && item[audioKey] === undefined) {
+    throw new Error(`${path} benötigt ${textKey}, ${imageKey}, ${audioKey} oder eine Kombination daraus.`);
   }
 }
 
@@ -57,8 +70,8 @@ export function validateConfig(config) {
     category.questions.forEach((item, rowIndex) => {
       const itemPath = `${path}.questions[${rowIndex}]`;
       if (!item || typeof item !== "object" || Array.isArray(item)) throw new Error(`${itemPath} muss ein Objekt sein.`);
-      validateSide(item, "question", "questionImage", itemPath);
-      validateSide(item, "answer", "answerImage", itemPath);
+      validateSide(item, "question", "questionImage", "questionAudio", itemPath);
+      validateSide(item, "answer", "answerImage", "answerAudio", itemPath);
     });
   });
   if (!config.ordering || typeof config.ordering !== "object" || Array.isArray(config.ordering)) {

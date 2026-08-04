@@ -2,6 +2,7 @@ import { state } from "./store.js";
 
 let publishChain = Promise.resolve();
 let joinOverlay = null;
+let jeopardyAudioCommand = null;
 
 function teams() {
   return state.teams.map(({ name, score }) => ({ name, score }));
@@ -13,6 +14,15 @@ function base(screen) {
 
 function media(image) {
   return image ? { src: image.src, alt: image.alt } : null;
+}
+
+function audio(track) {
+  return track ? { src: track.src, label: track.label } : null;
+}
+
+export function commandJeopardyAudio(action, target = null) {
+  jeopardyAudioCommand = { id: crypto.randomUUID(), action, target };
+  return publishJeopardy();
 }
 
 export function publishPresentation(snapshot) {
@@ -65,9 +75,12 @@ export function publishJeopardy() {
       value: state.config.values[rowIndex],
       question: typeof item.question === "string" ? item.question : null,
       questionImage: media(item.questionImage),
+      questionAudio: audio(item.questionAudio),
       answerRevealed,
       answer: answerRevealed && typeof item.answer === "string" ? item.answer : null,
-      answerImage: answerRevealed ? media(item.answerImage) : null
+      answerImage: answerRevealed ? media(item.answerImage) : null,
+      answerAudio: answerRevealed ? audio(item.answerAudio) : null,
+      audioCommand: jeopardyAudioCommand
     }
   });
 }

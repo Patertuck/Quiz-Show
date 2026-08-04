@@ -1,7 +1,7 @@
 import { state, saveState } from "../store.js";
 import { updateScoreControls } from "../scoreboard.js";
 import { connectToBuzzer, controlBuzzer } from "../buzzer-client.js";
-import { publishJeopardy } from "../presentation-host.js";
+import { commandJeopardyAudio, publishJeopardy } from "../presentation-host.js";
 
 export function mount(root) {
   const boardView = root.querySelector("#jeopardy-board-view");
@@ -11,6 +11,9 @@ export function mount(root) {
   const answerContent = root.querySelector("#answer-content");
   const questionValue = root.querySelector("#question-value");
   const revealButton = root.querySelector("#reveal-button");
+  const audioControls = root.querySelector("#audio-controls");
+  const audioTracks = root.querySelector("#audio-tracks");
+  const audioStatus = root.querySelector("#audio-status");
   const buzzerConnection = root.querySelector("#buzzer-connection");
   const buzzerStatus = root.querySelector("#buzzer-host-status");
   const buzzOrder = root.querySelector("#buzz-order");
@@ -194,12 +197,65 @@ export function mount(root) {
     }
   }
 
+  function audioTrackControls(track, target) {
+    const row = document.createElement("div");
+    row.className = "audio-track-controls";
+    const label = document.createElement("strong");
+    label.textContent = track.label;
+    row.append(label);
+    [["play", "▶ Abspielen"], ["pause", "⏸ Pause"], ["restart", "↺ Neustart"]].forEach(([action, text]) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = text;
+      button.addEventListener("click", async () => {
+        row.querySelectorAll("button").forEach((item) => { item.disabled = true; });
+        audioStatus.textContent = "Befehl wird an den Beamer gesendet…";
+        try {
+          await commandJeopardyAudio(action, target);
+          audioStatus.textContent = `${track.label}: ${text.replace(/^[^ ]+ /, "")}`;
+        } catch (error) {
+          audioStatus.textContent = `Audiobefehl fehlgeschlagen: ${error.message}`;
+        } finally {
+          row.querySelectorAll("button").forEach((item) => { item.disabled = false; });
+        }
+      });
+      row.append(button);
+    });
+    return row;
+  }
+
+  function renderAudioControls(item, answerRevealed) {
+    audioTracks.replaceChildren();
+    if (item.questionAudio) audioTracks.append(audioTrackControls(item.questionAudio, "question"));
+    if (answerRevealed && item.answerAudio) audioTracks.append(audioTrackControls(item.answerAudio, "answer"));
+    if (audioTracks.childElementCount) {
+      const stop = document.createElement("button");
+      stop.type = "button";
+      stop.className = "audio-stop-button";
+      stop.textContent = "■ Stoppen";
+      stop.addEventListener("click", async () => {
+        stop.disabled = true;
+        try {
+          await commandJeopardyAudio("stop");
+          audioStatus.textContent = "Wiedergabe gestoppt";
+        } catch (error) {
+          audioStatus.textContent = `Audiobefehl fehlgeschlagen: ${error.message}`;
+        } finally {
+          stop.disabled = false;
+        }
+      });
+      audioTracks.append(stop);
+    }
+    audioControls.hidden = !audioTracks.childElementCount;
+  }
+
   function displayQuestion() {
     const { categoryIndex, rowIndex, answerRevealed } = state.activeQuestion;
     const item = state.config.categories[categoryIndex].questions[rowIndex];
     questionValue.textContent = `±${state.config.values[rowIndex].toLocaleString("de-CH")} Punkte`;
     renderMedia(questionContent, item.question, item.questionImage);
     renderMedia(answerContent, item.answer, item.answerImage);
+    renderAudioControls(item, answerRevealed);
     answerContent.hidden = !answerRevealed;
     revealButton.hidden = answerRevealed;
     boardView.hidden = true;
@@ -214,19 +270,19 @@ export function mount(root) {
     updateScoreControls();
     displayQuestion();
     saveState().catch(() => undefined);
-    publishJeopardy().catch(() => undefined);
+    commandJeopardyAudio("stop").catch(() => undefined);
   }
 
   revealButton.addEventListener("click", () => {
-    answerContent.hidden = false;
-    revealButton.hidden = true;
     state.activeQuestion.answerRevealed = true;
+    displayQuestion();
     saveState().catch(() => undefined);
-    publishJeopardy().catch(() => undefined);
+    commandJeopardyAudio("stop").catch(() => undefined);
   });
 
   root.querySelector("#continue-button").addEventListener("click", () => {
     if (currentRound()?.open) controlBuzzer("close").catch(() => undefined);
+    commandJeopardyAudio("stop").catch(() => undefined);
     state.activeQuestion = null;
     state.activeValue = 0;
     updateScoreControls();
@@ -251,6 +307,7 @@ export function mount(root) {
   }
   publishJeopardy().catch(() => undefined);
   return () => {
+    if (state.activeQuestion) commandJeopardyAudio("stop").catch(() => undefined);
     if (currentRound()?.open) {
       fetch("/api/buzzer/control", {
         method: "POST",

@@ -3,6 +3,11 @@ import qrcode from "../assets/vendor/qrcode.js";
 
 const root = document.querySelector("#display-root");
 const connection = document.querySelector("#display-connection");
+const audioUnlock = document.querySelector("#display-audio-unlock");
+const jeopardyAudio = new Audio();
+let jeopardyAudioSource = null;
+let lastJeopardyAudioCommandId = null;
+let pendingJeopardyAudioCommand = null;
 let presentation = null;
 let buzzer = null;
 let orderingState = null;
@@ -165,10 +170,16 @@ function jeopardyQuestion() {
   ));
   const question = element("div", "display-media");
   renderMedia(question, presentation.question.question, presentation.question.questionImage);
+  if (presentation.question.questionAudio) {
+    question.append(element("div", "display-audio-label", `🎵 ${presentation.question.questionAudio.label}`));
+  }
   content.append(question);
   if (presentation.question.answerRevealed) {
     const answer = element("div", "display-media answer");
     renderMedia(answer, presentation.question.answer, presentation.question.answerImage);
+    if (presentation.question.answerAudio) {
+      answer.append(element("div", "display-audio-label", `🎵 ${presentation.question.answerAudio.label}`));
+    }
     content.append(answer);
   }
   const buzzOrder = element("aside", "display-buzz-order");
@@ -317,6 +328,63 @@ function listing() {
   screen.append(content);
   return screen;
 }
+
+function audioTrackFor(command) {
+  if (!presentation?.question || !command?.target) return null;
+  return command.target === "answer" ? presentation.question.answerAudio : presentation.question.questionAudio;
+}
+
+async function executeJeopardyAudio(command) {
+  if (command.action === "stop") {
+    jeopardyAudio.pause();
+    jeopardyAudio.currentTime = 0;
+    pendingJeopardyAudioCommand = null;
+    audioUnlock.hidden = true;
+    return;
+  }
+  if (command.action === "pause") {
+    jeopardyAudio.pause();
+    pendingJeopardyAudioCommand = null;
+    audioUnlock.hidden = true;
+    return;
+  }
+  const track = audioTrackFor(command);
+  if (!track) return;
+  if (jeopardyAudioSource !== track.src) {
+    jeopardyAudio.src = track.src;
+    jeopardyAudioSource = track.src;
+  }
+  if (command.action === "restart") jeopardyAudio.currentTime = 0;
+  try {
+    await jeopardyAudio.play();
+    pendingJeopardyAudioCommand = null;
+    audioUnlock.textContent = "🔊 Audio aktivieren";
+    audioUnlock.hidden = true;
+  } catch (error) {
+    console.warn("Audio playback needs audience interaction:", error);
+    pendingJeopardyAudioCommand = command;
+    audioUnlock.textContent = error.name === "NotAllowedError"
+      ? "🔊 Audio aktivieren"
+      : "⚠ Audiofehler – erneut versuchen";
+    audioUnlock.hidden = false;
+  }
+}
+
+jeopardyAudio.addEventListener("error", () => {
+  audioUnlock.textContent = "⚠ Audiofehler – erneut versuchen";
+  audioUnlock.hidden = false;
+});
+
+function handleJeopardyAudioCommand() {
+  const command = presentation?.screen === "jeopardy-question" ? presentation.question?.audioCommand : null;
+  if (!command || command.id === lastJeopardyAudioCommandId) return;
+  lastJeopardyAudioCommandId = command.id;
+  executeJeopardyAudio(command);
+}
+
+audioUnlock.addEventListener("click", () => {
+  if (pendingJeopardyAudioCommand) executeJeopardyAudio(pendingJeopardyAudioCommand);
+});
 
 function sync() {
   const screen = element("section", "display-screen display-sync");
@@ -582,6 +650,7 @@ async function drainPresentationQueue() {
       if (presentation?.version !== undefined && nextPresentation.version <= presentation.version) continue;
       const plan = audienceAnimationPlan(nextPresentation);
       presentation = nextPresentation;
+      handleJeopardyAudioCommand();
       render();
       if (plan) {
         await animateScoreDistribution({ root, ...plan });
@@ -678,6 +747,7 @@ Promise.all([
     orderingState = nextOrdering;
     listingState = nextListing;
     syncState = nextSync;
+    handleJeopardyAudioCommand();
     if (!displayScoreAnimationActive) render();
   })
   .catch(() => {

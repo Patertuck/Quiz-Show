@@ -526,6 +526,19 @@ def validate_presentation_image(image: object, field: str) -> dict | None:
     return {"src": src, "alt": image["alt"]}
 
 
+def validate_presentation_audio(audio: object, field: str) -> dict | None:
+    if audio is None:
+        return None
+    if not isinstance(audio, dict) or not isinstance(audio.get("src"), str) or not isinstance(audio.get("label"), str):
+        raise ValueError(f"{field} must contain src and label strings.")
+    src = audio["src"].replace("\\", "/")
+    if not src.startswith("assets/") or ".." in src.split("/") or re.match(r"^[a-z]+:", src, re.I):
+        raise ValueError(f"{field}.src must be beneath assets/.")
+    if not audio["label"].strip():
+        raise ValueError(f"{field}.label must not be empty.")
+    return {"src": src, "label": audio["label"]}
+
+
 def validate_presentation(payload: object) -> dict:
     if not isinstance(payload, dict) or payload.get("screen") not in PRESENTATION_SCREENS:
         raise ValueError("Presentation screen is invalid.")
@@ -593,12 +606,35 @@ def validate_presentation(payload: object) -> dict:
             raise ValueError("Answer text must be a string or null.")
         question_image = validate_presentation_image(question.get("questionImage"), "questionImage")
         answer_image = validate_presentation_image(question.get("answerImage"), "answerImage")
-        if not revealed and (answer_text is not None or answer_image is not None):
+        question_audio = validate_presentation_audio(question.get("questionAudio"), "questionAudio")
+        answer_audio = validate_presentation_audio(question.get("answerAudio"), "answerAudio")
+        audio_command = question.get("audioCommand")
+        clean_audio_command = None
+        if audio_command is not None:
+            if (not isinstance(audio_command, dict) or not isinstance(audio_command.get("id"), str)
+                    or not audio_command["id"].strip()
+                    or audio_command.get("action") not in {"play", "pause", "restart", "stop"}
+                    or audio_command.get("target") not in {None, "question", "answer"}):
+                raise ValueError("audioCommand is invalid.")
+            if audio_command["action"] != "stop" and audio_command["target"] is None:
+                raise ValueError("Audio playback commands require a target.")
+            if audio_command["target"] == "answer" and not revealed:
+                raise ValueError("Answer audio cannot be controlled before reveal.")
+            if audio_command["target"] == "question" and question_audio is None:
+                raise ValueError("The current question has no question audio.")
+            if audio_command["target"] == "answer" and answer_audio is None:
+                raise ValueError("The current question has no answer audio.")
+            clean_audio_command = {
+                "id": audio_command["id"], "action": audio_command["action"], "target": audio_command["target"]
+            }
+        if not revealed and (answer_text is not None or answer_image is not None or answer_audio is not None):
             raise ValueError("An unrevealed presentation must not contain an answer.")
         clean["question"] = {
             "id": question["id"], "value": value, "question": question_text, "questionImage": question_image,
+            "questionAudio": question_audio,
             "answerRevealed": revealed, "answer": answer_text if revealed else None,
-            "answerImage": answer_image if revealed else None,
+            "answerImage": answer_image if revealed else None, "answerAudio": answer_audio if revealed else None,
+            "audioCommand": clean_audio_command,
         }
     elif payload["screen"] == "victory":
         steps = payload.get("steps")
