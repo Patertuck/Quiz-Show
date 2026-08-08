@@ -18,7 +18,8 @@
 .dialog-close { position: absolute; top: 0.65rem; right: 0.65rem; width: 2.4rem; height: 2.4rem; padding: 0; border-radius: 50%; background: #e9ecff; color: #17206a; font-size: 1.7rem; line-height: 1; }
 #buzzer-qr { display: grid; width: min(19rem, 100%); aspect-ratio: 1; place-items: center; margin: 1rem auto; padding: 0.6rem; border-radius: 0.5rem; background: #fff; }
 #buzzer-qr svg { display: block; width: 100%; height: 100%; }
-#buzzer-url { display: block; color: #233fb0; font-weight: bold; overflow-wrap: anywhere; text-decoration: underline; }
+#buzzer-url, #buzzer-display-url { display: block; color: #233fb0; font-weight: bold; overflow-wrap: anywhere; text-decoration: underline; }
+#buzzer-display-row { margin: 1rem 0 0; }
 #buzzer-local-url { display: inline-block; margin-top: 0.75rem; color: #596080; font-size: 0.85rem; text-decoration: underline; }
 .buzzer-dialog-note { margin-bottom: 0; color: #555b7c; font-size: 0.85rem; line-height: 1.4; }
 .game-card-area { display: grid; min-width: 0; min-height: 0; container-type: size; place-items: center; }

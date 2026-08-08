@@ -1,3 +1,5 @@
+import { startLivePolling, usesQuickTunnelPolling } from "./live-state.js?v=1";
+
 const waitingStep = document.querySelector("#waiting-step");
 const waitingTitle = document.querySelector("#waiting-title");
 const waitingStatus = document.querySelector("#waiting-status");
@@ -62,6 +64,7 @@ const newDeviceId = () => crypto.randomUUID?.()
   || Array.from(crypto.getRandomValues(new Uint32Array(4)), (value) => value.toString(16).padStart(8, "0")).join("");
 const deviceId = localStorage.getItem("quiz-buzzer-device") || newDeviceId();
 localStorage.setItem("quiz-buzzer-device", deviceId);
+const usePollingTransport = usesQuickTunnelPolling();
 
 function savedSelection() {
   try { return JSON.parse(localStorage.getItem("quiz-buzzer-team")); }
@@ -385,19 +388,23 @@ function renderOrdering() {
   });
 }
 
+function receiveOrderingState(nextState, shouldRender = true) {
+  if (activeDrag) {
+    deferredOrderingState = nextState;
+    if (nextState.round?.id !== orderingState?.round?.id || nextState.round?.phase !== "active") cancelDrag();
+    return;
+  }
+  orderingState = nextState;
+  if (shouldRender) render();
+}
+
 function connectOrderingEvents() {
+  if (usePollingTransport) return;
   orderingEvents?.close();
   const query = selectedTeamIndex === null ? "" : `?teamIndex=${selectedTeamIndex}`;
   orderingEvents = new EventSource(`/api/ordering/events${query}`);
   orderingEvents.addEventListener("state", (event) => {
-    const nextState = JSON.parse(event.data);
-    if (activeDrag) {
-      deferredOrderingState = nextState;
-      if (nextState.round?.id !== orderingState?.round?.id || nextState.round?.phase !== "active") cancelDrag();
-      return;
-    }
-    orderingState = nextState;
-    render();
+    receiveOrderingState(JSON.parse(event.data));
   });
   orderingEvents.addEventListener("error", () => {
     if (activeDrag) cancelDrag();
@@ -512,6 +519,7 @@ function renderListing() {
 }
 
 function connectListingEvents() {
+  if (usePollingTransport) return;
   listingEvents?.close();
   const query = selectedTeamIndex === null ? "" : `?teamIndex=${selectedTeamIndex}`;
   listingEvents = new EventSource(`/api/listing/events${query}`);
@@ -659,6 +667,7 @@ async function saveSyncVote(selectedParticipantId) {
 }
 
 function connectSyncEvents() {
+  if (usePollingTransport) return;
   syncEvents?.close();
   syncEvents = new EventSource(`/api/sync/events?deviceId=${encodeURIComponent(deviceId)}`);
   syncEvents.addEventListener("state", (event) => {
@@ -755,23 +764,39 @@ buzzButton.addEventListener("click", async () => {
   }
 });
 
-const events = new EventSource("/api/buzzer/events");
-events.addEventListener("state", (event) => {
-  currentState = JSON.parse(event.data);
-  connectionStatus.textContent = "Verbunden";
-  connectionStatus.classList.add("connected");
-  render();
-});
-events.addEventListener("error", () => {
-  connectionStatus.textContent = "Verbindung wird wiederhergestellt…";
-  connectionStatus.classList.remove("connected");
-});
+function setPlayerConnection(connected) {
+  connectionStatus.textContent = connected ? "Verbunden" : "Verbindung wird wiederhergestellt…";
+  connectionStatus.classList.toggle("connected", connected);
+}
 
-const presentationEvents = new EventSource("/api/presentation/events");
-presentationEvents.addEventListener("state", (event) => {
-  presentationState = JSON.parse(event.data);
-  render();
-});
+if (usePollingTransport) {
+  startLivePolling({
+    query: () => ({ clientId: deviceId, deviceId, teamIndex: selectedTeamIndex }),
+    onConnectionChange: setPlayerConnection,
+    onSnapshot: (snapshot) => {
+      currentState = snapshot.buzzer;
+      presentationState = snapshot.presentation;
+      receiveOrderingState(snapshot.ordering, false);
+      listingState = snapshot.listing;
+      syncState = snapshot.sync;
+      render();
+    }
+  });
+} else {
+  const events = new EventSource("/api/buzzer/events");
+  events.addEventListener("state", (event) => {
+    currentState = JSON.parse(event.data);
+    setPlayerConnection(true);
+    render();
+  });
+  events.addEventListener("error", () => setPlayerConnection(false));
+
+  const presentationEvents = new EventSource("/api/presentation/events");
+  presentationEvents.addEventListener("state", (event) => {
+    presentationState = JSON.parse(event.data);
+    render();
+  });
+}
 
 async function loadPresentationState() {
   const response = await fetch("/api/presentation/state", { cache: "no-store" });
@@ -780,7 +805,7 @@ async function loadPresentationState() {
   render();
 }
 
-Promise.all([loadState(), loadPresentationState()]).catch(() => {
+if (!usePollingTransport) Promise.all([loadState(), loadPresentationState()]).catch(() => {
   connectionStatus.textContent = "Offline";
   waitingStatus.hidden = false;
   waitingStatus.textContent = "Die Quiz-Spielleitung konnte nicht erreicht werden. Prüft die WLAN-Verbindung.";

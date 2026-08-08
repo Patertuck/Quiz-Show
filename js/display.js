@@ -1,5 +1,7 @@
 import { animateScoreDistribution } from "./display-score-animation.js";
 import qrcode from "../assets/vendor/qrcode.js";
+import { startLivePolling, usesQuickTunnelPolling } from "./live-state.js?v=1";
+import { scheduleTextFit } from "./fit-text.js";
 
 const root = document.querySelector("#display-root");
 const connection = document.querySelector("#display-connection");
@@ -27,6 +29,7 @@ const animatedListingRounds = new Set();
 const animatedSyncRounds = new Set();
 const standbyLogoSource = "assets/Logos/Logo-1024.webp";
 const standbyLogoRetryDelay = 2000;
+const usePollingTransport = usesQuickTunnelPolling();
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -54,13 +57,18 @@ function logoImage(className) {
 
 function renderMedia(container, text, image) {
   if (typeof text === "string" && text.trim()) {
-    container.append(element("div", text.length > 280 ? "long-text" : "", text));
+    container.append(element("div", text.length > 280 ? "auto-fit-text long-text" : "auto-fit-text", text));
   }
   if (image) {
     const picture = document.createElement("img");
-    picture.src = image.src;
     picture.alt = image.alt;
-    picture.addEventListener("error", () => picture.replaceWith(element("div", "", "Bild nicht verfügbar")), { once: true });
+    picture.addEventListener("load", () => scheduleTextFit(picture.closest(".display-question-content")), { once: true });
+    picture.addEventListener("error", () => {
+      const content = picture.closest(".display-question-content");
+      picture.replaceWith(element("div", "", "Bild nicht verfügbar"));
+      scheduleTextFit(content);
+    }, { once: true });
+    picture.src = image.src;
     container.append(picture);
   }
 }
@@ -170,24 +178,26 @@ function jeopardyQuestion() {
     "display-question-value",
     `±${presentation.question.value.toLocaleString("de-CH")} Punkte`
   ));
-  const question = element("div", "display-media");
-  renderMedia(question, presentation.question.question, presentation.question.questionImage);
-  if (presentation.question.questionAudio) {
-    question.append(element("div", "display-audio-label", `🎵 ${presentation.question.questionAudio.label}`));
-  }
-  content.append(question);
   if (presentation.question.answerRevealed) {
-    const answer = element("div", "display-media answer");
+    const answer = element("div", "display-media answer answer-only");
     renderMedia(answer, presentation.question.answer, presentation.question.answerImage);
     if (presentation.question.answerAudio) {
       answer.append(element("div", "display-audio-label", `🎵 ${presentation.question.answerAudio.label}`));
     }
     content.append(answer);
+  } else {
+    const question = element("div", "display-media");
+    renderMedia(question, presentation.question.question, presentation.question.questionImage);
+    if (presentation.question.questionAudio) {
+      question.append(element("div", "display-audio-label", `🎵 ${presentation.question.questionAudio.label}`));
+    }
+    content.append(question);
   }
   const buzzOrder = element("aside", "display-buzz-order");
   buzzOrder.setAttribute("aria-label", "Buzzer-Reihenfolge");
   buzzOrder.append(element("strong", "display-buzz-label", "Buzzer-Reihenfolge"), element("ol", "display-buzz-list"));
   screen.append(content, buzzOrder);
+  scheduleTextFit(content);
   return screen;
 }
 
@@ -681,7 +691,10 @@ function updateBuzzerBanner() {
   const round = buzzer?.round;
   if (!order || !list || !presentation?.question || round?.questionId !== presentation.question.id
       || !round.buzzes.length) {
-    if (order) order.hidden = true;
+    if (order) {
+      order.hidden = true;
+      scheduleTextFit(root.querySelector(".display-question-content"));
+    }
     return;
   }
   const activePosition = round.buzzes.findIndex((entry) => entry.teamIndex === round.activeTeamIndex);
@@ -693,7 +706,10 @@ function updateBuzzerBanner() {
     return item;
   }));
   order.hidden = false;
+  scheduleTextFit(root.querySelector(".display-question-content"));
 }
+
+window.addEventListener("resize", () => scheduleTextFit(root.querySelector(".display-question-content")));
 
 async function initialState(path) {
   const response = await fetch(path, { cache: "no-store" });
@@ -701,42 +717,57 @@ async function initialState(path) {
   return response.json();
 }
 
-const presentationEvents = new EventSource("/api/presentation/events");
-presentationEvents.addEventListener("state", (event) => {
-  receivePresentation(JSON.parse(event.data));
-  connection.textContent = "Verbunden";
-  connection.classList.add("connected");
-});
-presentationEvents.addEventListener("error", () => {
-  connection.textContent = "Verbindung zur Spielleitung wird wiederhergestellt…";
-  connection.classList.remove("connected");
-});
+function setDisplayConnection(connected) {
+  connection.textContent = connected ? "Verbunden" : "Verbindung zur Spielleitung wird wiederhergestellt…";
+  connection.classList.toggle("connected", connected);
+}
 
-const buzzerEvents = new EventSource("/api/buzzer/events");
-buzzerEvents.addEventListener("state", (event) => {
-  buzzer = JSON.parse(event.data);
+function receiveLiveSnapshot(snapshot) {
+  receivePresentation(snapshot.presentation);
+  buzzer = snapshot.buzzer;
+  orderingState = snapshot.ordering;
+  listingState = snapshot.listing;
+  syncState = snapshot.sync;
   updateBuzzerBanner();
-});
+  if (!displayScoreAnimationActive) render();
+}
 
-const orderingEvents = new EventSource("/api/ordering/events?role=public");
-orderingEvents.addEventListener("state", (event) => {
-  orderingState = JSON.parse(event.data);
-  if (presentation?.screen === "ordering" && !displayScoreAnimationActive) render();
-});
+if (usePollingTransport) {
+  startLivePolling({ onSnapshot: receiveLiveSnapshot, onConnectionChange: setDisplayConnection });
+} else {
+  const presentationEvents = new EventSource("/api/presentation/events");
+  presentationEvents.addEventListener("state", (event) => {
+    receivePresentation(JSON.parse(event.data));
+    setDisplayConnection(true);
+  });
+  presentationEvents.addEventListener("error", () => setDisplayConnection(false));
 
-const listingEvents = new EventSource("/api/listing/events?role=public");
-listingEvents.addEventListener("state", (event) => {
-  listingState = JSON.parse(event.data);
-  if (presentation?.screen === "listing" && !displayScoreAnimationActive) render();
-});
+  const buzzerEvents = new EventSource("/api/buzzer/events");
+  buzzerEvents.addEventListener("state", (event) => {
+    buzzer = JSON.parse(event.data);
+    updateBuzzerBanner();
+  });
 
-const syncEvents = new EventSource("/api/sync/events?role=public");
-syncEvents.addEventListener("state", (event) => {
-  syncState = JSON.parse(event.data);
-  if (presentation?.screen === "sync" && !displayScoreAnimationActive) render();
-});
+  const orderingEvents = new EventSource("/api/ordering/events?role=public");
+  orderingEvents.addEventListener("state", (event) => {
+    orderingState = JSON.parse(event.data);
+    if (presentation?.screen === "ordering" && !displayScoreAnimationActive) render();
+  });
 
-Promise.all([
+  const listingEvents = new EventSource("/api/listing/events?role=public");
+  listingEvents.addEventListener("state", (event) => {
+    listingState = JSON.parse(event.data);
+    if (presentation?.screen === "listing" && !displayScoreAnimationActive) render();
+  });
+
+  const syncEvents = new EventSource("/api/sync/events?role=public");
+  syncEvents.addEventListener("state", (event) => {
+    syncState = JSON.parse(event.data);
+    if (presentation?.screen === "sync" && !displayScoreAnimationActive) render();
+  });
+}
+
+if (!usePollingTransport) Promise.all([
   initialState("/api/presentation/state"),
   initialState("/api/buzzer/state"),
   initialState("/api/ordering/state?role=public"),

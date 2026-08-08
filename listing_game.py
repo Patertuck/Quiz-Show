@@ -151,6 +151,7 @@ class ListingState:
         self.completed: list[str] = []
         self.round: dict | None = None
         self.connections: dict[int, int] = {}
+        self.poll_connections: dict[str, tuple[int, float]] = {}
         self._classification_round_id: str | None = None
         self._load()
 
@@ -177,6 +178,7 @@ class ListingState:
                 self.round["deadlineAt"] = 0
         except (OSError, UnicodeError, json.JSONDecodeError):
             self.round = None
+            self.poll_connections = {}
 
     def _save_unlocked(self) -> None:
         data = {
@@ -219,6 +221,7 @@ class ListingState:
             if fingerprint != self.config_fingerprint or revision != self.teams_revision:
                 self.completed = []
                 self.round = None
+                self.poll_connections = {}
             self.config_fingerprint = fingerprint
             self.teams = list(teams)
             self.teams_revision = revision
@@ -584,12 +587,15 @@ class ListingState:
 
     def _snapshot_unlocked(self, role: str, team_index: int | None = None) -> dict:
         self._expire_unlocked()
+        self._prune_poll_connections_unlocked()
+        connected_teams = set(self.connections)
+        connected_teams.update(team for team, _expires in self.poll_connections.values())
         result = {
             "version": self.version,
             "teams": self.teams,
             "teamsRevision": self.teams_revision,
             "completedQuestionIds": self.completed,
-            "connectedTeamCount": len(self.connections),
+            "connectedTeamCount": len(connected_teams),
             "round": None,
         }
         if not self.round:
@@ -645,8 +651,12 @@ class ListingState:
             wait = timeout
             if self.round and self.round["phase"] == "active":
                 wait = min(wait, max(0.05, (self.round["deadlineAt"] - int(time.time() * 1000)) / 1000))
+            if self.poll_connections:
+                next_expiry = min(expires_at for _, expires_at in self.poll_connections.values())
+                wait = min(wait, max(0.05, next_expiry - time.monotonic()))
             if self.version == version:
                 self.condition.wait(wait)
+            self._prune_poll_connections_unlocked()
             self._expire_unlocked()
             return self._snapshot_unlocked(role, team_index) if self.version != version else None
 
@@ -654,6 +664,24 @@ class ListingState:
         with self.condition:
             if 0 <= team_index < len(self.teams):
                 self.connections[team_index] = self.connections.get(team_index, 0) + 1
+                self._changed_unlocked(False)
+
+    def _prune_poll_connections_unlocked(self) -> None:
+        now = time.monotonic()
+        expired = [client_id for client_id, (_team, expires) in self.poll_connections.items() if expires <= now]
+        if expired:
+            for client_id in expired:
+                del self.poll_connections[client_id]
+            self._changed_unlocked(False)
+
+    def touch_poll_connection(self, client_id: str, team_index: int, ttl: float = 10.0) -> None:
+        with self.condition:
+            if not client_id or not 0 <= team_index < len(self.teams):
+                return
+            self._prune_poll_connections_unlocked()
+            previous = self.poll_connections.get(client_id)
+            self.poll_connections[client_id] = (team_index, time.monotonic() + ttl)
+            if previous is None or previous[0] != team_index:
                 self._changed_unlocked(False)
 
     def disconnect(self, team_index: int) -> None:

@@ -40,11 +40,13 @@ body { margin: 0; overflow: hidden; background: var(--blue); color: #fff; }
 .display-tile { font-size: var(--tile-font-size, 2rem); }
 .display-tile.used { color: transparent; }
 .display-question { position: relative; display: grid; grid-template-rows: 1fr auto; place-items: center; gap: 1rem; padding: clamp(1rem, 3vw, 2.5rem); background: var(--blue); text-align: center; }
-.display-question-content { display: grid; width: min(76rem, 100%); min-height: 0; gap: 1.2rem; place-items: center; }
+.display-question-content { display: grid; width: min(76rem, 100%); height: 100%; min-height: 0; max-height: 100%; gap: 1.2rem; place-items: center; overflow: hidden; }
 .display-question-value { padding: 0.5rem 1rem; border: 2px solid var(--yellow); border-radius: 999px; background: rgb(6 13 65 / 72%); color: var(--yellow); font-size: clamp(1rem, 2.2vw, 1.5rem); font-variant-numeric: tabular-nums; font-weight: 900; box-shadow: 0 0.4rem 1.1rem rgb(0 0 0 / 28%); }
 .display-media { display: grid; gap: 1rem; place-items: center; font-size: clamp(1.7rem, 4.8vw, 4.2rem); font-weight: bold; line-height: 1.18; white-space: pre-wrap; }
-.display-media .long-text { max-height: 42vh; padding: 0 0.5rem; overflow-y: auto; font-size: clamp(1rem, 2vw, 1.7rem); font-weight: 600; line-height: 1.38; }
+.display-media .auto-fit-text { max-width: 100%; overflow-wrap: anywhere; }
+.display-media .long-text { padding: 0 0.5rem; font-size: clamp(1rem, 2vw, 1.7rem); font-weight: 600; line-height: 1.38; }
 .display-media.answer { padding-top: 1.2rem; border-top: 2px solid rgb(255 255 255 / 45%); color: var(--yellow); }
+.display-media.answer-only { padding-top: 0; border-top: 0; }
 .display-audio-label { padding: 0.55rem 0.85rem; border: 2px solid rgb(255 255 255 / 35%); border-radius: 999px; background: rgb(6 13 65 / 72%); color: #fff; font-size: clamp(0.85rem, 1.8vw, 1.25rem); }
 .display-media img { display: block; width: auto; max-width: min(88vw, 60rem); max-height: 40vh; border-radius: 0.6rem; object-fit: contain; box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 30%); }
 .display-buzz-order { display: grid; width: min(94rem, 100%); min-width: 0; grid-template-columns: auto minmax(0, 1fr); gap: 0.75rem; align-items: center; padding: 0.55rem 0.7rem; border: 2px solid rgb(255 255 255 / 28%); border-radius: 0.75rem; background: rgb(6 13 65 / 72%); box-shadow: 0 0.5rem 1.2rem rgb(0 0 0 / 22%); }

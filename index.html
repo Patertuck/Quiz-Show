@@ -43,11 +43,12 @@
   <dialog id="buzzer-dialog" aria-labelledby="buzzer-dialog-title">
     <form method="dialog"><button class="dialog-close" aria-label="Schliessen">&times;</button></form>
     <h2 id="buzzer-dialog-title">Mit dem Handy teilnehmen</h2>
-    <p>Verbindet euch mit demselben WLAN und scannt diesen Code für den Buzzer und die Handyspiele.</p>
+    <p id="buzzer-dialog-instructions">Verbindet euch mit demselben WLAN und scannt diesen Code für den Buzzer und die Handyspiele.</p>
     <div id="buzzer-qr" aria-live="polite">QR-Code wird erstellt…</div>
     <a id="buzzer-url" target="_blank" rel="noopener"></a>
     <a id="buzzer-local-url" target="_blank" rel="noopener">Auf diesem Laptop testen</a>
-    <p class="buzzer-dialog-note">Falls sich die Seite nicht öffnet, erlaubt Python den Zugriff durch die Windows-Firewall und prüft, ob das WLAN die Kommunikation zwischen Geräten zulässt.</p>
+    <p id="buzzer-display-row" hidden>Publikumsanzeige für den separaten Laptop:<br><a id="buzzer-display-url" target="_blank" rel="noopener"></a></p>
+    <p id="buzzer-dialog-note" class="buzzer-dialog-note">Falls sich die Seite nicht öffnet, erlaubt Python den Zugriff durch die Windows-Firewall und prüft, ob das WLAN die Kommunikation zwischen Geräten zulässt.</p>
   </dialog>
   <script type="module" src="js/app.js"></script>
 </body>

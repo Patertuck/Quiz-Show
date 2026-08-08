@@ -2,6 +2,7 @@ import { state, saveState } from "../store.js";
 import { updateScoreControls } from "../scoreboard.js";
 import { connectToBuzzer, controlBuzzer } from "../buzzer-client.js";
 import { commandJeopardyAudio, publishJeopardy } from "../presentation-host.js";
+import { scheduleTextFit } from "../fit-text.js";
 
 export function mount(root) {
   const boardView = root.querySelector("#jeopardy-board-view");
@@ -176,24 +177,31 @@ export function mount(root) {
     board.style.setProperty("--cell-padding", `${Math.max(1, Math.min(12, columnWidth * 0.05, rowHeight * 0.1))}px`);
   }
 
+  function fitQuestionText() {
+    if (!questionView.hidden) scheduleTextFit(root.querySelector("#card-content"));
+  }
+
   function renderMedia(container, text, image) {
     container.replaceChildren();
     if (typeof text === "string" && text.trim()) {
       const element = document.createElement("div");
       element.textContent = text;
+      element.classList.add("auto-fit-text");
       element.classList.toggle("long-text", text.length > 280);
       container.append(element);
     }
     if (image) {
       const element = document.createElement("img");
-      element.src = image.src;
       element.alt = image.alt;
+      element.addEventListener("load", fitQuestionText, { once: true });
       element.addEventListener("error", () => {
         const error = document.createElement("div");
         error.className = "image-error";
         error.textContent = `Bild konnte nicht geladen werden: ${image.src}`;
         element.replaceWith(error);
+        fitQuestionText();
       }, { once: true });
+      element.src = image.src;
       container.append(element);
     }
   }
@@ -227,7 +235,7 @@ export function mount(root) {
 
   function renderAudioControls(item, answerRevealed) {
     audioTracks.replaceChildren();
-    if (item.questionAudio) audioTracks.append(audioTrackControls(item.questionAudio, "question"));
+    if (!answerRevealed && item.questionAudio) audioTracks.append(audioTrackControls(item.questionAudio, "question"));
     if (answerRevealed && item.answerAudio) audioTracks.append(audioTrackControls(item.answerAudio, "answer"));
     if (audioTracks.childElementCount) {
       const stop = document.createElement("button");
@@ -257,10 +265,13 @@ export function mount(root) {
     renderMedia(questionContent, item.question, item.questionImage);
     renderMedia(answerContent, item.answer, item.answerImage);
     renderAudioControls(item, answerRevealed);
+    questionContent.hidden = answerRevealed;
     answerContent.hidden = !answerRevealed;
+    answerContent.classList.toggle("answer-only", answerRevealed);
     revealButton.hidden = answerRevealed;
     boardView.hidden = true;
     questionView.hidden = false;
+    fitQuestionText();
   }
 
   function openQuestion(tile, categoryIndex, rowIndex) {
@@ -297,6 +308,8 @@ export function mount(root) {
   renderBoard();
   const observer = new ResizeObserver(fitBoard);
   observer.observe(board);
+  const questionObserver = new ResizeObserver(fitQuestionText);
+  questionObserver.observe(root.querySelector("#card-content"));
   if (state.activeQuestion) {
     state.activeValue = state.config.values[state.activeQuestion.rowIndex];
     updateScoreControls();
@@ -318,6 +331,7 @@ export function mount(root) {
       }).catch(() => undefined);
     }
     observer.disconnect();
+    questionObserver.disconnect();
     disconnectBuzzer();
     window.removeEventListener("quiz-score-changed", handleScoreChange);
   };

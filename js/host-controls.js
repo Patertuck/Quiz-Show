@@ -10,6 +10,10 @@ export function initializeHostControls({ navigate }) {
   const qrContainer = document.querySelector("#buzzer-qr");
   const playerUrl = document.querySelector("#buzzer-url");
   const playerLocalUrl = document.querySelector("#buzzer-local-url");
+  const displayRow = document.querySelector("#buzzer-display-row");
+  const displayUrl = document.querySelector("#buzzer-display-url");
+  const instructions = document.querySelector("#buzzer-dialog-instructions");
+  const note = document.querySelector("#buzzer-dialog-note");
 
   audienceButton.addEventListener("click", () => {
     const display = window.open("/display", "quiz-audience-display");
@@ -22,11 +26,20 @@ export function initializeHostControls({ navigate }) {
     try {
       const response = await fetch("/api/buzzer/info", { cache: "no-store" });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const { joinUrl, localUrl, lanAvailable } = await response.json();
+      const { mode, joinUrl, displayUrl: remoteDisplayUrl, localUrl, lanAvailable } = await response.json();
       playerUrl.href = joinUrl;
       playerUrl.textContent = joinUrl;
       playerLocalUrl.href = localUrl;
-      if (!lanAvailable) {
+      displayUrl.href = remoteDisplayUrl;
+      displayUrl.textContent = remoteDisplayUrl;
+      displayRow.hidden = mode !== "public";
+      instructions.textContent = mode === "public"
+        ? "Scannt diesen Code für den Buzzer und die Handyspiele. Der Link funktioniert über WLAN und Mobilfunk."
+        : "Verbindet euch mit demselben WLAN und scannt diesen Code für den Buzzer und die Handyspiele.";
+      note.textContent = mode === "public"
+        ? "Der Link ist nur für diese Sitzung bestimmt. Wer ihn kennt, kann dem Spiel beitreten."
+        : "Falls sich die Seite nicht öffnet, erlaubt Python den Zugriff durch die Windows-Firewall und prüft, ob das WLAN die Kommunikation zwischen Geräten zulässt.";
+      if (mode !== "public" && !lanAvailable) {
         qrContainer.textContent = "Es wurde keine Adresse im lokalen Netzwerk gefunden. Setzt QUIZ_HOST_IP auf die WLAN-IPv4-Adresse dieses Computers und startet den Server neu.";
         return;
       }

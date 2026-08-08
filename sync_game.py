@@ -26,6 +26,7 @@ class SyncState:
         self.round: dict | None = None
         self.game_id = secrets.token_urlsafe(9)
         self.connections: dict[str, int] = {}
+        self.poll_connections: dict[str, tuple[str, float]] = {}
         self._load()
 
     @staticmethod
@@ -96,6 +97,7 @@ class SyncState:
         self.round = None
         self.game_id = secrets.token_urlsafe(9)
         self.connections = {}
+        self.poll_connections = {}
 
     def configure(self, fingerprint: str, teams: list[str], question_ids: list[str]) -> None:
         if not fingerprint or not teams or not question_ids:
@@ -359,6 +361,7 @@ class SyncState:
 
     def _snapshot_unlocked(self, role: str, device_id: str | None = None) -> dict:
         self._expire_unlocked()
+        self._prune_poll_connections_unlocked()
         participant = self._participant_by_device_unlocked(device_id) if device_id else None
         public_participants = self._public_participants_unlocked()
         result = {
@@ -371,7 +374,9 @@ class SyncState:
             "round": None,
         }
         if role in {"host", "player"}:
-            result["connectedParticipantIds"] = sorted(self.connections)
+            connected = set(self.connections)
+            connected.update(participant_id for participant_id, _expires in self.poll_connections.values())
+            result["connectedParticipantIds"] = sorted(connected)
         if role == "player" and participant:
             result["selfParticipantId"] = participant["id"]
         if not self.round:
@@ -399,8 +404,12 @@ class SyncState:
             wait = timeout
             if self.round and self.round["phase"] == "active":
                 wait = min(wait, max(0.05, (self.round["deadlineAt"] - int(time.time() * 1000)) / 1000))
+            if self.poll_connections:
+                next_expiry = min(expires_at for _, expires_at in self.poll_connections.values())
+                wait = min(wait, max(0.05, next_expiry - time.monotonic()))
             if self.version == version:
                 self.condition.wait(wait)
+            self._prune_poll_connections_unlocked()
             self._expire_unlocked()
             return self._snapshot_unlocked(role, device_id) if self.version != version else None
 
@@ -413,6 +422,26 @@ class SyncState:
                 self._changed_unlocked(False)
                 return participant_id
             return None
+
+    def _prune_poll_connections_unlocked(self) -> None:
+        now = time.monotonic()
+        expired = [client_id for client_id, (_participant, expires) in self.poll_connections.items() if expires <= now]
+        if expired:
+            for client_id in expired:
+                del self.poll_connections[client_id]
+            self._changed_unlocked(False)
+
+    def touch_poll_connection(self, client_id: str, device_id: str, ttl: float = 10.0) -> None:
+        with self.condition:
+            participant = self._participant_by_device_unlocked(device_id)
+            if not client_id or not participant:
+                return
+            self._prune_poll_connections_unlocked()
+            participant_id = participant["id"]
+            previous = self.poll_connections.get(client_id)
+            self.poll_connections[client_id] = (participant_id, time.monotonic() + ttl)
+            if previous is None or previous[0] != participant_id:
+                self._changed_unlocked(False)
 
     def disconnect(self, participant_id: str | None) -> None:
         with self.condition:

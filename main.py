@@ -1,8 +1,9 @@
-"""Launch the quiz show and provide LAN-only audience and player views."""
+"""Launch the quiz show with local/LAN access and optional public sharing."""
 
 from __future__ import annotations
 
 import contextlib
+import argparse
 import hashlib
 import http.server
 import ipaddress
@@ -13,6 +14,7 @@ import random
 import secrets
 import socket
 import socketserver
+import subprocess
 import threading
 import time
 import webbrowser
@@ -41,6 +43,21 @@ MAX_BUZZER_BODY_BYTES = 16_384
 MAX_PRESENTATION_BODY_BYTES = 262_144
 PRESENTATION_SCREENS = {"standby", "intro", "hub", "jeopardy-board", "jeopardy-question", "ordering", "listing", "sync", "victory"}
 HUB_GAME_IDS = {"jeopardy", "ordering", "listing", "sync"}
+QUICK_TUNNEL_PATTERN = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com", re.IGNORECASE)
+PUBLIC_URL_LOCK = threading.Lock()
+PUBLIC_BASE_URL: str | None = None
+
+
+def set_public_base_url(url: str | None) -> None:
+    """Publish or clear the temporary external origin used by join links."""
+    global PUBLIC_BASE_URL
+    with PUBLIC_URL_LOCK:
+        PUBLIC_BASE_URL = url.rstrip("/") if url else None
+
+
+def get_public_base_url() -> str | None:
+    with PUBLIC_URL_LOCK:
+        return PUBLIC_BASE_URL
 
 
 def find_lan_address() -> str:
@@ -77,11 +94,97 @@ JOIN_URL = f"http://{LAN_ADDRESS}:{PORT}/player"
 def current_join_info() -> dict:
     """Re-evaluate the address after a Wi-Fi or hotspot change."""
     address = find_lan_address()
+    public_base = get_public_base_url()
+    base = public_base or f"http://{address}:{PORT}"
     return {
-        "joinUrl": f"http://{address}:{PORT}/player",
+        "mode": "public" if public_base else "local",
+        "joinUrl": f"{base}/player",
+        "displayUrl": f"{base}/display",
         "localUrl": f"http://127.0.0.1:{PORT}/player",
+        "localDisplayUrl": f"http://127.0.0.1:{PORT}/display",
         "lanAvailable": address != "127.0.0.1",
     }
+
+
+class QuickTunnel:
+    """Manage a Cloudflare Quick Tunnel without making it part of local mode."""
+
+    def __init__(self, executable: str = "cloudflared") -> None:
+        self.executable = executable
+        self.process: subprocess.Popen[str] | None = None
+        self.url: str | None = None
+        self._url_ready = threading.Event()
+        self._reader: threading.Thread | None = None
+
+    def start(self, timeout: float = 30.0) -> str:
+        command = [
+            self.executable, "tunnel", "--url", f"http://127.0.0.1:{PORT}",
+            "--no-autoupdate",
+        ]
+        try:
+            self.process = subprocess.Popen(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                bufsize=1,
+            )
+        except FileNotFoundError as error:
+            raise RuntimeError(
+                "cloudflared was not found. Install it with "
+                "'winget install --id Cloudflare.cloudflared' and try again."
+            ) from error
+        except OSError as error:
+            raise RuntimeError(f"cloudflared could not be started: {error}") from error
+
+        self._reader = threading.Thread(target=self._read_output, name="cloudflared-output", daemon=True)
+        self._reader.start()
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if self._url_ready.wait(0.1):
+                if self.process.poll() is not None:
+                    break
+                return self.url  # type: ignore[return-value]
+            if self.process.poll() is not None:
+                break
+        self.stop()
+        raise RuntimeError(
+            "Cloudflare did not provide a public URL. Check the internet connection and try again."
+        )
+
+    def _read_output(self) -> None:
+        assert self.process is not None and self.process.stdout is not None
+        for line in self.process.stdout:
+            clean = line.rstrip()
+            if clean:
+                print(f"[cloudflared] {clean}")
+            match = QUICK_TUNNEL_PATTERN.search(line)
+            if match and self.url is None:
+                self.url = match.group(0).rstrip("/")
+                self._url_ready.set()
+        if self.url:
+            clear_public_base_url(self.url)
+            print("Public tunnel stopped; the quiz is still available locally.")
+
+    def stop(self) -> None:
+        if self.process is None or self.process.poll() is not None:
+            return
+        self.process.terminate()
+        try:
+            self.process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            self.process.kill()
+            self.process.wait(timeout=5)
+
+
+def clear_public_base_url(expected_url: str) -> None:
+    """Clear a tunnel URL only if it is still the active tunnel."""
+    with PUBLIC_URL_LOCK:
+        global PUBLIC_BASE_URL
+        if PUBLIC_BASE_URL == expected_url.rstrip("/"):
+            PUBLIC_BASE_URL = None
 
 
 def validate_state(state: object) -> dict:
@@ -260,6 +363,7 @@ class OrderingState:
         self.completed: list[str] = []
         self.round: dict | None = None
         self.connections: dict[int, int] = {}
+        self.poll_connections: dict[str, tuple[int, float]] = {}
         self._load()
 
     def _load(self) -> None:
@@ -307,6 +411,7 @@ class OrderingState:
             self.teams_revision = ""
             self.completed = []
             self.round = None
+            self.poll_connections = {}
             ORDERING_FILE.unlink(missing_ok=True)
             ORDERING_TEMP_FILE.unlink(missing_ok=True)
             self._changed_unlocked(False)
@@ -319,6 +424,7 @@ class OrderingState:
             if fingerprint != self.config_fingerprint or revision != self.teams_revision:
                 self.completed = []
                 self.round = None
+                self.poll_connections = {}
             self.config_fingerprint = fingerprint
             self.teams = list(teams)
             self.teams_revision = revision
@@ -453,9 +559,12 @@ class OrderingState:
 
     def _snapshot_unlocked(self, role: str, team_index: int | None = None) -> dict:
         self._expire_unlocked()
+        self._prune_poll_connections_unlocked()
+        connected_teams = set(self.connections)
+        connected_teams.update(team for team, _expires in self.poll_connections.values())
         result = {
             "version": self.version, "teams": self.teams, "teamsRevision": self.teams_revision,
-            "completedQuestionIds": self.completed, "connectedTeamCount": len(self.connections), "round": None,
+            "completedQuestionIds": self.completed, "connectedTeamCount": len(connected_teams), "round": None,
         }
         if not self.round:
             return result
@@ -490,8 +599,12 @@ class OrderingState:
             wait = timeout
             if self.round and self.round["phase"] == "active":
                 wait = min(wait, max(0.05, (self.round["deadlineAt"] - int(time.time() * 1000)) / 1000))
+            if self.poll_connections:
+                next_expiry = min(expires_at for _, expires_at in self.poll_connections.values())
+                wait = min(wait, max(0.05, next_expiry - time.monotonic()))
             if self.version == version:
                 self.condition.wait(wait)
+            self._prune_poll_connections_unlocked()
             self._expire_unlocked()
             return self._snapshot_unlocked(role, team_index) if self.version != version else None
 
@@ -499,6 +612,24 @@ class OrderingState:
         with self.condition:
             if 0 <= team_index < len(self.teams):
                 self.connections[team_index] = self.connections.get(team_index, 0) + 1
+                self._changed_unlocked(False)
+
+    def _prune_poll_connections_unlocked(self) -> None:
+        now = time.monotonic()
+        expired = [client_id for client_id, (_team, expires) in self.poll_connections.items() if expires <= now]
+        if expired:
+            for client_id in expired:
+                del self.poll_connections[client_id]
+            self._changed_unlocked(False)
+
+    def touch_poll_connection(self, client_id: str, team_index: int, ttl: float = 10.0) -> None:
+        with self.condition:
+            if not client_id or not 0 <= team_index < len(self.teams):
+                return
+            self._prune_poll_connections_unlocked()
+            previous = self.poll_connections.get(client_id)
+            self.poll_connections[client_id] = (team_index, time.monotonic() + ttl)
+            if previous is None or previous[0] != team_index:
                 self._changed_unlocked(False)
 
     def disconnect(self, team_index: int) -> None:
@@ -685,6 +816,28 @@ class PresentationState:
 PRESENTATION = PresentationState()
 
 
+def live_state_snapshot(team_index: int | None = None, device_id: str | None = None,
+                        client_id: str | None = None) -> dict:
+    """Return one polling snapshot with the same role filtering as the SSE endpoints."""
+    valid_client = client_id if isinstance(client_id, str) and 8 <= len(client_id) <= 100 else None
+    valid_device = device_id if isinstance(device_id, str) and 8 <= len(device_id) <= 100 else None
+    valid_team = team_index if isinstance(team_index, int) and 0 <= team_index < len(ORDERING.teams) else None
+    if valid_client and valid_team is not None:
+        ORDERING.touch_poll_connection(valid_client, valid_team)
+        LISTING.touch_poll_connection(valid_client, valid_team)
+    if valid_client and valid_device:
+        SYNC.touch_poll_connection(valid_client, valid_device)
+    team_role = "team" if valid_team is not None else "public"
+    sync_role = "player" if valid_device else "public"
+    return {
+        "presentation": PRESENTATION.snapshot(),
+        "buzzer": BUZZER.snapshot(),
+        "ordering": ORDERING.snapshot(team_role, valid_team),
+        "listing": LISTING.snapshot(team_role, valid_team),
+        "sync": SYNC.snapshot(sync_role, valid_device),
+    }
+
+
 def load_current_state() -> dict | None:
     with STATE_LOCK:
         if not STATE_FILE.exists():
@@ -707,14 +860,26 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
 
     @property
     def is_host(self) -> bool:
+        # A reverse tunnel reaches this process from loopback too. Cloudflare and
+        # other proxies add forwarding headers, so those requests must remain public.
+        if any(self.headers.get(name) for name in ("CF-Connecting-IP", "X-Forwarded-For", "Forwarded")):
+            return False
         try:
-            return ipaddress.ip_address(self.client_address[0]).is_loopback
+            if not ipaddress.ip_address(self.client_address[0]).is_loopback:
+                return False
+            hostname = urlsplit(f"//{self.headers.get('Host', '')}").hostname
+            return hostname == "localhost" or (hostname is not None and ipaddress.ip_address(hostname).is_loopback)
         except ValueError:
             return False
 
+    def list_directory(self, path: str):
+        """Do not expose directory indexes when the server is shared publicly."""
+        self.send_error(404)
+        return None
+
     def end_headers(self) -> None:
         if not self.request_path.startswith("/api/"):
-            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Cache-Control", "no-store, max-age=0")
         super().end_headers()
 
     def read_json(self, maximum: int = MAX_BUZZER_BODY_BYTES) -> dict:
@@ -753,6 +918,16 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self) -> None:  # noqa: N802 - required by BaseHTTPRequestHandler
+        if self.request_path == "/api/live-state":
+            query = parse_qs(urlsplit(self.path).query)
+            device_id = query.get("deviceId", [None])[0]
+            client_id = query.get("clientId", [None])[0]
+            try:
+                team_index = int(query.get("teamIndex", [""])[0])
+            except ValueError:
+                team_index = None
+            self.send_json(200, live_state_snapshot(team_index, device_id, client_id))
+            return
         if self.request_path == "/api/sync/state":
             query = parse_qs(urlsplit(self.path).query)
             device_id = query.get("deviceId", [None])[0]
@@ -949,7 +1124,7 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
                 "/player", "/player.html", "/styles/player.css", "/js/player.js",
                 "/buzzer", "/buzzer.html", "/styles/buzzer.css", "/js/buzzer.js",
                 "/display", "/display.html", "/styles/display.css", "/js/display.js",
-                "/js/display-score-animation.js",
+                "/js/display-score-animation.js", "/js/live-state.js",
             }
             if self.request_path not in allowed and not self.request_path.startswith("/assets/"):
                 self.send_error(403, "Von einem anderen Gerät sind nur die Spieler- und Publikumsansicht verfügbar.")
@@ -972,7 +1147,7 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
             "/player", "/player.html", "/styles/player.css", "/js/player.js",
             "/buzzer", "/buzzer.html", "/styles/buzzer.css", "/js/buzzer.js",
             "/display", "/display.html", "/styles/display.css", "/js/display.js",
-            "/js/display-score-animation.js",
+            "/js/display-score-animation.js", "/js/live-state.js",
         }
         if not self.is_host and self.request_path not in allowed and not self.request_path.startswith("/assets/"):
             self.send_error(403, "Von einem anderen Gerät sind nur die Spieler- und Publikumsansicht verfügbar.")
@@ -1163,14 +1338,34 @@ class LocalQuizServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
     allow_reuse_address = True
 
 
+def parse_arguments() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Run the quiz show server.")
+    parser.add_argument(
+        "--public",
+        action="store_true",
+        help="share player and display views through a temporary Cloudflare Quick Tunnel",
+    )
+    return parser.parse_args()
+
+
 def main() -> None:
+    arguments = parse_arguments()
     BUZZER.sync_teams(load_current_state())
     server: LocalQuizServer | None = None
+    tunnel: QuickTunnel | None = None
     try:
         with LocalQuizServer((BIND_HOST, PORT), QuizRequestHandler) as server:
+            if arguments.public:
+                tunnel = QuickTunnel()
+                public_url = tunnel.start()
+                set_public_base_url(public_url)
             print(f"Quiz show running at {HOST_URL}")
-            print(f"Player view available at {JOIN_URL}")
-            if LAN_ADDRESS == "127.0.0.1":
+            join_info = current_join_info()
+            print(f"Player view available at {join_info['joinUrl']}")
+            print(f"Audience display available at {join_info['displayUrl']}")
+            if arguments.public:
+                print("Only the player and audience views are public; host controls remain local.")
+            elif LAN_ADDRESS == "127.0.0.1":
                 print("Warning: no LAN address was found. Set QUIZ_HOST_IP to this computer's Wi-Fi IPv4 address.")
             print("Press Ctrl+C to stop the server.")
             threading.Timer(0.4, webbrowser.open, args=(HOST_URL,)).start()
@@ -1180,9 +1375,14 @@ def main() -> None:
             f"Could not start the quiz at {HOST_URL}. "
             "Another program may already be using port 8000."
         ) from error
+    except RuntimeError as error:
+        raise SystemExit(str(error)) from error
     except KeyboardInterrupt:
         print("\nQuiz show stopped.")
     finally:
+        set_public_base_url(None)
+        if tunnel is not None:
+            tunnel.stop()
         if server is not None:
             with contextlib.suppress(Exception):
                 server.server_close()
