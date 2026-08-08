@@ -5,7 +5,8 @@
 .ordering-heading p { min-height: 1.25em; margin: .2rem 4rem 0; color: #eddcff; }
 #ordering-content { display: grid; min-height: 0; align-content: center; justify-items: center; gap: .7rem; overflow: hidden; }
 .ordering-question-grid { display: grid; width: min(62rem, 92%); grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 1rem; }
-.ordering-question-card { min-height: 8rem; padding: 1rem; border: 2px solid #d9aaff; background: #63308b; color: #fff; font-size: 1.35rem; font-weight: bold; box-shadow: 0 .5rem 1.5rem #17052280; }
+.ordering-question-card { min-height: 8rem; padding: 1rem; border: 2px solid #d9aaff; background: #63308b; color: #fff; font-size: 1.35rem; font-weight: bold; box-shadow: 0 .5rem 1.5rem #17052280; transition: border-color 180ms ease, filter 180ms ease, transform 180ms ease, box-shadow 180ms ease; }
+.ordering-question-card:not(:disabled):hover, .ordering-question-card:not(:disabled):focus-visible { border-color: #ffe16d; outline: none; filter: brightness(1.15); transform: translateY(-.3rem) scale(1.025); box-shadow: 0 .8rem 1.8rem #17052299, 0 0 1.4rem #ffe16d88; }
 .ordering-question-card:disabled { border-color: #796486; background: #35283d; color: #a99daf; cursor: not-allowed; }
 .ordering-preview { width: min(38rem, 90%); padding: 1rem 1.4rem; border: 1px solid #ffffff3d; border-radius: .7rem; background: #1e0a2d99; }
 .ordering-preview h2, .ordering-preview p { text-align: center; }

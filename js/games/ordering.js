@@ -46,6 +46,21 @@ function remaining(round) {
   return Math.max(0, Math.ceil((round.deadlineAt - Date.now()) / 1000));
 }
 
+function questionSelection(highlightedQuestionId = selectedQuestion?.id || null) {
+  return {
+    questions: state.config.ordering.questions.map(({ id, title }) => ({
+      id,
+      title,
+      completed: orderingState.completedQuestionIds.includes(id)
+    })),
+    highlightedQuestionId
+  };
+}
+
+function publishQuestionSelection(highlightedQuestionId) {
+  publishOrdering(questionSelection(highlightedQuestionId)).catch(() => undefined);
+}
+
 function renderOverview() {
   setStatus("Wählt eine Frage aus.");
   const grid = document.createElement("div");
@@ -55,8 +70,15 @@ function renderOverview() {
     const card = button(question.title, "ordering-question-card", async () => {
       selectedQuestion = question;
       renderPreview();
+      publishQuestionSelection(question.id);
     }, complete);
     if (complete) card.title = "Bereits abgeschlossen";
+    if (!complete) {
+      card.addEventListener("pointerenter", () => publishQuestionSelection(question.id));
+      card.addEventListener("pointerleave", () => publishQuestionSelection(null));
+      card.addEventListener("focus", () => publishQuestionSelection(question.id));
+      card.addEventListener("blur", () => publishQuestionSelection(null));
+    }
     grid.append(card);
   });
   content.replaceChildren(grid);
@@ -75,7 +97,11 @@ function renderPreview() {
   const actions = document.createElement("div"); actions.className = "ordering-actions";
   actions.append(
     button("Starten", "primary-button", () => request("start", { question: { ...question, pointsPerCorrect: state.config.ordering.pointsPerCorrect } })),
-    button("Zurück", "secondary-button", async () => { selectedQuestion = null; renderOverview(); })
+    button("Zurück", "secondary-button", async () => {
+      selectedQuestion = null;
+      renderOverview();
+      publishQuestionSelection(null);
+    })
   );
   content.replaceChildren(preview, actions);
 }
@@ -168,7 +194,7 @@ async function distribute() {
   }
   await saveState();
   await request("confirm-distribution");
-  await publishOrdering();
+  await publishOrdering(questionSelection());
 }
 
 function confirmCancel() {
@@ -202,11 +228,17 @@ export async function mount(element) {
     teams: state.teams.map((team) => team.name),
     questionIds: state.config.ordering.questions.map((question) => question.id)
   });
-  await publishOrdering();
-  render(await fetch("/api/ordering/state", { cache: "no-store" }).then((response) => response.json()));
+  orderingState = await fetch("/api/ordering/state", { cache: "no-store" }).then((response) => response.json());
+  selectedQuestion = null;
+  await publishOrdering(questionSelection(null));
+  render(orderingState);
   events = new EventSource("/api/ordering/events");
-  events.addEventListener("state", (event) => render(JSON.parse(event.data)));
-  const handleScoreChange = () => publishOrdering().catch(() => undefined);
+  events.addEventListener("state", (event) => {
+    const snapshot = JSON.parse(event.data);
+    render(snapshot);
+    if (!snapshot.round) publishOrdering(questionSelection()).catch(() => undefined);
+  });
+  const handleScoreChange = () => publishOrdering(questionSelection()).catch(() => undefined);
   window.addEventListener("quiz-score-changed", handleScoreChange);
   ticker = setInterval(() => {
     const timer = content.querySelector(".ordering-timer");

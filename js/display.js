@@ -18,6 +18,8 @@ let syncState = null;
 let orderingTicker;
 let listingTicker;
 let syncTicker;
+let activeGameEventSource = null;
+let activeGameEventScreen = null;
 let displayScoreAnimationActive = false;
 const SCREEN_TRANSITION_DURATION_MS = 650;
 let lastRenderedSceneKey = null;
@@ -205,8 +207,21 @@ function ordering() {
   const screen = element("section", "display-screen display-ordering");
   const round = orderingState?.round;
   if (!round) {
-    const content = element("div");
-    content.append(element("h1", "", "Order Up"), element("p", "", "Macht euch bereit für die nächste Herausforderung."));
+    const selection = presentation.questionSelection;
+    const content = element("div", "display-ordering-selection");
+    content.append(element("h1", "", "Order Up"));
+    if (selection?.questions?.length) {
+      const grid = element("div", "display-ordering-question-grid");
+      selection.questions.forEach((question) => {
+        const card = element("div", "display-ordering-question-card", question.title);
+        card.classList.toggle("completed", question.completed);
+        card.classList.toggle("highlighted", selection.highlightedQuestionId === question.id);
+        grid.append(card);
+      });
+      content.append(grid);
+    } else {
+      content.append(element("p", "", "Macht euch bereit für die nächste Herausforderung."));
+    }
     screen.append(logoImage("display-game-waiting-logo"), content);
     return screen;
   }
@@ -663,6 +678,7 @@ async function drainPresentationQueue() {
           && presentation?.version !== undefined && nextPresentation.version <= presentation.version) continue;
       const plan = audienceAnimationPlan(nextPresentation);
       presentation = nextPresentation;
+      syncGameEventSource();
       handleJeopardyAudioCommand();
       render();
       if (plan) {
@@ -737,6 +753,42 @@ function receiveLiveSnapshot(snapshot) {
   if (!displayScoreAnimationActive) render();
 }
 
+function syncGameEventSource() {
+  if (usePollingTransport) return;
+  const nextScreen = ["jeopardy-board", "jeopardy-question"].includes(presentation?.screen)
+    ? "jeopardy"
+    : ["ordering", "listing", "sync"].includes(presentation?.screen) ? presentation.screen : null;
+  if (nextScreen === activeGameEventScreen) return;
+  activeGameEventSource?.close();
+  activeGameEventSource = null;
+  activeGameEventScreen = nextScreen;
+  if (nextScreen === "jeopardy") {
+    activeGameEventSource = new EventSource("/api/buzzer/events");
+    activeGameEventSource.addEventListener("state", (event) => {
+      buzzer = JSON.parse(event.data);
+      updateBuzzerBanner();
+    });
+  } else if (nextScreen === "ordering") {
+    activeGameEventSource = new EventSource("/api/ordering/events?role=public");
+    activeGameEventSource.addEventListener("state", (event) => {
+      orderingState = JSON.parse(event.data);
+      if (!displayScoreAnimationActive) render();
+    });
+  } else if (nextScreen === "listing") {
+    activeGameEventSource = new EventSource("/api/listing/events?role=public");
+    activeGameEventSource.addEventListener("state", (event) => {
+      listingState = JSON.parse(event.data);
+      if (!displayScoreAnimationActive) render();
+    });
+  } else if (nextScreen === "sync") {
+    activeGameEventSource = new EventSource("/api/sync/events?role=public");
+    activeGameEventSource.addEventListener("state", (event) => {
+      syncState = JSON.parse(event.data);
+      if (!displayScoreAnimationActive) render();
+    });
+  }
+}
+
 if (usePollingTransport) {
   startLivePolling({ onSnapshot: receiveLiveSnapshot, onConnectionChange: setDisplayConnection });
 } else {
@@ -753,29 +805,6 @@ if (usePollingTransport) {
   });
   presentationEvents.addEventListener("error", () => setDisplayConnection(false));
 
-  const buzzerEvents = new EventSource("/api/buzzer/events");
-  buzzerEvents.addEventListener("state", (event) => {
-    buzzer = JSON.parse(event.data);
-    updateBuzzerBanner();
-  });
-
-  const orderingEvents = new EventSource("/api/ordering/events?role=public");
-  orderingEvents.addEventListener("state", (event) => {
-    orderingState = JSON.parse(event.data);
-    if (presentation?.screen === "ordering" && !displayScoreAnimationActive) render();
-  });
-
-  const listingEvents = new EventSource("/api/listing/events?role=public");
-  listingEvents.addEventListener("state", (event) => {
-    listingState = JSON.parse(event.data);
-    if (presentation?.screen === "listing" && !displayScoreAnimationActive) render();
-  });
-
-  const syncEvents = new EventSource("/api/sync/events?role=public");
-  syncEvents.addEventListener("state", (event) => {
-    syncState = JSON.parse(event.data);
-    if (presentation?.screen === "sync" && !displayScoreAnimationActive) render();
-  });
 }
 
 if (!usePollingTransport) Promise.all([

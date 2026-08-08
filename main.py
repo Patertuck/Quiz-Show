@@ -767,6 +767,30 @@ def validate_presentation(payload: object) -> dict:
             "answerImage": answer_image if revealed else None, "answerAudio": answer_audio if revealed else None,
             "audioCommand": clean_audio_command,
         }
+    elif payload["screen"] == "ordering":
+        selection = payload.get("questionSelection")
+        if selection is not None:
+            if not isinstance(selection, dict) or not isinstance(selection.get("questions"), list):
+                raise ValueError("Order Up question selection is invalid.")
+            clean_questions = []
+            question_ids = set()
+            for question in selection["questions"]:
+                if (not isinstance(question, dict) or not isinstance(question.get("id"), str)
+                        or not question["id"].strip() or not isinstance(question.get("title"), str)
+                        or not question["title"].strip() or not isinstance(question.get("completed"), bool)):
+                    raise ValueError("Each Order Up question selection needs an id, title, and completed flag.")
+                if question["id"] in question_ids:
+                    raise ValueError("Order Up question selection ids must be unique.")
+                question_ids.add(question["id"])
+                clean_questions.append({
+                    "id": question["id"], "title": question["title"], "completed": question["completed"]
+                })
+            highlighted_id = selection.get("highlightedQuestionId")
+            if highlighted_id is not None and highlighted_id not in question_ids:
+                raise ValueError("Highlighted Order Up question is invalid.")
+            clean["questionSelection"] = {
+                "questions": clean_questions, "highlightedQuestionId": highlighted_id
+            }
     elif payload["screen"] == "victory":
         steps = payload.get("steps")
         revealed_count = payload.get("revealedCount")
@@ -1336,7 +1360,9 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
 
 class LocalQuizServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
     daemon_threads = True
-    allow_reuse_address = True
+    # SO_REUSEADDR allows two live servers to share one port on Windows, causing
+    # requests to alternate between stale and current quiz processes.
+    allow_reuse_address = os.name != "nt"
 
 
 def parse_arguments() -> argparse.Namespace:
