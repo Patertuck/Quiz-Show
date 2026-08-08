@@ -9,6 +9,7 @@ let orderingState;
 let events;
 let ticker;
 let selectedQuestion = null;
+let selectedPreviewItems = [];
 
 async function request(action, extra = {}) {
   const response = await fetch("/api/ordering/control", {
@@ -46,6 +47,15 @@ function remaining(round) {
   return Math.max(0, Math.ceil((round.deadlineAt - Date.now()) / 1000));
 }
 
+function shuffled(items) {
+  const result = [...items];
+  for (let index = result.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [result[index], result[swapIndex]] = [result[swapIndex], result[index]];
+  }
+  return result;
+}
+
 function questionSelection(highlightedQuestionId = selectedQuestion?.id || null) {
   return {
     questions: state.config.ordering.questions.map(({ id, title }) => ({
@@ -53,7 +63,13 @@ function questionSelection(highlightedQuestionId = selectedQuestion?.id || null)
       title,
       completed: orderingState.completedQuestionIds.includes(id)
     })),
-    highlightedQuestionId
+    highlightedQuestionId,
+    selectedQuestion: selectedQuestion ? {
+      id: selectedQuestion.id,
+      title: selectedQuestion.title,
+      prompt: selectedQuestion.prompt,
+      items: selectedPreviewItems
+    } : null
   };
 }
 
@@ -69,6 +85,7 @@ function renderOverview() {
     const complete = orderingState.completedQuestionIds.includes(question.id);
     const card = button(question.title, "ordering-question-card", async () => {
       selectedQuestion = question;
+      selectedPreviewItems = shuffled(question.items);
       renderPreview();
       publishQuestionSelection(question.id);
     }, complete);
@@ -99,6 +116,7 @@ function renderPreview() {
     button("Starten", "primary-button", () => request("start", { question: { ...question, pointsPerCorrect: state.config.ordering.pointsPerCorrect } })),
     button("Zurück", "secondary-button", async () => {
       selectedQuestion = null;
+      selectedPreviewItems = [];
       renderOverview();
       publishQuestionSelection(null);
     })
@@ -230,6 +248,7 @@ export async function mount(element) {
   });
   orderingState = await fetch("/api/ordering/state", { cache: "no-store" }).then((response) => response.json());
   selectedQuestion = null;
+  selectedPreviewItems = [];
   await publishOrdering(questionSelection(null));
   render(orderingState);
   events = new EventSource("/api/ordering/events");

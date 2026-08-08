@@ -788,8 +788,26 @@ def validate_presentation(payload: object) -> dict:
             highlighted_id = selection.get("highlightedQuestionId")
             if highlighted_id is not None and highlighted_id not in question_ids:
                 raise ValueError("Highlighted Order Up question is invalid.")
+            selected_question = selection.get("selectedQuestion")
+            clean_selected_question = None
+            if selected_question is not None:
+                if (not isinstance(selected_question, dict)
+                        or selected_question.get("id") not in question_ids
+                        or not isinstance(selected_question.get("title"), str)
+                        or not selected_question["title"].strip()
+                        or not isinstance(selected_question.get("prompt"), str)
+                        or not selected_question["prompt"].strip()
+                        or not isinstance(selected_question.get("items"), list)
+                        or not selected_question["items"]
+                        or any(not isinstance(item, str) or not item.strip() for item in selected_question["items"])):
+                    raise ValueError("Selected Order Up question is invalid.")
+                clean_selected_question = {
+                    "id": selected_question["id"], "title": selected_question["title"],
+                    "prompt": selected_question["prompt"], "items": selected_question["items"]
+                }
             clean["questionSelection"] = {
-                "questions": clean_questions, "highlightedQuestionId": highlighted_id
+                "questions": clean_questions, "highlightedQuestionId": highlighted_id,
+                "selectedQuestion": clean_selected_question
             }
     elif payload["screen"] == "victory":
         steps = payload.get("steps")

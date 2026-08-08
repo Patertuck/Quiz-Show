@@ -210,7 +210,19 @@ function ordering() {
     const selection = presentation.questionSelection;
     const content = element("div", "display-ordering-selection");
     content.append(element("h1", "", "Order Up"));
-    if (selection?.questions?.length) {
+    if (selection?.selectedQuestion) {
+      const preview = element("section", "display-ordering-question-preview");
+      preview.append(
+        element("h2", "", selection.selectedQuestion.title),
+        element("p", "", selection.selectedQuestion.prompt)
+      );
+      const items = element("div", "display-ordering-preview-items");
+      selection.selectedQuestion.items.forEach((item) => {
+        items.append(element("div", "display-ordering-preview-item", item));
+      });
+      preview.append(items);
+      content.append(preview);
+    } else if (selection?.questions?.length) {
       const grid = element("div", "display-ordering-question-grid");
       selection.questions.forEach((question) => {
         const card = element("div", "display-ordering-question-card", question.title);
