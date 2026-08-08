@@ -659,7 +659,8 @@ async function drainPresentationQueue() {
   try {
     while (presentationQueue.length) {
       const nextPresentation = presentationQueue.shift();
-      if (presentation?.version !== undefined && nextPresentation.version <= presentation.version) continue;
+      if (presentation?.serverSessionId === nextPresentation.serverSessionId
+          && presentation?.version !== undefined && nextPresentation.version <= presentation.version) continue;
       const plan = audienceAnimationPlan(nextPresentation);
       presentation = nextPresentation;
       handleJeopardyAudioCommand();
@@ -675,8 +676,12 @@ async function drainPresentationQueue() {
 }
 
 function receivePresentation(nextPresentation) {
-  const latestVersion = presentationQueue.at(-1)?.version ?? presentation?.version;
-  if (latestVersion !== undefined && nextPresentation.version <= latestVersion) return;
+  const latest = presentationQueue.at(-1) ?? presentation;
+  if (latest?.serverSessionId === nextPresentation.serverSessionId
+      && latest?.version !== undefined && nextPresentation.version <= latest.version) return;
+  if (latest?.serverSessionId && latest.serverSessionId !== nextPresentation.serverSessionId) {
+    presentationQueue.length = 0;
+  }
   presentationQueue.push(nextPresentation);
   drainPresentationQueue().catch((error) => {
     console.error(error);
@@ -736,6 +741,12 @@ if (usePollingTransport) {
   startLivePolling({ onSnapshot: receiveLiveSnapshot, onConnectionChange: setDisplayConnection });
 } else {
   const presentationEvents = new EventSource("/api/presentation/events");
+  presentationEvents.addEventListener("open", () => {
+    initialState("/api/presentation/state")
+      .then(receivePresentation)
+      .then(() => setDisplayConnection(true))
+      .catch(() => setDisplayConnection(false));
+  });
   presentationEvents.addEventListener("state", (event) => {
     receivePresentation(JSON.parse(event.data));
     setDisplayConnection(true);
@@ -775,12 +786,11 @@ if (!usePollingTransport) Promise.all([
   initialState("/api/sync/state?role=public")
 ])
   .then(([nextPresentation, nextBuzzer, nextOrdering, nextListing, nextSync]) => {
-    if (!presentation || nextPresentation.version >= presentation.version) presentation = nextPresentation;
+    receivePresentation(nextPresentation);
     if (!buzzer || nextBuzzer.version >= buzzer.version) buzzer = nextBuzzer;
     orderingState = nextOrdering;
     listingState = nextListing;
     syncState = nextSync;
-    handleJeopardyAudioCommand();
     if (!displayScoreAnimationActive) render();
   })
   .catch(() => {

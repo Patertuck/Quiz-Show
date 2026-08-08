@@ -788,7 +788,8 @@ def validate_presentation(payload: object) -> dict:
 class PresentationState:
     def __init__(self) -> None:
         self.condition = threading.Condition()
-        self.version = 0
+        self.version = int(time.time() * 1000)
+        self.server_session_id = f"{self.version}-{secrets.token_hex(8)}"
         self.payload = {"screen": "standby", "title": "Quiz Show", "teams": []}
 
     def update(self, payload: object) -> dict:
@@ -800,7 +801,7 @@ class PresentationState:
             return self._snapshot_unlocked()
 
     def _snapshot_unlocked(self) -> dict:
-        return {"version": self.version, **self.payload}
+        return {"version": self.version, "serverSessionId": self.server_session_id, **self.payload}
 
     def snapshot(self) -> dict:
         with self.condition:

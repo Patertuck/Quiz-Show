@@ -4,7 +4,7 @@ import { connectToBuzzer, controlBuzzer } from "../buzzer-client.js";
 import { commandJeopardyAudio, publishJeopardy } from "../presentation-host.js";
 import { scheduleTextFit } from "../fit-text.js";
 
-export function mount(root) {
+export async function mount(root) {
   const boardView = root.querySelector("#jeopardy-board-view");
   const questionView = root.querySelector("#jeopardy-question-view");
   const board = root.querySelector("#board");
@@ -21,6 +21,7 @@ export function mount(root) {
   const buzzerControl = root.querySelector("#buzzer-control-button");
   let buzzerState = null;
   root.querySelector("#jeopardy-title").textContent = state.config.title;
+  await publishJeopardy();
 
   function activeQuestionId() {
     return state.activeQuestion ? `${state.activeQuestion.categoryIndex}:${state.activeQuestion.rowIndex}` : null;
@@ -319,7 +320,6 @@ export function mount(root) {
     updateScoreControls();
     requestAnimationFrame(fitBoard);
   }
-  publishJeopardy().catch(() => undefined);
   return () => {
     if (state.activeQuestion) commandJeopardyAudio("stop").catch(() => undefined);
     if (currentRound()?.open) {
