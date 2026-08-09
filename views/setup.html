@@ -1,23 +1,27 @@
-<section id="setup-view" class="status-screen">
-  <div class="panel">
-    <img
-      class="setup-logo"
-      src="assets/Logos/Logo-480.webp"
-      srcset="assets/Logos/Logo-480.webp 480w, assets/Logos/Logo-1024.webp 1024w"
-      sizes="(max-width: 600px) 72vw, 18rem"
-      alt=""
-      aria-hidden="true"
-    >
+<section id="setup-view" class="team-lobby-host">
+  <header class="team-lobby-heading">
     <h1 id="setup-title"></h1>
-    <p>Heute spielen:</p>
+    <p>Teams erstellen und beitreten</p>
+  </header>
+  <aside class="team-lobby-join">
+    <h2>Mit dem Handy beitreten</h2>
+    <div id="setup-qr">QR-Code wird erstellt …</div>
+    <a id="setup-join-url" target="_blank" rel="noopener"></a>
+  </aside>
+  <main class="team-lobby-roster">
+    <div class="team-lobby-roster-heading">
+      <h2>Aktuelle Teams</h2>
+      <span id="team-count"></span>
+    </div>
     <ul id="team-editors"></ul>
     <button id="add-team-button" type="button">+ Team hinzufügen</button>
-    <p id="setup-message"></p>
+  </main>
+  <footer class="team-lobby-footer">
+    <p id="setup-message" role="status" aria-live="polite"></p>
     <div class="setup-actions">
-      <button id="start-button" class="primary-button" type="button">Starten</button>
+      <button id="start-button" class="primary-button" type="button">Spiel starten</button>
       <button id="resume-button" class="primary-button" type="button" hidden>Spiel fortsetzen</button>
-      <button id="new-game-button" class="secondary-button" type="button" hidden>Neues Spiel</button>
+      <button id="new-game-button" class="secondary-button" type="button" hidden>Neues Spiel starten</button>
     </div>
-    <p><small>Drückt F11 für den Vollbildmodus.</small></p>
-  </div>
+  </footer>
 </section>

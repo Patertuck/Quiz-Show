@@ -51,6 +51,10 @@ export function publishIntro() {
   return publishPresentation(base("intro"));
 }
 
+export function publishTeamLobby(joinUrl) {
+  return publishPresentation({ ...base("team-lobby"), joinUrl });
+}
+
 export function publishHub(highlightedGame = null) {
   return publishPresentation({ ...base("hub"), highlightedGame });
 }

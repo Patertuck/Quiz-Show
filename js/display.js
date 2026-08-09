@@ -15,6 +15,8 @@ let buzzer = null;
 let orderingState = null;
 let listingState = null;
 let syncState = null;
+let teamLobbyState = null;
+let highlightedLobbyTeamIds = new Set();
 let orderingTicker;
 let listingTicker;
 let syncTicker;
@@ -118,6 +120,50 @@ function intro() {
   logo.setAttribute("aria-hidden", "true");
   screen.append(background, logo);
   return screen;
+}
+
+function teamLobby() {
+  const screen = element("section", "display-screen display-team-lobby");
+  const heading = element("header", "display-team-lobby-heading");
+  heading.append(
+    element("h1", "", "Teams erstellen und beitreten"),
+    element("p", "", `${teamLobbyState?.teams?.length || 0} von ${teamLobbyState?.maxTeams || 12} Teams`)
+  );
+  const join = element("aside", "display-team-lobby-join");
+  const code = element("div", "display-team-lobby-qr");
+  const qr = qrcode(0, "M");
+  qr.addData(presentation.joinUrl);
+  qr.make();
+  code.innerHTML = qr.createSvgTag({ cellSize: 10, margin: 14, scalable: true, title: "QR-Code für Quizspieler" });
+  join.append(element("h2", "", "QR-Code scannen"), code, element("p", "", presentation.joinUrl));
+  const roster = element("main", "display-team-lobby-roster");
+  if (teamLobbyState?.teams?.length) {
+    teamLobbyState.teams.forEach((team) => {
+      const card = element("section", "display-team-lobby-team");
+      card.classList.toggle("fresh-activity", highlightedLobbyTeamIds.has(team.id));
+      card.append(
+        element("strong", "", team.name),
+        element("span", "", `${team.memberCount} ${team.memberCount === 1 ? "Handy" : "Handys"}`)
+      );
+      roster.append(card);
+    });
+  } else {
+    roster.append(element("p", "display-team-lobby-empty", "Noch keine Teams vorhanden"));
+  }
+  screen.append(heading, join, roster);
+  return screen;
+}
+
+function receiveTeamLobbyState(nextState) {
+  const previousTeams = new Map((teamLobbyState?.teams || []).map((team) => [team.id, team]));
+  highlightedLobbyTeamIds = new Set();
+  if (teamLobbyState) {
+    nextState.teams.forEach((team) => {
+      const previous = previousTeams.get(team.id);
+      if (!previous || team.memberCount > previous.memberCount) highlightedLobbyTeamIds.add(team.id);
+    });
+  }
+  teamLobbyState = nextState;
 }
 
 const hubGames = [
@@ -550,6 +596,7 @@ function sceneKey() {
     }
     return `listing:${round.id}:${round.phase}`;
   }
+  if (presentation.screen === "team-lobby") return "team-lobby";
   if (presentation.screen === "sync") {
     const round = syncState?.round;
     if (!syncState?.rosterLocked) return "sync:lobby";
@@ -567,6 +614,7 @@ function renderImmediately() {
   const renderers = {
     standby,
     intro,
+    "team-lobby": teamLobby,
     hub,
     "jeopardy-board": jeopardyBoard,
     "jeopardy-question": jeopardyQuestion,
@@ -595,6 +643,7 @@ function renderImmediately() {
     overlay.append(card);
     root.append(overlay);
   }
+  if (presentation.screen === "team-lobby") highlightedLobbyTeamIds = new Set();
   updateBuzzerBanner();
 }
 
@@ -784,6 +833,7 @@ function receiveLiveSnapshot(snapshot) {
   orderingState = snapshot.ordering;
   listingState = snapshot.listing;
   syncState = snapshot.sync;
+  receiveTeamLobbyState(snapshot.teamLobby);
   updateBuzzerBanner();
   if (!displayScoreAnimationActive) render();
 }
@@ -792,12 +842,18 @@ function syncGameEventSource() {
   if (usePollingTransport) return;
   const nextScreen = ["jeopardy-board", "jeopardy-question"].includes(presentation?.screen)
     ? "jeopardy"
-    : ["ordering", "listing", "sync"].includes(presentation?.screen) ? presentation.screen : null;
+    : ["team-lobby", "ordering", "listing", "sync"].includes(presentation?.screen) ? presentation.screen : null;
   if (nextScreen === activeGameEventScreen) return;
   activeGameEventSource?.close();
   activeGameEventSource = null;
   activeGameEventScreen = nextScreen;
-  if (nextScreen === "jeopardy") {
+  if (nextScreen === "team-lobby") {
+    activeGameEventSource = new EventSource("/api/team-lobby/events?role=public");
+    activeGameEventSource.addEventListener("state", (event) => {
+      receiveTeamLobbyState(JSON.parse(event.data));
+      if (!displayScoreAnimationActive) render();
+    });
+  } else if (nextScreen === "jeopardy") {
     activeGameEventSource = new EventSource("/api/buzzer/events");
     activeGameEventSource.addEventListener("state", (event) => {
       buzzer = JSON.parse(event.data);

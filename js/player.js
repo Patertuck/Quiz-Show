@@ -6,6 +6,11 @@ const waitingStatus = document.querySelector("#waiting-status");
 const waitingTeamRow = document.querySelector("#waiting-team-row");
 const waitingTeam = document.querySelector("#waiting-team");
 const teamStep = document.querySelector("#team-step");
+const teamLobbyStep = document.querySelector("#team-lobby-step");
+const teamLobbyChoices = document.querySelector("#team-lobby-choices");
+const teamLobbyCreateForm = document.querySelector("#team-lobby-create-form");
+const teamLobbyName = document.querySelector("#team-lobby-name");
+const teamLobbyStatus = document.querySelector("#team-lobby-status");
 const buzzStep = document.querySelector("#buzz-step");
 const choices = document.querySelector("#team-choices");
 const selectedTeamLabel = document.querySelector("#selected-team");
@@ -45,11 +50,15 @@ let orderingState = null;
 let listingState = null;
 let presentationState = null;
 let syncState = null;
+let teamLobbyState = null;
 let selectedTeamIndex = null;
 let submitting = false;
 let orderingEvents;
 let listingEvents;
 let syncEvents;
+let teamLobbyEvents;
+let buzzerEvents;
+let presentationEvents;
 let editingSyncRegistration = false;
 let orderingTimer;
 let listingPendingSaves = 0;
@@ -77,6 +86,7 @@ function showTeamSelection() {
   localStorage.removeItem("quiz-buzzer-team");
   waitingStep.hidden = true;
   teamStep.hidden = false;
+  teamLobbyStep.hidden = true;
   buzzStep.hidden = true;
   orderingStep.hidden = true;
   listingStep.hidden = true;
@@ -98,6 +108,7 @@ function showNoGameWaiting() {
   waitingStatus.textContent = "Die Spielleitung hat noch kein Spiel gestartet. Lasst diese Seite geöffnet.";
   waitingStep.hidden = false;
   teamStep.hidden = true;
+  teamLobbyStep.hidden = true;
   buzzStep.hidden = true;
   orderingStep.hidden = true;
   listingStep.hidden = true;
@@ -115,6 +126,7 @@ function showActivityWaiting() {
   waitingStatus.textContent = "";
   waitingStep.hidden = false;
   teamStep.hidden = true;
+  teamLobbyStep.hidden = true;
   buzzStep.hidden = true;
   orderingStep.hidden = true;
   listingStep.hidden = true;
@@ -146,13 +158,74 @@ function renderTeams() {
   });
 }
 
+async function teamLobbyAction(action, extra = {}) {
+  teamLobbyStatus.textContent = "";
+  try {
+    const response = await fetch("/api/team-lobby/player", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, deviceId, ...extra })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (payload.state) teamLobbyState = payload.state;
+    else if (payload.phase && Array.isArray(payload.teams)) teamLobbyState = payload;
+    if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+    render();
+    return true;
+  } catch (error) {
+    teamLobbyStatus.textContent = error.message;
+    return false;
+  }
+}
+
+function renderTeamLobby() {
+  waitingStep.hidden = true;
+  teamStep.hidden = true;
+  buzzStep.hidden = true;
+  orderingStep.hidden = true;
+  listingStep.hidden = true;
+  syncRegisterStep.hidden = true;
+  syncStep.hidden = true;
+  teamLobbyStep.hidden = false;
+  teamLobbyChoices.replaceChildren();
+  teamLobbyState.teams.forEach((team) => {
+    const card = document.createElement("section");
+    card.className = `team-lobby-phone-team${teamLobbyState.selectedTeamId === team.id ? " selected" : ""}`;
+    const name = document.createElement("strong");
+    name.textContent = team.name;
+    card.append(name);
+    const meta = document.createElement("span");
+    meta.textContent = `${team.memberCount} ${team.memberCount === 1 ? "Handy" : "Handys"}`;
+    const join = document.createElement("button");
+    join.type = "button";
+    join.textContent = teamLobbyState.selectedTeamId === team.id ? "Beigetreten" : "Beitreten";
+    join.disabled = teamLobbyState.selectedTeamId === team.id;
+    join.addEventListener("click", () => teamLobbyAction("join", { teamId: team.id }));
+    card.append(meta, join);
+    teamLobbyChoices.append(card);
+  });
+  teamLobbyCreateForm.hidden = Boolean(teamLobbyState.ownedTeamId)
+    || teamLobbyState.teams.length >= teamLobbyState.maxTeams;
+}
+
 function render() {
+  reconcileLiveStreams();
   if (!currentState) return;
+  if (teamLobbyState?.phase === "open") {
+    renderTeamLobby();
+    return;
+  }
+  if (teamLobbyState?.phase === "locked" && selectedTeamIndex === null && teamLobbyState.selectedTeamId) {
+    const selectedIndex = teamLobbyState.teams.findIndex((team) => team.id === teamLobbyState.selectedTeamId);
+    const rosterReady = currentState.teams.length === teamLobbyState.teams.length
+      && currentState.teams.every((name, index) => name === teamLobbyState.teams[index].name);
+    if (rosterReady && selectedIndex >= 0) selectTeam(selectedIndex);
+  }
   if (!currentState.teams.length) {
     showNoGameWaiting();
     return;
   }
   waitingStep.hidden = true;
+  teamLobbyStep.hidden = true;
   const saved = savedSelection();
   let restoredSelection = false;
   if (selectedTeamIndex === null && saved?.revision === currentState.teamsRevision
@@ -686,6 +759,85 @@ async function loadState() {
   render();
 }
 
+function closeGameEvents() {
+  orderingEvents?.close();
+  listingEvents?.close();
+  syncEvents?.close();
+  orderingEvents = null;
+  listingEvents = null;
+  syncEvents = null;
+}
+
+function connectGameEvents() {
+  if (usePollingTransport) return;
+  if (!orderingEvents) connectOrderingEvents();
+  if (!listingEvents) connectListingEvents();
+  if (!syncEvents) connectSyncEvents();
+}
+
+function connectTeamLobbyEvents() {
+  if (usePollingTransport || teamLobbyEvents) return;
+  teamLobbyEvents = new EventSource(`/api/team-lobby/events?deviceId=${encodeURIComponent(deviceId)}`);
+  teamLobbyEvents.addEventListener("state", (event) => {
+    teamLobbyState = JSON.parse(event.data);
+    setPlayerConnection(true);
+    render();
+  });
+  teamLobbyEvents.addEventListener("error", () => {
+    setPlayerConnection(false);
+    if (!teamLobbyStep.hidden) teamLobbyStatus.textContent = "Verbindung wird wiederhergestellt …";
+  });
+}
+
+function closeCoreGameEvents() {
+  buzzerEvents?.close();
+  presentationEvents?.close();
+  buzzerEvents = null;
+  presentationEvents = null;
+}
+
+function connectCoreGameEvents() {
+  if (usePollingTransport) return;
+  if (!buzzerEvents) {
+    buzzerEvents = new EventSource("/api/buzzer/events");
+    buzzerEvents.addEventListener("state", (event) => {
+      currentState = JSON.parse(event.data);
+      setPlayerConnection(true);
+      render();
+    });
+    buzzerEvents.addEventListener("error", () => setPlayerConnection(false));
+  }
+  if (!presentationEvents) {
+    presentationEvents = new EventSource("/api/presentation/events");
+    presentationEvents.addEventListener("state", (event) => {
+      presentationState = JSON.parse(event.data);
+      render();
+    });
+  }
+}
+
+function reconcileLiveStreams() {
+  if (usePollingTransport) return;
+  const lobbyActive = teamLobbyState?.phase === "open";
+  if (lobbyActive || !teamLobbyState) {
+    closeGameEvents();
+    closeCoreGameEvents();
+    connectTeamLobbyEvents();
+  } else {
+    teamLobbyEvents?.close();
+    teamLobbyEvents = null;
+    connectCoreGameEvents();
+    connectGameEvents();
+  }
+}
+
+async function loadTeamLobbyState() {
+  const response = await fetch(`/api/team-lobby/state?deviceId=${encodeURIComponent(deviceId)}`, { cache: "no-store" });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  teamLobbyState = await response.json();
+  render();
+}
+
 document.querySelector("#change-team").addEventListener("click", showTeamSelection);
 document.querySelector("#waiting-change-team").addEventListener("click", showTeamSelection);
 document.querySelector("#ordering-change-team").addEventListener("click", showTeamSelection);
@@ -735,6 +887,12 @@ listingForm.addEventListener("submit", (event) => {
   listingEntry.focus({ preventScroll: true });
   saveListingItems([...currentItems, value]);
 });
+teamLobbyCreateForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const name = teamLobbyName.value.trim();
+  if (!name) return;
+  teamLobbyAction("create", { name }).then((created) => { if (created) teamLobbyName.value = ""; });
+});
 buzzButton.addEventListener("click", async () => {
   if (!currentState?.round.open || selectedTeamIndex === null || submitting) return;
   submitting = true;
@@ -775,6 +933,7 @@ if (usePollingTransport) {
     onConnectionChange: setPlayerConnection,
     onSnapshot: (snapshot) => {
       currentState = snapshot.buzzer;
+      teamLobbyState = snapshot.teamLobby;
       presentationState = snapshot.presentation;
       receiveOrderingState(snapshot.ordering, false);
       listingState = snapshot.listing;
@@ -783,19 +942,7 @@ if (usePollingTransport) {
     }
   });
 } else {
-  const events = new EventSource("/api/buzzer/events");
-  events.addEventListener("state", (event) => {
-    currentState = JSON.parse(event.data);
-    setPlayerConnection(true);
-    render();
-  });
-  events.addEventListener("error", () => setPlayerConnection(false));
-
-  const presentationEvents = new EventSource("/api/presentation/events");
-  presentationEvents.addEventListener("state", (event) => {
-    presentationState = JSON.parse(event.data);
-    render();
-  });
+  connectTeamLobbyEvents();
 }
 
 async function loadPresentationState() {
@@ -805,15 +952,12 @@ async function loadPresentationState() {
   render();
 }
 
-if (!usePollingTransport) Promise.all([loadState(), loadPresentationState()]).catch(() => {
+if (!usePollingTransport) Promise.all([loadState(), loadPresentationState(), loadTeamLobbyState()]).catch(() => {
   connectionStatus.textContent = "Offline";
   waitingStatus.hidden = false;
   waitingStatus.textContent = "Die Quiz-Spielleitung konnte nicht erreicht werden. Prüft die WLAN-Verbindung.";
 });
 
-connectOrderingEvents();
-connectListingEvents();
-connectSyncEvents();
 orderingTimer = setInterval(() => {
   if (!orderingState?.round || orderingState.round.phase !== "active") return;
   const seconds = Math.max(0, Math.ceil((orderingState.round.deadlineAt - Date.now()) / 1000));

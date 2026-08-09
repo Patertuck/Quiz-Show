@@ -33,6 +33,15 @@
       <h2>Wählt euer Team</h2>
       <div id="team-choices" class="team-choices"></div>
     </section>
+    <section id="team-lobby-step" class="player-card team-lobby-phone" hidden>
+      <h2>Teams erstellen und beitreten</h2>
+      <div id="team-lobby-choices" class="team-lobby-phone-choices"></div>
+      <form id="team-lobby-create-form" class="team-lobby-create-form">
+        <label for="team-lobby-name">Neues Team</label>
+        <div><input id="team-lobby-name" maxlength="40" required placeholder="Teamname"><button type="submit">Erstellen</button></div>
+      </form>
+      <p id="team-lobby-status" class="buzz-status" role="status" aria-live="polite"></p>
+    </section>
     <section id="buzz-step" class="player-card" hidden>
       <div class="selected-team-row">
         <strong id="selected-team"></strong>
@@ -93,6 +102,6 @@
       <p id="sync-phone-status" class="buzz-status" role="status" aria-live="polite"></p>
     </section>
   </main>
-  <script type="module" src="js/player.js?v=4"></script>
+  <script type="module" src="js/player.js?v=7"></script>
 </body>
 </html>

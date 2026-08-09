@@ -18,7 +18,7 @@ initializeHostControls({ navigate });
 
 const routes = {
   setup: { template: "views/setup.html", controller: setup, scoreboard: "hidden", requiresGame: false, hostControls: false },
-  intro: { template: "views/intro.html", controller: intro, scoreboard: "hidden", requiresGame: true, hostControls: false },
+  intro: { template: "views/intro.html", controller: intro, scoreboard: "hidden", requiresGame: false, hostControls: false },
   hub: { template: "views/hub.html", controller: hub, scoreboard: "standings", requiresGame: true },
   jeopardy: { template: "views/jeopardy.html", controller: jeopardy, scoreboard: "game", requiresGame: true },
   ordering: { template: "views/ordering.html", controller: ordering, scoreboard: "standings", requiresGame: true },
@@ -115,11 +115,11 @@ try {
   const requestedRoute = routeName();
   const saved = state.savedState;
   const compatibleSave = saved && !saved.invalid && saved.configFingerprint === state.configFingerprint;
-  if (requestedRoute !== "setup" && compatibleSave) {
+  if (!["setup", "intro"].includes(requestedRoute) && compatibleSave) {
     resumeRuntime(saved.teams);
     renderScoreboard();
   }
-  if (!location.hash) navigate("setup");
+  if (!location.hash) navigate("intro");
   else await renderRoute();
 } catch (error) {
   console.error(error);

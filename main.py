@@ -15,6 +15,7 @@ import secrets
 import socket
 import socketserver
 import subprocess
+import sys
 import threading
 import time
 import webbrowser
@@ -41,7 +42,7 @@ STATE_LOCK = threading.Lock()
 TILE_ID_PATTERN = re.compile(r"^\d+:\d+$")
 MAX_BUZZER_BODY_BYTES = 16_384
 MAX_PRESENTATION_BODY_BYTES = 262_144
-PRESENTATION_SCREENS = {"standby", "intro", "hub", "jeopardy-board", "jeopardy-question", "ordering", "listing", "sync", "victory"}
+PRESENTATION_SCREENS = {"standby", "intro", "team-lobby", "hub", "jeopardy-board", "jeopardy-question", "ordering", "listing", "sync", "victory"}
 HUB_GAME_IDS = {"jeopardy", "ordering", "listing", "sync"}
 QUICK_TUNNEL_PATTERN = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com", re.IGNORECASE)
 PUBLIC_URL_LOCK = threading.Lock()
@@ -349,6 +350,164 @@ class BuzzerState:
 
 
 BUZZER = BuzzerState()
+
+
+class TeamLobbyState:
+    MAX_TEAMS = 12
+    MAX_NAME_LENGTH = 40
+
+    def __init__(self) -> None:
+        self.condition = threading.Condition()
+        self.version = 0
+        self.config_fingerprint = ""
+        self.phase = "uninitialized"
+        self.teams: list[dict] = []
+        self.memberships: dict[str, str] = {}
+
+    @staticmethod
+    def _device_id(value: object) -> str:
+        if not isinstance(value, str) or not 8 <= len(value) <= 100:
+            raise ValueError("Eine gültige deviceId ist erforderlich.")
+        return value
+
+    def _name(self, value: object, excluding_id: str | None = None) -> str:
+        if not isinstance(value, str):
+            raise ValueError("Der Teamname muss eine Zeichenfolge sein.")
+        name = " ".join(value.split())
+        if not name or len(name) > self.MAX_NAME_LENGTH:
+            raise ValueError(f"Teamnamen müssen 1 bis {self.MAX_NAME_LENGTH} Zeichen lang sein.")
+        if any(team["id"] != excluding_id and team["name"].casefold() == name.casefold() for team in self.teams):
+            raise ValueError("Dieser Teamname wird bereits verwendet.")
+        return name
+
+    def _changed(self) -> None:
+        self.version += 1
+        self.condition.notify_all()
+
+    def _team(self, team_id: object) -> dict:
+        if not isinstance(team_id, str):
+            raise ValueError("Eine gültige teamId ist erforderlich.")
+        team = next((item for item in self.teams if item["id"] == team_id), None)
+        if team is None:
+            raise ValueError("Dieses Team existiert nicht mehr.")
+        return team
+
+    def initialize(self, payload: dict) -> dict:
+        fingerprint = payload.get("configFingerprint")
+        source = payload.get("teams")
+        if not isinstance(fingerprint, str) or not fingerprint or not isinstance(source, list):
+            raise ValueError("Die Team-Lobby kann nicht initialisiert werden.")
+        if not 1 <= len(source) <= self.MAX_TEAMS:
+            raise ValueError(f"Die Lobby benötigt 1 bis {self.MAX_TEAMS} Teams.")
+        with self.condition:
+            if self.phase in {"open", "locked"} and self.config_fingerprint == fingerprint and not payload.get("force"):
+                return self._snapshot_unlocked("host")
+            self.teams = []
+            self.memberships = {}
+            for item in source:
+                if not isinstance(item, dict):
+                    raise ValueError("Jedes Lobby-Team muss ein Objekt sein.")
+                name = self._name(item.get("name"))
+                current_score = item.get("currentScore", 0)
+                starting_score = item.get("startingScore", 0)
+                if (not isinstance(current_score, int) or isinstance(current_score, bool)
+                        or not isinstance(starting_score, int) or isinstance(starting_score, bool)):
+                    raise ValueError("Teampunkte müssen Ganzzahlen sein.")
+                self.teams.append({
+                    "id": secrets.token_urlsafe(8), "name": name, "ownerDeviceId": None,
+                    "currentScore": current_score, "startingScore": starting_score,
+                })
+            self.config_fingerprint = fingerprint
+            self.phase = "open"
+            self._changed()
+            return self._snapshot_unlocked("host")
+
+    def host_control(self, payload: dict) -> dict:
+        action = payload.get("action")
+        with self.condition:
+            if action == "unlock":
+                self.phase = "open"
+                self._changed()
+                return self._snapshot_unlocked("host")
+            if self.phase != "open":
+                raise ValueError("Die Team-Lobby ist geschlossen.")
+            if action == "add":
+                if len(self.teams) >= self.MAX_TEAMS:
+                    raise ValueError(f"Es sind höchstens {self.MAX_TEAMS} Teams erlaubt.")
+                self.teams.append({
+                    "id": secrets.token_urlsafe(8), "name": self._name(payload.get("name")),
+                    "ownerDeviceId": None, "currentScore": 0, "startingScore": 0,
+                })
+            elif action == "rename":
+                team = self._team(payload.get("teamId"))
+                team["name"] = self._name(payload.get("name"), team["id"])
+            elif action == "remove":
+                team = self._team(payload.get("teamId"))
+                self.teams.remove(team)
+                self.memberships = {device: selected for device, selected in self.memberships.items() if selected != team["id"]}
+            elif action == "lock":
+                if not self.teams:
+                    raise ValueError("Erstellt mindestens ein Team, bevor das Spiel beginnt.")
+                self.phase = "locked"
+            else:
+                raise ValueError("Unbekannte Team-Lobby-Aktion.")
+            self._changed()
+            return self._snapshot_unlocked("host")
+
+    def player_control(self, payload: dict) -> tuple[int, dict]:
+        device_id = self._device_id(payload.get("deviceId"))
+        action = payload.get("action")
+        with self.condition:
+            if self.phase != "open":
+                return 409, {"error": "Die Team-Lobby ist geschlossen.", "state": self._snapshot_unlocked("player", device_id)}
+            if action == "join":
+                team = self._team(payload.get("teamId"))
+                self.memberships[device_id] = team["id"]
+            elif action == "create":
+                if len(self.teams) >= self.MAX_TEAMS:
+                    raise ValueError(f"Es sind höchstens {self.MAX_TEAMS} Teams erlaubt.")
+                if any(team["ownerDeviceId"] == device_id for team in self.teams):
+                    raise ValueError("Dieses Gerät hat bereits ein Team erstellt.")
+                team = {
+                    "id": secrets.token_urlsafe(8), "name": self._name(payload.get("name")),
+                    "ownerDeviceId": device_id, "currentScore": 0, "startingScore": 0,
+                }
+                self.teams.append(team)
+                self.memberships[device_id] = team["id"]
+            else:
+                raise ValueError("Unbekannte Team-Lobby-Aktion.")
+            self._changed()
+            return 200, self._snapshot_unlocked("player", device_id)
+
+    def _snapshot_unlocked(self, role: str = "public", device_id: str | None = None) -> dict:
+        member_counts: dict[str, int] = {}
+        for team_id in self.memberships.values():
+            member_counts[team_id] = member_counts.get(team_id, 0) + 1
+        teams = []
+        for team in self.teams:
+            item = {"id": team["id"], "name": team["name"], "memberCount": member_counts.get(team["id"], 0)}
+            if role == "host":
+                item.update({"currentScore": team["currentScore"], "startingScore": team["startingScore"]})
+            teams.append(item)
+        snapshot = {"version": self.version, "phase": self.phase, "maxTeams": self.MAX_TEAMS, "teams": teams}
+        if role == "player" and device_id:
+            snapshot["selectedTeamId"] = self.memberships.get(device_id)
+            snapshot["ownedTeamId"] = next((team["id"] for team in self.teams if team["ownerDeviceId"] == device_id), None)
+        return snapshot
+
+    def snapshot(self, role: str = "public", device_id: str | None = None) -> dict:
+        with self.condition:
+            return self._snapshot_unlocked(role, device_id)
+
+    def wait_for_change(self, version: int, role: str = "public", device_id: str | None = None,
+                        timeout: float = 15) -> dict | None:
+        with self.condition:
+            if self.version == version:
+                self.condition.wait(timeout)
+            return self._snapshot_unlocked(role, device_id) if self.version != version else None
+
+
+TEAM_LOBBY = TeamLobbyState()
 
 
 class OrderingState:
@@ -702,6 +861,11 @@ def validate_presentation(payload: object) -> dict:
         if highlighted_game is not None and highlighted_game not in HUB_GAME_IDS:
             raise ValueError("Highlighted hub game is invalid.")
         clean["highlightedGame"] = highlighted_game
+    elif payload["screen"] == "team-lobby":
+        join_url = payload.get("joinUrl")
+        if not isinstance(join_url, str) or not re.fullmatch(r"https?://[^/\s]+/player", join_url):
+            raise ValueError("Team lobby join URL is invalid.")
+        clean["joinUrl"] = join_url
     elif payload["screen"] == "jeopardy-board":
         board = payload.get("board")
         if not isinstance(board, dict):
@@ -887,6 +1051,7 @@ def live_state_snapshot(team_index: int | None = None, device_id: str | None = N
     sync_role = "player" if valid_device else "public"
     return {
         "presentation": PRESENTATION.snapshot(),
+        "teamLobby": TEAM_LOBBY.snapshot("player", valid_device) if valid_device else TEAM_LOBBY.snapshot(),
         "buzzer": BUZZER.snapshot(),
         "ordering": ORDERING.snapshot(team_role, valid_team),
         "listing": LISTING.snapshot(team_role, valid_team),
@@ -983,6 +1148,36 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
             except ValueError:
                 team_index = None
             self.send_json(200, live_state_snapshot(team_index, device_id, client_id))
+            return
+        if self.request_path == "/api/team-lobby/state":
+            query = parse_qs(urlsplit(self.path).query)
+            device_id = query.get("deviceId", [None])[0]
+            role = "player" if device_id else ("host" if self.is_host else "public")
+            self.send_json(200, TEAM_LOBBY.snapshot(role, device_id))
+            return
+        if self.request_path == "/api/team-lobby/events":
+            query = parse_qs(urlsplit(self.path).query)
+            device_id = query.get("deviceId", [None])[0]
+            requested_role = query.get("role", [""])[0]
+            role = "player" if device_id else ("public" if requested_role == "public" else ("host" if self.is_host else "public"))
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Connection", "keep-alive")
+            self.end_headers()
+            version = -1
+            try:
+                while True:
+                    state = TEAM_LOBBY.wait_for_change(version, role, device_id)
+                    if state is None:
+                        self.wfile.write(b": heartbeat\n\n")
+                    else:
+                        version = state["version"]
+                        data = json.dumps(state, ensure_ascii=False, separators=(",", ":"))
+                        self.wfile.write(f"event: state\nid: {version}\ndata: {data}\n\n".encode("utf-8"))
+                    self.wfile.flush()
+            except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+                pass
             return
         if self.request_path == "/api/sync/state":
             query = parse_qs(urlsplit(self.path).query)
@@ -1180,7 +1375,7 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
                 "/player", "/player.html", "/styles/player.css", "/js/player.js",
                 "/buzzer", "/buzzer.html", "/styles/buzzer.css", "/js/buzzer.js",
                 "/display", "/display.html", "/styles/display.css", "/styles/sync.css", "/js/display.js",
-                "/js/display-score-animation.js", "/js/live-state.js",
+                "/js/display-score-animation.js", "/js/live-state.js", "/js/fit-text.js",
             }
             if self.request_path not in allowed and not self.request_path.startswith("/assets/"):
                 self.send_error(403, "Von einem anderen Gerät sind nur die Spieler- und Publikumsansicht verfügbar.")
@@ -1203,7 +1398,7 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
             "/player", "/player.html", "/styles/player.css", "/js/player.js",
             "/buzzer", "/buzzer.html", "/styles/buzzer.css", "/js/buzzer.js",
             "/display", "/display.html", "/styles/display.css", "/styles/sync.css", "/js/display.js",
-            "/js/display-score-animation.js", "/js/live-state.js",
+            "/js/display-score-animation.js", "/js/live-state.js", "/js/fit-text.js",
         }
         if not self.is_host and self.request_path not in allowed and not self.request_path.startswith("/assets/"):
             self.send_error(403, "Von einem anderen Gerät sind nur die Spieler- und Publikumsansicht verfügbar.")
@@ -1222,6 +1417,25 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
         super().do_HEAD()
 
     def do_POST(self) -> None:  # noqa: N802 - required by BaseHTTPRequestHandler
+        if self.request_path == "/api/team-lobby/player":
+            try:
+                status, response = TEAM_LOBBY.player_control(self.read_json(MAX_PRESENTATION_BODY_BYTES))
+            except (UnicodeError, json.JSONDecodeError, ValueError) as error:
+                self.send_json(400, {"error": str(error)})
+                return
+            self.send_json(status, response)
+            return
+        if self.request_path in {"/api/team-lobby/initialize", "/api/team-lobby/control"}:
+            if not self.require_host():
+                return
+            try:
+                payload = self.read_json(MAX_PRESENTATION_BODY_BYTES)
+                response = TEAM_LOBBY.initialize(payload) if self.request_path.endswith("initialize") else TEAM_LOBBY.host_control(payload)
+            except (UnicodeError, json.JSONDecodeError, ValueError) as error:
+                self.send_json(400, {"error": str(error)})
+                return
+            self.send_json(200, response)
+            return
         if self.request_path == "/api/sync/register":
             try:
                 status, response = SYNC.register(self.read_json(MAX_PRESENTATION_BODY_BYTES))
@@ -1394,6 +1608,11 @@ class LocalQuizServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
     # SO_REUSEADDR allows two live servers to share one port on Windows, causing
     # requests to alternate between stale and current quiz processes.
     allow_reuse_address = os.name != "nt"
+
+    def handle_error(self, request, client_address) -> None:
+        if isinstance(sys.exc_info()[1], (BrokenPipeError, ConnectionResetError, ConnectionAbortedError)):
+            return
+        super().handle_error(request, client_address)
 
 
 def parse_arguments() -> argparse.Namespace:
