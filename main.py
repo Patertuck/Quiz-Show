@@ -809,6 +809,19 @@ def validate_presentation(payload: object) -> dict:
                 "questions": clean_questions, "highlightedQuestionId": highlighted_id,
                 "selectedQuestion": clean_selected_question
             }
+    elif payload["screen"] == "listing":
+        preview = payload.get("questionPreview")
+        clean_preview = None
+        if preview is not None:
+            if (not isinstance(preview, dict)
+                    or not isinstance(preview.get("id"), str) or not preview["id"].strip()
+                    or not isinstance(preview.get("title"), str) or not preview["title"].strip()
+                    or not isinstance(preview.get("prompt"), str) or not preview["prompt"].strip()):
+                raise ValueError("List It question preview is invalid.")
+            clean_preview = {
+                "id": preview["id"], "title": preview["title"], "prompt": preview["prompt"]
+            }
+        clean["questionPreview"] = clean_preview
     elif payload["screen"] == "victory":
         steps = payload.get("steps")
         revealed_count = payload.get("revealedCount")

@@ -222,6 +222,7 @@ function ordering() {
       });
       preview.append(items);
       content.append(preview);
+      screen.append(content);
     } else if (selection?.questions?.length) {
       const grid = element("div", "display-ordering-question-grid");
       selection.questions.forEach((question) => {
@@ -231,10 +232,11 @@ function ordering() {
         grid.append(card);
       });
       content.append(grid);
+      screen.append(logoImage("display-game-waiting-logo"), content);
     } else {
       content.append(element("p", "", "Macht euch bereit für die nächste Herausforderung."));
+      screen.append(logoImage("display-game-waiting-logo"), content);
     }
-    screen.append(logoImage("display-game-waiting-logo"), content);
     return screen;
   }
   if (round.phase === "active") {
@@ -284,8 +286,19 @@ function listing() {
   const round = listingState?.round;
   if (!round) {
     const content = element("div", "display-listing-waiting");
-    content.append(element("h1", "", "List It"), element("p", "", "Macht euch bereit für die nächste Aufgabe."));
-    screen.append(logoImage("display-game-waiting-logo"), content);
+    content.append(element("h1", "", "List It"));
+    if (presentation.questionPreview) {
+      const preview = element("section", "display-listing-question-preview");
+      preview.append(
+        element("h2", "", presentation.questionPreview.title),
+        element("p", "", presentation.questionPreview.prompt)
+      );
+      content.append(preview);
+      screen.append(content);
+    } else {
+      content.append(element("p", "", "Macht euch bereit für die nächste Aufgabe."));
+      screen.append(logoImage("display-game-waiting-logo"), content);
+    }
     return screen;
   }
   if (round.phase === "active") {
@@ -529,7 +542,7 @@ function sceneKey() {
   }
   if (presentation.screen === "listing") {
     const round = listingState?.round;
-    if (!round) return "listing:waiting";
+    if (!round) return `listing:waiting:${presentation.questionPreview?.id || "none"}`;
     if (round.phase === "review") return `listing:${round.id}:review:${round.review?.index ?? 0}`;
     if (["results", "distributed"].includes(round.phase)) {
       const resultView = round.resultView;

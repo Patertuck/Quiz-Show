@@ -89,8 +89,8 @@ export function publishOrdering(questionSelection = null) {
   return publishPresentation({ ...base("ordering"), questionSelection });
 }
 
-export function publishListing() {
-  return publishPresentation(base("listing"));
+export function publishListing(questionPreview = null) {
+  return publishPresentation({ ...base("listing"), questionPreview });
 }
 
 export function publishSync() {

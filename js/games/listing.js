@@ -10,6 +10,14 @@ let events;
 let ticker;
 let selectedQuestion = null;
 
+function questionPreview() {
+  return selectedQuestion ? {
+    id: selectedQuestion.id,
+    title: selectedQuestion.title,
+    prompt: selectedQuestion.prompt
+  } : null;
+}
+
 async function request(action, extra = {}) {
   const response = await fetch("/api/listing/control", {
     method: "POST",
@@ -49,10 +57,11 @@ function renderOverview() {
   grid.className = "listing-question-grid";
   state.config.listing.questions.forEach((question) => {
     const complete = listingState.completedQuestionIds.includes(question.id);
-    const card = button(question.title, `listing-question-card${complete ? " completed" : ""}`, () => {
+    const card = button(question.title, `listing-question-card${complete ? " completed" : ""}`, async () => {
       if (complete) return;
       selectedQuestion = question;
       renderPreview();
+      await publishListing(questionPreview());
     });
     if (complete) {
       card.title = "Bereits abgeschlossen · mit Rechtsklick erneut freischalten";
@@ -96,7 +105,11 @@ function renderPreview() {
   actions.className = "listing-actions";
   actions.append(
     button("Starten", "primary-button", () => request("start", { question })),
-    button("Zurück", "secondary-button", () => { selectedQuestion = null; renderOverview(); })
+    button("Zurück", "secondary-button", async () => {
+      selectedQuestion = null;
+      renderOverview();
+      await publishListing(null);
+    })
   );
   preview.append(title, prompt, details, rule, actions);
   content.replaceChildren(preview);
@@ -287,7 +300,7 @@ async function distribute() {
   if (applyAward(award.awardId, award.awards)) renderScoreboard();
   await saveState();
   await request("confirm-distribution");
-  await publishListing();
+  await publishListing(questionPreview());
 }
 
 function render(snapshot) {
@@ -310,11 +323,12 @@ export async function mount(element) {
     teams: state.teams.map((team) => team.name),
     questionIds: state.config.listing.questions.map((question) => question.id)
   });
-  await publishListing();
+  selectedQuestion = null;
+  await publishListing(null);
   render(await fetch("/api/listing/state", { cache: "no-store" }).then((response) => response.json()));
   events = new EventSource("/api/listing/events");
   events.addEventListener("state", (event) => render(JSON.parse(event.data)));
-  const scoreListener = () => publishListing().catch(() => undefined);
+  const scoreListener = () => publishListing(questionPreview()).catch(() => undefined);
   window.addEventListener("quiz-score-changed", scoreListener);
   ticker = setInterval(() => {
     const timer = content.querySelector(".listing-timer");
