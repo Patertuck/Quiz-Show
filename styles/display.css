@@ -80,10 +80,10 @@ body { margin: 0; overflow: hidden; background: var(--blue); color: #fff; }
 .display-ordering-selection:has(.display-ordering-question-preview) .display-ordering-question-preview p { font-size: clamp(.9rem, 2.6vh, 1.6rem); line-height: 1.2; }
 .display-ordering-selection:has(.display-ordering-question-preview) .display-ordering-preview-items { min-height: 0; align-content: center; overflow: hidden; gap: clamp(.3rem, 1vh, .65rem); }
 .display-ordering-selection:has(.display-ordering-question-preview) .display-ordering-preview-item { padding: clamp(.3rem, 1vh, .65rem) clamp(.55rem, 1.3vw, 1rem); font-size: clamp(.72rem, 2vh, 1.1rem); line-height: 1.15; overflow-wrap: anywhere; }
-.display-ordering-active { display: grid; justify-items: center; gap: clamp(.7rem, 2vh, 1.5rem); }
+.display-ordering-active { display: grid; width: min(72rem, 94vw); height: 100%; min-height: 0; grid-template-rows: auto auto minmax(0, 1fr) auto; justify-items: center; align-items: center; gap: clamp(.35rem, 1.5vh, 1rem); padding: clamp(.4rem, 1.5vh, 1rem) 0; }
 .display-ordering-active h1 { font-size: clamp(2rem, 6vw, 5rem); }
 .display-ordering-prompt { max-width: 70rem; margin: 0; font-weight: bold; }
-.display-ordering-timer { display: grid; width: clamp(8rem, 18vh, 12rem); aspect-ratio: 1; place-items: center; border: .45rem solid #ffe16d; border-radius: 50%; background: #29103e; color: #ffe16d; font-size: clamp(3.2rem, 9vw, 7rem); font-weight: 900; }
+.display-ordering-timer { --ordering-timer-size: clamp(6.5rem, 24vh, 11rem); display: grid; width: var(--ordering-timer-size); min-width: var(--ordering-timer-size); height: var(--ordering-timer-size); min-height: var(--ordering-timer-size); place-items: center; border: clamp(.3rem, .9vh, .55rem) solid #ffe16d; border-radius: 999px; background: #29103e; color: #ffe16d; font-size: clamp(2.8rem, 11vh, 6rem); font-variant-numeric: tabular-nums; font-weight: 900; line-height: 1; box-shadow: 0 0 0 .15rem #29103e, 0 0 1.4rem #ffe16d55; }
 .display-ordering-connected { margin: 0; color: #ead7f5; }
 .display-ordering:has(.display-ordering-results) { display: grid; grid-template-rows: auto 1fr; gap: .45rem; padding: .65rem 1rem; }
 .display-ordering-heading { text-align: center; }
