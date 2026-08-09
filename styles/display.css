@@ -169,7 +169,7 @@ body { margin: 0; overflow: hidden; background: var(--blue); color: #fff; }
 .display-listing-item.penalized { border-color: #ff6b7c; background: #a4192d; }
 .display-listing-empty { width: 100%; align-self: center; color: #b8dbe0; font-size: clamp(1rem, 3vh, 2rem); font-weight: 800; text-align: center; }
 .display-listing-team-count { justify-self: center; margin: 0; color: #ffe65c; font-size: clamp(1rem, 3vh, 2rem); font-weight: 900; }
-.display-sync { padding: clamp(1rem, 3vw, 2rem); }
+.display-sync { padding: 0; }
 .display-sync-lobby, .display-sync-waiting, .display-sync-active, .display-sync-ranking { display: grid; height: 100%; place-content: center; gap: 1rem; text-align: center; }
 .display-sync-lobby h1, .display-sync-waiting h1, .display-sync-ranking h1 { margin: 0; color: #ffe65c; font-size: clamp(3rem, 9vh, 7rem); }
 .display-sync-roster, .display-sync-result-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: 1rem; }

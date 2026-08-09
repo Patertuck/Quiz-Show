@@ -428,58 +428,68 @@ audioUnlock.addEventListener("click", () => {
 function sync() {
   const screen = element("section", "display-screen display-sync");
   const round = syncState?.round;
+  const shell = element("div", "sync-shell");
+  const heading = element("header", "sync-heading");
+  const status = element("p", "");
+  const content = element("main", "");
+  status.setAttribute("aria-live", "polite");
+  content.id = "sync-content";
+  heading.append(element("h1", "", "Sync Up"), status);
+  shell.append(heading, content);
+  screen.append(shell);
+
   if (!syncState?.rosterLocked) {
-    const lobby = element("div", "display-sync-lobby");
-    lobby.append(element("h1", "", "Sync Up"), element("p", "", "Registriert euch mit Namen auf euren Handys."));
-    const teams = element("div", "display-sync-roster");
+    const connected = new Set(syncState?.connectedParticipantIds || []);
+    status.textContent = "Alle Mitspielenden wählen auf dem Handy ihr Team und tragen ihren Namen ein.";
+    const teams = element("div", "sync-roster");
     syncState?.teams.forEach((team, teamIndex) => {
-      const card = element("section", "display-sync-roster-team");
+      const card = element("section", "sync-roster-team");
       card.append(element("h2", "", team));
-      syncState.participants.filter((person) => person.teamIndex === teamIndex)
-        .forEach((person) => card.append(element("div", "", person.name)));
+      const members = syncState.participants.filter((person) => person.teamIndex === teamIndex);
+      if (!members.length) card.append(element("p", "", "Noch niemand registriert"));
+      members.forEach((person) => card.append(element(
+        "div", `sync-roster-person${connected.has(person.id) ? " connected" : ""}`, person.name
+      )));
       teams.append(card);
     });
-    lobby.append(teams);
-    screen.append(lobby);
+    content.append(teams);
     return screen;
   }
   if (!round) {
-    const waiting = element("div", "display-sync-waiting");
-    waiting.append(element("h1", "", "Sync Up"), element("p", "", "Warten auf den nächsten Prompt"));
-    screen.append(waiting);
+    status.textContent = "Warten auf den nächsten Prompt";
     return screen;
   }
   if (!["results", "distributed"].includes(round.phase)) {
-    const active = element("div", "display-sync-active");
-    active.append(element("h1", "display-sync-prompt", round.prompt));
-    const timer = element("output", "display-sync-timer",
+    status.textContent = round.phase === "active"
+      ? `${round.submittedCount} von ${syncState.participants.length} Antworten gewählt`
+      : "Lest den Prompt vor. Der Countdown beginnt, sobald die Spielleitung den Timer startet.";
+    const panel = element("section", "sync-prompt-panel");
+    panel.append(element("h2", "", round.prompt));
+    const timer = element("output", "sync-host-timer",
       round.phase === "active" ? String(Math.max(0, Math.ceil((round.deadlineAt - Date.now()) / 1000))) : String(round.timeLimitSeconds));
     if (round.deadlineAt) timer.dataset.deadline = round.deadlineAt;
-    active.append(timer, element("p", "", round.phase === "active"
-      ? `${round.submittedCount} von ${syncState.participants.length} gewählt`
-      : "Die Spielleitung liest den Prompt vor."));
-    screen.append(active);
+    panel.append(timer);
+    content.append(panel);
     return screen;
   }
-  const content = element("div", "display-sync-results");
-  content.append(element("h1", "display-sync-prompt", round.prompt));
-  const teams = element("div", "display-sync-result-grid");
+  heading.hidden = true;
+  content.append(element("h2", "sync-result-prompt", round.prompt));
+  const teams = element("div", "sync-result-teams");
   round.results.forEach((result) => {
-    const card = element("section", `display-sync-result-team${result.synced ? " synced" : ""}`);
+    const card = element("section", `sync-result-team${result.synced ? " synced" : ""}`);
     card.dataset.teamIndex = result.teamIndex;
     card.append(
       element("h2", "", syncState.teams[result.teamIndex]),
-      element("strong", "display-sync-result-points", `+${result.points}`)
+      element("strong", "sync-result-points", `+${result.points}`)
     );
     result.votes.forEach((vote) => {
       const voter = syncState.participants.find((person) => person.id === vote.participantId)?.name || "?";
       const selected = syncState.participants.find((person) => person.id === vote.selectedParticipantId)?.name || "Keine Auswahl";
-      card.append(element("div", "display-sync-vote", `${voter} → ${selected}`));
+      card.append(element("div", "sync-result-vote", `${voter} → ${selected}`));
     });
     teams.append(card);
   });
   content.append(teams);
-  screen.append(content);
   return screen;
 }
 
@@ -657,7 +667,7 @@ function syncAnimationPlan(nextPresentation) {
   if (!awards.some(({ points }) => points > 0)
       || awards.some(({ points, teamIndex }) => points !== (expectedPoints.get(teamIndex) || 0))) return null;
   const origins = awards.map(({ teamIndex }) => root.querySelector(
-    `.display-sync-result-team[data-team-index="${teamIndex}"] .display-sync-result-points`
+    `.sync-result-team[data-team-index="${teamIndex}"] .sync-result-points`
   )?.getBoundingClientRect() || null);
   animatedSyncRounds.add(round.id);
   return { awards: awards.filter(({ points }) => points > 0), origins };
@@ -850,7 +860,7 @@ listingTicker = setInterval(() => {
 }, 200);
 
 syncTicker = setInterval(() => {
-  const timer = root.querySelector(".display-sync-timer[data-deadline]");
+  const timer = root.querySelector(".sync-host-timer[data-deadline]");
   if (timer) timer.textContent = Math.max(0, Math.ceil((Number(timer.dataset.deadline) - Date.now()) / 1000));
 }, 100);
 
