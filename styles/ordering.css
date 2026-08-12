@@ -19,6 +19,8 @@
 .ordering-live-team li { margin: .2rem 0; padding: .3rem; border-radius: .3rem; background: #fff; color: #321347; }
 .ordering-private-answer { padding: .35rem .7rem; border-radius: .4rem; background: #180824; font-size: .8rem; }
 .ordering-actions { display: flex; gap: .6rem; justify-content: center; }
+.ordering-map-actions { max-width: min(70rem, 100%); flex-wrap: wrap; }
+.ordering-map-actions button { padding: .45rem .7rem; font-size: .85rem; }
 .danger-button { padding: .75rem 1.25rem; background: #9b263c; color: #fff; font-weight: bold; }
 .ordering-results { display: grid; width: 100%; min-height: 0; grid-template-columns: 1fr minmax(9rem, 15rem) 1fr; gap: .5rem; align-items: stretch; }
 .ordering-result-side { display: flex; min-width: 0; gap: .4rem; }

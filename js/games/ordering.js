@@ -10,6 +10,7 @@ let events;
 let ticker;
 let selectedQuestion = null;
 let selectedPreviewItems = [];
+let visibleMapItem = null;
 
 async function request(action, extra = {}) {
   const response = await fetch("/api/ordering/control", {
@@ -74,7 +75,19 @@ function questionSelection(highlightedQuestionId = selectedQuestion?.id || null)
 }
 
 function publishQuestionSelection(highlightedQuestionId) {
-  publishOrdering(questionSelection(highlightedQuestionId)).catch(() => undefined);
+  publishOrdering(questionSelection(highlightedQuestionId), orderingMap()).catch(() => undefined);
+}
+
+function orderingMap() {
+  const question = selectedQuestion || state.config.ordering.questions.find((item) => item.id === orderingState?.round?.questionId);
+  const image = visibleMapItem && question?.itemMaps?.[visibleMapItem];
+  return image ? { label: visibleMapItem, image } : null;
+}
+
+async function toggleMap(item) {
+  visibleMapItem = visibleMapItem === item ? null : item;
+  render(orderingState);
+  await publishOrdering(questionSelection(), orderingMap());
 }
 
 function renderOverview() {
@@ -86,6 +99,7 @@ function renderOverview() {
     const card = button(question.title, "ordering-question-card", async () => {
       selectedQuestion = question;
       selectedPreviewItems = shuffled(question.items);
+      visibleMapItem = null;
       renderPreview();
       publishQuestionSelection(question.id);
     }, complete);
@@ -117,6 +131,7 @@ function renderPreview() {
     button("Zurück", "secondary-button", async () => {
       selectedQuestion = null;
       selectedPreviewItems = [];
+      visibleMapItem = null;
       renderOverview();
       publishQuestionSelection(null);
     })
@@ -193,16 +208,32 @@ function renderResults(round) {
       () => request("reveal", { slot }), revealed || round.phase === "distributed"));
   });
   board.append(left, solution, right);
+  const mapQuestion = selectedQuestion || state.config.ordering.questions.find((item) => item.id === round.questionId);
+  const mapItems = mapQuestion?.itemMaps
+    ? round.correctItems.filter((item) => mapQuestion.itemMaps[item.text])
+    : [];
+  const mapActions = document.createElement("div"); mapActions.className = "ordering-actions ordering-map-actions";
+  mapItems.forEach((item) => {
+    const active = visibleMapItem === item.text;
+    const control = button(active ? `${item.text} ausblenden` : `${item.text} zeigen`, active ? "primary-button" : "secondary-button",
+      () => toggleMap(item.text));
+    control.setAttribute("aria-pressed", String(active));
+    mapActions.append(control);
+  });
   const actions = document.createElement("div"); actions.className = "ordering-actions";
   if (round.phase === "distributed") {
-    actions.append(button("Zurück zu den Fragen", "primary-button", () => request("close")));
+    actions.append(button("Zurück zu den Fragen", "primary-button", async () => {
+      visibleMapItem = null;
+      await publishOrdering(questionSelection(), null);
+      await request("close");
+    }));
   } else {
     actions.append(
       button("Punkte verteilen", "primary-button", distribute, !allRevealed),
       button("Runde abbrechen", "danger-button", confirmCancel, round.revealed.length > 0)
     );
   }
-  content.replaceChildren(board, actions);
+  content.replaceChildren(board, ...(mapItems.length ? [mapActions] : []), actions);
 }
 
 async function distribute() {
@@ -212,7 +243,7 @@ async function distribute() {
   }
   await saveState();
   await request("confirm-distribution");
-  await publishOrdering(questionSelection());
+  await publishOrdering(questionSelection(), orderingMap());
 }
 
 function confirmCancel() {
@@ -249,6 +280,7 @@ export async function mount(element) {
   orderingState = await fetch("/api/ordering/state", { cache: "no-store" }).then((response) => response.json());
   selectedQuestion = null;
   selectedPreviewItems = [];
+  visibleMapItem = null;
   await publishOrdering(questionSelection(null));
   render(orderingState);
   events = new EventSource("/api/ordering/events");
@@ -257,7 +289,7 @@ export async function mount(element) {
     render(snapshot);
     if (!snapshot.round) publishOrdering(questionSelection()).catch(() => undefined);
   });
-  const handleScoreChange = () => publishOrdering(questionSelection()).catch(() => undefined);
+  const handleScoreChange = () => publishOrdering(questionSelection(), orderingMap()).catch(() => undefined);
   window.addEventListener("quiz-score-changed", handleScoreChange);
   ticker = setInterval(() => {
     const timer = content.querySelector(".ordering-timer");

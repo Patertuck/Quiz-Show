@@ -106,6 +106,15 @@ export function validateConfig(config) {
       if (unique.has(key)) throw new Error(`${path}.items muss eindeutige Einträge enthalten.`);
       unique.add(key);
     });
+    if (question.itemMaps !== undefined) {
+      if (!question.itemMaps || typeof question.itemMaps !== "object" || Array.isArray(question.itemMaps)) {
+        throw new Error(`${path}.itemMaps muss ein Objekt sein.`);
+      }
+      Object.entries(question.itemMaps).forEach(([item, image]) => {
+        if (!question.items.includes(item)) throw new Error(`${path}.itemMaps enthält ein unbekanntes Element: ${item}.`);
+        validateImage(image, `${path}.itemMaps[${JSON.stringify(item)}]`);
+      });
+    }
   });
   if (!config.listing || typeof config.listing !== "object" || Array.isArray(config.listing)) {
     throw new Error("listing muss ein Objekt sein.");

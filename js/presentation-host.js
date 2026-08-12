@@ -89,8 +89,8 @@ export function publishJeopardy() {
   });
 }
 
-export function publishOrdering(questionSelection = null) {
-  return publishPresentation({ ...base("ordering"), questionSelection });
+export function publishOrdering(questionSelection = null, orderingMap = null) {
+  return publishPresentation({ ...base("ordering"), questionSelection, orderingMap });
 }
 
 export function publishListing(questionPreview = null) {

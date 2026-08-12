@@ -65,7 +65,10 @@
         "title": "The Solar System",
         "prompt": "Order from closest to farthest from the Sun",
         "timeLimitSeconds": 60,
-        "items": ["Mercury", "Venus", "Earth", "Mars", "Jupiter"]
+        "items": ["Mercury", "Venus", "Earth", "Mars", "Jupiter"],
+        "itemMaps": {
+          "Earth": { "src": "assets/planets/earth.jpg", "alt": "Map of Earth" }
+        }
       },
       {
         "id": "scientific-method",

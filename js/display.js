@@ -323,7 +323,16 @@ function ordering() {
   solution.append(element("h2", "", "Richtige Reihenfolge"));
   round.revealedItems.forEach((item, slot) => solution.append(element("div", `display-ordering-cell${item ? " revealed" : " hidden-answer"}`, item?.text || `Antwort ${slot + 1}`)));
   board.append(left, solution, right);
-  screen.append(heading, board);
+  if (presentation.orderingMap && round.phase !== "active") {
+    const overlay = element("section", "display-ordering-map");
+    const image = element("img");
+    image.src = presentation.orderingMap.image.src;
+    image.alt = presentation.orderingMap.image.alt;
+    overlay.append(element("h2", "", presentation.orderingMap.label), image);
+    screen.append(heading, overlay);
+  } else {
+    screen.append(heading, board);
+  }
   return screen;
 }
 

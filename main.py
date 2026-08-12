@@ -932,6 +932,18 @@ def validate_presentation(payload: object) -> dict:
             "audioCommand": clean_audio_command,
         }
     elif payload["screen"] == "ordering":
+        ordering_map = payload.get("orderingMap")
+        clean_ordering_map = None
+        if ordering_map is not None:
+            if (not isinstance(ordering_map, dict)
+                    or not isinstance(ordering_map.get("label"), str)
+                    or not ordering_map["label"].strip()):
+                raise ValueError("Order Up map needs a non-empty label.")
+            map_image = validate_presentation_image(ordering_map.get("image"), "orderingMap.image")
+            if map_image is None:
+                raise ValueError("Order Up map needs an image.")
+            clean_ordering_map = {"label": ordering_map["label"], "image": map_image}
+        clean["orderingMap"] = clean_ordering_map
         selection = payload.get("questionSelection")
         if selection is not None:
             if not isinstance(selection, dict) or not isinstance(selection.get("questions"), list):

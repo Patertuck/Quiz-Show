@@ -117,6 +117,10 @@ body { margin: 0; overflow: hidden; background: var(--blue); color: #fff; }
 .display-ordering-cell.wrong { background: #ba3d54; color: #fff; }
 .display-ordering-solution .display-ordering-cell { border: 2px solid #f2d866; background: #f2d866; }
 .display-ordering-solution .hidden-answer { border-style: dashed; background: #35154d; color: #d8bce8; }
+.display-ordering-map { display: grid; width: min(92vw, 78rem); min-height: 0; height: 100%; grid-template-rows: auto minmax(0, 1fr); gap: .4rem; padding: .5rem; border: 3px solid #ffe16d; border-radius: 1rem; background: #210d35; box-shadow: 0 1rem 2.5rem #17052299, 0 0 1.6rem #ffe16d55; }
+.display-ordering-map h2 { margin: 0; color: #ffe16d; font-size: clamp(1.3rem, 3vw, 2.4rem); }
+.display-ordering-map img { width: 100%; height: 100%; min-height: 0; object-fit: contain; }
+.display-ordering:has(.display-ordering-map) { grid-template-rows: auto minmax(0, 1fr); gap: .45rem; padding: .65rem 1rem; }
 .display-points-flight { position: fixed; z-index: 30; min-width: 4.5rem; padding: .45rem .75rem; border: 2px solid #ffe16d; border-radius: 999px; background: linear-gradient(145deg, #6f35a0, #321347); color: #ffe16d; font-size: clamp(1rem, 2.2vw, 1.5rem); font-variant-numeric: tabular-nums; font-weight: 900; text-align: center; pointer-events: none; box-shadow: 0 .45rem 1.2rem #0008, 0 0 1rem #ffe16d66; }
 .display-points-flight.deducted { border-color: #ff8f9c; background: linear-gradient(145deg, #a52e45, #551323); color: #fff; box-shadow: 0 .45rem 1.2rem #0008, 0 0 1rem #ff657766; }
 .display-scoreboard { position: fixed; z-index: 5; right: 0; bottom: 0; left: 0; display: flex; height: var(--scoreboard-height); gap: 0.65rem; align-items: stretch; padding: 0.65rem; overflow: hidden; background: linear-gradient(180deg, #101b59, #080f35); box-shadow: 0 -0.35rem 1.2rem rgb(0 0 0 / 38%); }
