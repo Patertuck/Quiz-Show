@@ -261,7 +261,8 @@ export async function mount(root) {
 
   function displayQuestion() {
     const { categoryIndex, rowIndex, answerRevealed } = state.activeQuestion;
-    const item = state.config.categories[categoryIndex].questions[rowIndex];
+    const category = state.config.categories[categoryIndex];
+    const item = category.questions[rowIndex];
     questionValue.textContent = `±${state.config.values[rowIndex].toLocaleString("de-CH")} Punkte`;
     renderMedia(questionContent, item.question, item.questionImage);
     renderMedia(answerContent, item.answer, item.answerImage);
@@ -269,7 +270,8 @@ export async function mount(root) {
     questionContent.hidden = answerRevealed;
     answerContent.hidden = !answerRevealed;
     answerContent.classList.toggle("answer-only", answerRevealed);
-    revealButton.hidden = answerRevealed;
+    revealButton.hidden = answerRevealed && !category.reviewQuestionAfterAnswer;
+    revealButton.textContent = answerRevealed ? "Frage nochmals anzeigen" : "Antwort anzeigen";
     boardView.hidden = true;
     questionView.hidden = false;
     fitQuestionText();
@@ -287,7 +289,10 @@ export async function mount(root) {
   }
 
   revealButton.addEventListener("click", () => {
-    state.activeQuestion.answerRevealed = true;
+    const category = state.config.categories[state.activeQuestion.categoryIndex];
+    state.activeQuestion.answerRevealed = state.activeQuestion.answerRevealed
+      ? !category.reviewQuestionAfterAnswer
+      : true;
     displayQuestion();
     saveState().catch(() => undefined);
     commandJeopardyAudio("stop").catch(() => undefined);

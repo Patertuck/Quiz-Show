@@ -64,6 +64,9 @@ export function validateConfig(config) {
   config.categories.forEach((category, categoryIndex) => {
     const path = `categories[${categoryIndex}]`;
     requireString(category?.name, `${path}.name`);
+    if (category.reviewQuestionAfterAnswer !== undefined && typeof category.reviewQuestionAfterAnswer !== "boolean") {
+      throw new Error(`${path}.reviewQuestionAfterAnswer muss ein Wahrheitswert sein.`);
+    }
     if (!Array.isArray(category.questions) || category.questions.length !== config.values.length) {
       throw new Error(`${path}.questions muss genau ${config.values.length} Einträge enthalten.`);
     }
