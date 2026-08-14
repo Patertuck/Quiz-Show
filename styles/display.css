@@ -210,7 +210,7 @@ body { margin: 0; overflow: hidden; background: var(--blue); color: #fff; }
 .display-listing-items { display: flex; min-height: 0; flex-flow: row wrap; gap: .55rem; align-content: flex-start; justify-content: flex-start; overflow: hidden; }
 .display-listing-item { display: grid; width: 10rem; height: 2.8rem; flex: 0 0 10rem; place-items: center; padding: .4rem .65rem; overflow: hidden; border: 2px solid transparent; border-radius: .65rem; color: #fff; font-size: 1rem; font-weight: 900; line-height: 1.15; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
 .display-listing-item.counted { border-color: #79d8a3; background: #187449; }
-.display-listing-item.duplicate { border-color: #eb8995; background: #842d3b; }
+.display-listing-item.duplicate { border-color: #f2d866; background: #806315; }
 .display-listing-item.rejected { border-color: #eb8995; background: #842d3b; }
 .display-listing-item.penalized { border-color: #ff6b7c; background: #a4192d; }
 .display-listing-empty { width: 100%; align-self: center; color: #b8dbe0; font-size: clamp(1rem, 3vh, 2rem); font-weight: 800; text-align: center; }

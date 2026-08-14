@@ -423,18 +423,22 @@ class ListingState:
         return entry
 
     def _accepted_unlocked(self, entry: dict) -> bool:
+        if entry["id"] in self.round["decisions"]:
+            return self.round["decisions"][entry["id"]] in (True, 1)
         if entry["verdict"] == "correct":
             return True
-        return self.round["decisions"].get(entry["id"]) in (True, 1)
+        return False
 
     def _count_impact_unlocked(self, entry: dict) -> int:
+        if entry["id"] in self.round["decisions"]:
+            decision = self.round["decisions"][entry["id"]]
+            if decision is True or decision == 1:
+                return 1
+            if decision == -1:
+                return -1
+            return 0
         if entry["verdict"] == "correct":
             return 1
-        decision = self.round["decisions"].get(entry["id"])
-        if decision is True or decision == 1:
-            return 1
-        if decision == -1:
-            return -1
         return 0
 
     def _results_unlocked(self) -> list[dict]:
@@ -459,7 +463,10 @@ class ListingState:
                 else:
                     status = "counted"
                     counted_canonicals.add(entry["canonical"])
-                team_items[team_index].append({"text": entry["text"], "status": status})
+                team_items[team_index].append({
+                    "itemId": entry["id"], "text": entry["text"],
+                    "status": status, "accepted": impact == 1,
+                })
             counts.append(len(counted_canonicals) - penalties)
         sorted_counts = sorted(counts, reverse=True)
         results = []
@@ -542,6 +549,21 @@ class ListingState:
                         raise ValueError("Entscheidet zuerst über alle Einträge.")
                     self.round["phase"] = "results"
                     self.round["resultView"] = {"mode": "team", "teamPosition": 0}
+                elif action == "toggle-result-item":
+                    if self.round["phase"] != "results":
+                        raise ValueError("Ergebnisse können nur vor der Punkteverteilung geändert werden.")
+                    item_id = payload.get("itemId")
+                    if not isinstance(item_id, str):
+                        raise ValueError("Ungültiger Ergebnis-Eintrag.")
+                    entry = self._entry_unlocked(item_id)
+                    current_impact = self._count_impact_unlocked(entry)
+                    self.round["decisions"][item_id] = 0 if current_impact == 1 else 1
+                    ordered_results = self._ordered_results_unlocked()
+                    team_position = next(
+                        index for index, result in enumerate(ordered_results)
+                        if result["teamIndex"] == entry["teamIndex"]
+                    )
+                    self.round["resultView"] = {"mode": "team", "teamPosition": team_position}
                 elif action == "result-navigate":
                     if self.round["phase"] != "results":
                         raise ValueError("Die Teamseiten sind momentan nicht verfügbar.")
@@ -626,6 +648,17 @@ class ListingState:
                 round_data["review"].update({"verdict": entry["verdict"], "reason": entry["reason"]})
         if source["phase"] in {"results", "distributed"}:
             round_data["results"] = self._ordered_results_unlocked()
+            if role != "host":
+                round_data["results"] = [
+                    {
+                        **result,
+                        "items": [
+                            {"text": item["text"], "status": item["status"]}
+                            for item in result["items"]
+                        ],
+                    }
+                    for result in round_data["results"]
+                ]
             result_view = source.get("resultView")
             if not isinstance(result_view, dict) or result_view.get("mode") not in {"team", "ranking"}:
                 result_view = {

@@ -229,10 +229,22 @@ function resultItems(items) {
     return list;
   }
   items.forEach((item) => {
-    const card = document.createElement("div");
+    const card = document.createElement("button");
+    card.type = "button";
     card.className = `listing-result-item ${item.status}`;
-    card.title = item.text;
+    card.title = `${item.text} · Anklicken, um als ${item.accepted ? "falsch" : "richtig"} zu markieren`;
+    card.setAttribute("aria-label", `${item.text}: ${item.accepted ? "richtig" : "falsch"}. Zum Ändern anklicken.`);
+    card.setAttribute("aria-pressed", String(item.accepted));
     card.textContent = item.text;
+    card.addEventListener("click", async () => {
+      card.disabled = true;
+      try {
+        await request("toggle-result-item", { itemId: item.itemId });
+      } catch (error) {
+        card.disabled = false;
+        setStatus(error.message);
+      }
+    });
     list.append(card);
   });
   return list;

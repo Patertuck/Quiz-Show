@@ -88,9 +88,9 @@ class ListingStateTests(unittest.TestCase):
         )
         self.assertEqual(
             [
-                {"text": "Hund", "status": "counted"},
-                {"text": "Katze", "status": "counted"},
-                {"text": "Tiger", "status": "rejected"},
+                {"itemId": "t0-i0", "text": "Hund", "status": "counted", "accepted": True},
+                {"itemId": "t0-i1", "text": "Katze", "status": "counted", "accepted": True},
+                {"itemId": "t0-i2", "text": "Tiger", "status": "rejected", "accepted": False},
             ],
             results[0]["items"],
         )
@@ -200,6 +200,47 @@ class ListingStateTests(unittest.TestCase):
         result = snapshot["round"]["results"][0]
         self.assertEqual(1, result["acceptedCount"])
         self.assertEqual(["counted", "duplicate"], [item["status"] for item in result["items"]])
+
+    def test_result_items_can_toggle_between_correct_and_wrong(self):
+        def classifier(_question, entries):
+            verdicts = {"Hund": "correct", "Stein": "wrong"}
+            return [
+                {"id": entry["id"], "verdict": verdicts[entry["text"]],
+                 "canonical": entry["text"].casefold(), "reason": "Test"}
+                for entry in entries
+            ], None
+
+        state = self.make_state(classifier)
+        state.start(QUESTION)
+        self.submit(state, 0, ["Hund", "Stein"])
+        state.control({"action": "lock"})
+        wait_until(state, "review")
+        state.control({"action": "decide", "itemId": "t0-i1", "countImpact": 0})
+        state.control({"action": "finish-review"})
+
+        state.control({"action": "toggle-result-item", "itemId": "t0-i0"})
+        result = state.snapshot("host")["round"]["results"][0]
+        self.assertEqual(0, result["acceptedCount"])
+        self.assertEqual("rejected", result["items"][0]["status"])
+
+        state.control({"action": "toggle-result-item", "itemId": "t0-i1"})
+        result = state.snapshot("host")["round"]["results"][0]
+        self.assertEqual(1, result["acceptedCount"])
+        self.assertEqual("counted", result["items"][1]["status"])
+
+    def test_result_items_cannot_change_after_distribution(self):
+        state = self.make_state(lambda _question, entries: ([
+            {"id": entry["id"], "verdict": "correct", "canonical": entry["text"].casefold(), "reason": "ok"}
+            for entry in entries
+        ], None))
+        state.start(QUESTION)
+        self.submit(state, 0, ["Hund"])
+        state.control({"action": "lock"})
+        wait_until(state, "results")
+        state.control({"action": "confirm-distribution"})
+
+        with self.assertRaisesRegex(ValueError, "Punkteverteilung"):
+            state.control({"action": "toggle-result-item", "itemId": "t0-i0"})
 
     def test_result_navigation_rejects_invalid_positions(self):
         state = self.make_state(lambda _question, _entries: ([], None))
