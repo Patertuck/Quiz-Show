@@ -1,5 +1,5 @@
 import { publishIntro } from "../presentation-host.js";
-import { createIntroHeads } from "../intro-heads.js?v=7";
+import { createIntroHeads } from "../intro-heads.js?v=9";
 
 export async function mount(root, { navigate }) {
   const screen = root.querySelector("#intro-view");
