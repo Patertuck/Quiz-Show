@@ -162,11 +162,12 @@ export function createIntroHeads(container) {
     const duration = 3400;
     const contactOffset = 0.46;
     const facing = fromLeft ? 1 : -1;
+    const movingFacing = Math.random() < 0.45 ? -facing : facing;
     const animation = image.animate([
       { transform: `translate(${outsideX}px, ${outsideY}px) rotate(${startRotation}deg) scale(.72) scaleX(${facing})`, opacity: 0, offset: 0, easing: "cubic-bezier(.2,.8,.2,1)" },
-      { transform: `translate(${approachX}px, ${approachY}px) rotate(${kissRotation * 2}deg) scale(.92) scaleX(${-facing})`, opacity: 1, offset: 0.3, easing: "cubic-bezier(.15,.7,.2,1)" },
-      { transform: `translate(${kissX}px, ${kissY}px) rotate(${kissRotation}deg) scale(1) scaleX(${-facing})`, opacity: 1, offset: contactOffset, easing: "ease-out" },
-      { transform: `translate(${kissX}px, ${kissY}px) rotate(${kissRotation}deg) scale(1.13) scaleX(${-facing})`, opacity: 1, offset: 0.53, easing: "ease-in-out" },
+      { transform: `translate(${approachX}px, ${approachY}px) rotate(${kissRotation * 2}deg) scale(.92) scaleX(${movingFacing})`, opacity: 1, offset: 0.3, easing: "cubic-bezier(.15,.7,.2,1)" },
+      { transform: `translate(${kissX}px, ${kissY}px) rotate(${kissRotation}deg) scale(1) scaleX(${movingFacing})`, opacity: 1, offset: contactOffset, easing: "ease-out" },
+      { transform: `translate(${kissX}px, ${kissY}px) rotate(${kissRotation}deg) scale(1.13) scaleX(${movingFacing})`, opacity: 1, offset: 0.53, easing: "ease-in-out" },
       { transform: `translate(${recoilX}px, ${recoilY}px) rotate(${kissRotation * 1.5}deg) scale(.95) scaleX(${facing})`, opacity: 1, offset: 0.64, easing: "ease-in-out" },
       { transform: `translate(${kissX}px, ${kissY}px) rotate(${kissRotation}deg) scale(1) scaleX(${facing})`, opacity: 1, offset: 0.72, easing: "cubic-bezier(.4,0,.8,.2)" },
       { transform: `translate(${outsideX}px, ${outsideY}px) rotate(${startRotation}deg) scale(.72) scaleX(${facing})`, opacity: 0, offset: 1 }
@@ -240,9 +241,10 @@ export function createIntroHeads(container) {
     const exit = 600 + Math.random() * 300;
     const total = enter + hesitation + commit + hold + exit;
     const facing = Math.random() < 0.5 ? -1 : 1;
+    const restingFacing = Math.random() < 0.3 ? -facing : facing;
     const outsideTransform = `translate(${outsideX}px, ${outsideY}px) rotate(${rotation + (edge === "left" || edge === "top" ? -7 : 7)}deg) scale(.78) scaleX(${facing})`;
     const restTransform = `translate(${restX}px, ${restY}px) rotate(${rotation}deg) scale(1) scaleX(${facing})`;
-    const mirroredTransform = `translate(${restX}px, ${restY - 5}px) rotate(${rotation + 2 * facing}deg) scale(1.015) scaleX(${-facing})`;
+    const mirroredTransform = `translate(${restX}px, ${restY - 5}px) rotate(${rotation + 2 * facing}deg) scale(1.015) scaleX(${restingFacing})`;
     const frames = [
       { transform: outsideTransform, opacity: 0, offset: 0 }
     ];
@@ -261,7 +263,7 @@ export function createIntroHeads(container) {
     frames.push(
       { transform: mirroredTransform, opacity: 1, offset: settledOffset + (exitOffset - settledOffset) * 0.55 },
       { transform: mirroredTransform, opacity: 1, offset: exitOffset },
-      { transform: outsideTransform.replace(`scaleX(${facing})`, `scaleX(${-facing})`), opacity: 0, offset: 1 }
+      { transform: outsideTransform.replace(`scaleX(${facing})`, `scaleX(${restingFacing})`), opacity: 0, offset: 1 }
     );
     const animation = image.animate(frames,
       { duration: total, easing: "cubic-bezier(.2,.8,.2,1)", fill: "forwards" });
