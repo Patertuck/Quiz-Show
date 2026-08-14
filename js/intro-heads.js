@@ -176,7 +176,7 @@ export function createIntroHeads(container) {
   };
 
   const spawn = () => {
-    if (stopped || active.size >= 2) return;
+    if (stopped || active.size >= 3) return;
     const bounds = container.getBoundingClientRect();
     if (!bounds.width || !bounds.height) return;
 
@@ -221,7 +221,7 @@ export function createIntroHeads(container) {
     const enter = 500 + Math.random() * 300;
     const hesitation = shy ? 500 + Math.random() * 900 : 0;
     const commit = shy ? 350 + Math.random() * 350 : 0;
-    const hold = 2500 + Math.random() * 2000;
+    const hold = 2200 + Math.random() * 1800;
     const exit = 600 + Math.random() * 300;
     const total = enter + hesitation + commit + hold + exit;
     const outsideTransform = `translate(${outsideX}px, ${outsideY}px) rotate(${rotation + (edge === "left" || edge === "top" ? -7 : 7)}deg) scale(.78)`;
@@ -257,12 +257,16 @@ export function createIntroHeads(container) {
   const schedule = () => {
     if (stopped) return;
     timer = window.setTimeout(() => {
-      if (!firstKissShown || Math.random() >= 0.15 || !spawnKiss()) spawn();
+      const kissStarted = firstKissShown && Math.random() < 0.2 && spawnKiss();
+      if (!kissStarted) {
+        spawn();
+        if (Math.random() < 0.3) spawn();
+      }
       schedule();
-    }, 1000 + Math.random() * 800);
+    }, 650 + Math.random() * 600);
   };
 
-  const guaranteeFirstKiss = (delay = 6000 + Math.random() * 4000) => {
+  const guaranteeFirstKiss = (delay = 4000 + Math.random() * 3000) => {
     kissTimer = window.setTimeout(() => {
       if (!spawnKiss() && !stopped) guaranteeFirstKiss(1000);
     }, delay);
