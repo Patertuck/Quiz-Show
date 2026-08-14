@@ -9,11 +9,20 @@ const SLOTS = [
 ];
 
 const LOGO_FACE_TARGETS = [
-  { x: 0.25, y: 0.25 },
-  { x: 0.5, y: 0.24 },
-  { x: 0.76, y: 0.25 },
-  { x: 0.25, y: 0.75 },
-  { x: 0.76, y: 0.75 }
+  { leftX: 0.307, rightX: 0.359, y: 0.253 },
+  { leftX: 0.474, rightX: 0.526, y: 0.253 },
+  { leftX: 0.637, rightX: 0.698, y: 0.253 },
+  { leftX: 0.3, rightX: 0.363, y: 0.756 },
+  { leftX: 0.635, rightX: 0.704, y: 0.756 }
+];
+
+const HEAD_VISIBLE_BOUNDS = [
+  { left: 0.061, right: 0.939 },
+  { left: 0.154, right: 0.845 },
+  { left: 0.171, right: 0.829 },
+  { left: 0.112, right: 0.888 },
+  { left: 0.204, right: 0.795 },
+  { left: 0.2, right: 0.799 }
 ];
 
 function shuffledIndexes() {
@@ -135,20 +144,21 @@ export function createIntroHeads(container) {
     image.style.width = `${size}px`;
     kissLayer.append(image);
 
-    const target = LOGO_FACE_TARGETS[Math.floor(Math.random() * LOGO_FACE_TARGETS.length)];
-    const contactX = logoRect.left + logoRect.width * target.x;
-    const contactY = logoRect.top + logoRect.height * target.y;
     const fromLeft = Math.random() < 0.5;
+    const target = LOGO_FACE_TARGETS[Math.floor(Math.random() * LOGO_FACE_TARGETS.length)];
+    const headBounds = HEAD_VISIBLE_BOUNDS[headIndex];
+    const contactX = logoRect.left + logoRect.width * (fromLeft ? target.leftX : target.rightX);
+    const contactY = logoRect.top + logoRect.height * target.y;
     const outsideX = fromLeft ? -size * 1.1 : bounds.width + size * 0.1;
     const outsideY = Math.max(0, Math.min(bounds.height - size, contactY - size * (0.35 + Math.random() * 0.3)));
-    const kissX = contactX - size * (fromLeft ? 0.76 : 0.24);
+    const kissX = contactX - size * (fromLeft ? headBounds.right : headBounds.left);
     const kissY = contactY - size * 0.5;
     const approachX = outsideX + (kissX - outsideX) * 0.68;
     const approachY = outsideY + (kissY - outsideY) * 0.68 - size * 0.12;
     const recoilX = kissX + (fromLeft ? -size * 0.14 : size * 0.14);
     const recoilY = kissY - size * 0.05;
     const startRotation = fromLeft ? 88 : -88;
-    const kissRotation = fromLeft ? 12 : -12;
+    const kissRotation = fromLeft ? 6 : -6;
     const duration = 3400;
     const contactOffset = 0.46;
     const animation = image.animate([
