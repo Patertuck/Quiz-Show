@@ -31,6 +31,14 @@ body { margin: 0; overflow: hidden; background: var(--blue); color: #fff; }
 .display-intro .intro-kiss-head { filter: drop-shadow(0 1rem 1.2rem rgb(0 0 0 / 55%)); }
 .display-intro .intro-kiss-heart { position: absolute; color: #ff477e; font-size: clamp(1.4rem, 3.5vw, 3rem); line-height: 1; text-shadow: 0 .12em 0 #fff, 0 .22em .4em rgb(0 0 0 / 45%); transform: translate(-50%, -50%); animation: intro-heart-burst 1.1s cubic-bezier(.17,.84,.35,1) both; }
 @keyframes intro-heart-burst { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.25) rotate(0); } 18% { opacity: 1; transform: translate(-50%, -50%) scale(1.25) rotate(0); } 100% { opacity: 0; transform: translate(calc(-50% + var(--heart-x)), calc(-50% + var(--heart-y))) scale(.75) rotate(var(--heart-rotate)); } }
+.display-warmup { display: grid; place-content: center; gap: clamp(1rem, 4vh, 2.5rem); padding: clamp(1.5rem, 5vw, 5rem); background: radial-gradient(circle at 50% 15%, #485dda 0%, var(--blue-dark) 48%, #080d38 100%); text-align: center; }
+.display-warmup-question { width: min(70rem, 100%); margin: 0; font-size: clamp(2.4rem, 7vw, 6.5rem); line-height: 1.08; text-shadow: 0 .12em .35em rgb(0 0 0 / 38%); }
+.display-warmup:has(.display-warmup-concealed-images) { grid-template-rows: auto minmax(0, 1fr); gap: clamp(.5rem, 2vh, 1.2rem); }
+.display-warmup:has(.display-warmup-concealed-images) .display-warmup-question { font-size: clamp(1.8rem, 4.5vw, 4rem); }
+.display-warmup-concealed-images { display: grid; width: min(76rem, 100%); min-height: 0; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(.6rem, 2vw, 1.5rem); }
+.display-warmup-concealed-image { display: grid; min-height: clamp(9rem, 30vh, 20rem); place-content: center; gap: .5rem; border: 3px solid #ffffff55; border-radius: 1rem; background: repeating-linear-gradient(135deg, #080d38 0 1rem, #172477 1rem 2rem); box-shadow: inset 0 0 2rem #0009, 0 .8rem 1.8rem #0005; }
+.display-warmup-concealed-image strong { color: var(--yellow); font-size: clamp(3rem, 9vw, 7rem); line-height: 1; }
+.display-warmup-concealed-image span { font-size: clamp(.75rem, 1.4vw, 1rem); font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
 .display-team-lobby { display: grid; grid-template: auto minmax(0, 1fr) / minmax(15rem, 25rem) minmax(0, 1fr); gap: clamp(.75rem, 2vw, 1.5rem); padding: clamp(.8rem, 2vw, 1.5rem); background: radial-gradient(circle at 50% 0%, #4056cf 0%, #17277f 48%, #080f35 100%); }
 .display-team-lobby-heading { display: flex; grid-column: 1 / -1; align-items: end; justify-content: space-between; gap: 1rem; }
 .display-team-lobby-heading h1, .display-team-lobby-heading p { margin: 0; }

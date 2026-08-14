@@ -156,6 +156,27 @@ function teamLobby() {
   return screen;
 }
 
+function warmupQuestion() {
+  const screen = element("section", "display-screen display-warmup");
+  screen.append(element("h1", "display-warmup-question", presentation.questionText));
+  if (presentation.concealedImageCount) {
+    const images = element("div", "display-warmup-concealed-images");
+    for (let index = 0; index < presentation.concealedImageCount; index += 1) {
+      const placeholder = element("div", "display-warmup-concealed-image");
+      placeholder.setAttribute("role", "img");
+      placeholder.setAttribute("aria-label", `Verdecktes Bild ${index + 1}`);
+      placeholder.append(
+        element("strong", "", "?"),
+        element("span", "", `Bild ${index + 1} verdeckt`)
+      );
+      images.append(placeholder);
+    }
+    screen.append(images);
+  }
+  scheduleTextFit(screen, ".display-warmup-question");
+  return screen;
+}
+
 function receiveTeamLobbyState(nextState) {
   const previousTeams = new Map((teamLobbyState?.teams || []).map((team) => [team.id, team]));
   highlightedLobbyTeamIds = new Set();
@@ -628,6 +649,7 @@ function renderImmediately() {
     standby,
     intro,
     "team-lobby": teamLobby,
+    "warmup-question": warmupQuestion,
     hub,
     "jeopardy-board": jeopardyBoard,
     "jeopardy-question": jeopardyQuestion,
@@ -952,4 +974,5 @@ syncTicker = setInterval(() => {
 window.addEventListener("resize", () => {
   const board = root.querySelector(".display-board");
   if (board && presentation?.board) fitBoard(board, presentation.board.categories.length, presentation.board.values.length);
+  scheduleTextFit(root.querySelector(".display-warmup"), ".display-warmup-question");
 });

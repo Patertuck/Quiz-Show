@@ -42,7 +42,7 @@ STATE_LOCK = threading.Lock()
 TILE_ID_PATTERN = re.compile(r"^\d+:\d+$")
 MAX_BUZZER_BODY_BYTES = 16_384
 MAX_PRESENTATION_BODY_BYTES = 262_144
-PRESENTATION_SCREENS = {"standby", "intro", "team-lobby", "hub", "jeopardy-board", "jeopardy-question", "ordering", "listing", "sync", "victory"}
+PRESENTATION_SCREENS = {"standby", "intro", "team-lobby", "warmup-question", "hub", "jeopardy-board", "jeopardy-question", "ordering", "listing", "sync", "victory"}
 HUB_GAME_IDS = {"jeopardy", "ordering", "listing", "sync"}
 QUICK_TUNNEL_PATTERN = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com", re.IGNORECASE)
 PUBLIC_URL_LOCK = threading.Lock()
@@ -871,6 +871,24 @@ def validate_presentation(payload: object) -> dict:
         if not isinstance(join_url, str) or not re.fullmatch(r"https?://[^/\s]+/player", join_url):
             raise ValueError("Team lobby join URL is invalid.")
         clean["joinUrl"] = join_url
+    elif payload["screen"] == "warmup-question":
+        question_index = payload.get("questionIndex")
+        question_count = payload.get("questionCount")
+        question_text = payload.get("questionText")
+        concealed_image_count = payload.get("concealedImageCount")
+        if (not isinstance(question_index, int) or isinstance(question_index, bool)
+                or not isinstance(question_count, int) or isinstance(question_count, bool)
+                or question_count <= 0 or question_index < 0 or question_index >= question_count):
+            raise ValueError("Warm-up question position is invalid.")
+        if not isinstance(question_text, str) or not question_text.strip() or len(question_text) > 500:
+            raise ValueError("Warm-up question text is invalid.")
+        if (not isinstance(concealed_image_count, int) or isinstance(concealed_image_count, bool)
+                or concealed_image_count < 0 or concealed_image_count > 3):
+            raise ValueError("Concealed image count is invalid.")
+        clean.update({
+            "questionIndex": question_index, "questionCount": question_count,
+            "questionText": question_text, "concealedImageCount": concealed_image_count,
+        })
     elif payload["screen"] == "jeopardy-board":
         board = payload.get("board")
         if not isinstance(board, dict):

@@ -141,7 +141,7 @@ export async function mount(root, { navigate }) {
       }
       renderScoreboard();
       await saveState();
-      navigate("hub");
+      navigate(mode === "new" ? "warmup" : "hub");
     } catch (error) {
       message.textContent = error.message;
       await post("/api/team-lobby/control", { action: "unlock" }).then((value) => { lobby = value; }).catch(() => undefined);

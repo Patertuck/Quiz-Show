@@ -3,6 +3,7 @@ import { initializeScoreboard, renderScoreboard, setScoreboard, updateScoreContr
 import { initializeHostControls } from "./host-controls.js";
 import * as setup from "./views/setup.js";
 import * as intro from "./views/intro.js";
+import * as warmup from "./views/warmup.js";
 import * as hub from "./views/hub.js";
 import * as jeopardy from "./games/jeopardy.js";
 import * as ordering from "./games/ordering.js";
@@ -19,6 +20,7 @@ initializeHostControls({ navigate });
 const routes = {
   setup: { template: "views/setup.html", controller: setup, scoreboard: "hidden", requiresGame: false, hostControls: false },
   intro: { template: "views/intro.html", controller: intro, scoreboard: "hidden", requiresGame: false, hostControls: false },
+  warmup: { template: "views/warmup.html", controller: warmup, scoreboard: "hidden", requiresGame: true, hostControls: false },
   hub: { template: "views/hub.html", controller: hub, scoreboard: "standings", requiresGame: true },
   jeopardy: { template: "views/jeopardy.html", controller: jeopardy, scoreboard: "game", requiresGame: true },
   ordering: { template: "views/ordering.html", controller: ordering, scoreboard: "standings", requiresGame: true },
