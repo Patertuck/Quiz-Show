@@ -2,7 +2,7 @@ import { animateScoreDistribution } from "./display-score-animation.js";
 import qrcode from "../assets/vendor/qrcode.js";
 import { startLivePolling, usesQuickTunnelPolling } from "./live-state.js?v=1";
 import { scheduleTextFit } from "./fit-text.js";
-import { createIntroHeads } from "./intro-heads.js?v=2";
+import { createIntroHeads } from "./intro-heads.js?v=3";
 
 const root = document.querySelector("#display-root");
 const connection = document.querySelector("#display-connection");
