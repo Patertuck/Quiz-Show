@@ -2,6 +2,7 @@ import { animateScoreDistribution } from "./display-score-animation.js";
 import qrcode from "../assets/vendor/qrcode.js";
 import { startLivePolling, usesQuickTunnelPolling } from "./live-state.js?v=1";
 import { scheduleTextFit } from "./fit-text.js";
+import { createIntroHeads } from "./intro-heads.js";
 
 const root = document.querySelector("#display-root");
 const connection = document.querySelector("#display-connection");
@@ -18,6 +19,7 @@ let syncState = null;
 let teamLobbyState = null;
 let highlightedLobbyTeamIds = new Set();
 let orderingTicker;
+let stopIntroHeads = null;
 let listingTicker;
 let syncTicker;
 let activeGameEventSource = null;
@@ -618,6 +620,8 @@ function sceneKey() {
 
 function renderImmediately() {
   if (!presentation) return;
+  stopIntroHeads?.();
+  stopIntroHeads = null;
   document.title = `${presentation.title} — Publikumsansicht`;
   document.body.classList.toggle("with-scoreboard", ["hub", "jeopardy-board", "jeopardy-question", "ordering", "listing", "sync"].includes(presentation.screen));
   const renderers = {
@@ -633,6 +637,7 @@ function renderImmediately() {
     victory
   };
   root.replaceChildren(renderers[presentation.screen]());
+  if (presentation.screen === "intro") stopIntroHeads = createIntroHeads(root.querySelector(".display-intro"));
   if (document.body.classList.contains("with-scoreboard")) root.append(scoreboard(presentation.teams));
   if (presentation.joinOverlay?.joinUrl) {
     const overlay = element("aside", "display-join-overlay");

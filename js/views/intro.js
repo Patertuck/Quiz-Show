@@ -1,8 +1,10 @@
 import { publishIntro } from "../presentation-host.js";
+import { createIntroHeads } from "../intro-heads.js";
 
 export async function mount(root, { navigate }) {
   const screen = root.querySelector("#intro-view");
   const videos = Array.from(screen.querySelectorAll("video"));
+  const stopHeads = createIntroHeads(screen);
   const continueButton = screen.querySelector(".intro-continue");
   const continueToHub = () => navigate("setup");
   const handleKeydown = (event) => {
@@ -18,6 +20,7 @@ export async function mount(root, { navigate }) {
   window.addEventListener("keydown", handleKeydown);
 
   return () => {
+    stopHeads();
     window.removeEventListener("keydown", handleKeydown);
     continueButton.removeEventListener("click", continueToHub);
     videos.forEach((video) => video.pause());
