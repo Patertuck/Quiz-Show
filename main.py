@@ -861,6 +861,11 @@ def validate_presentation(payload: object) -> dict:
         if highlighted_game is not None and highlighted_game not in HUB_GAME_IDS:
             raise ValueError("Highlighted hub game is invalid.")
         clean["highlightedGame"] = highlighted_game
+    elif payload["screen"] == "intro":
+        heads_visible = payload.get("headsVisible")
+        if not isinstance(heads_visible, bool):
+            raise ValueError("Intro headsVisible must be a boolean.")
+        clean["headsVisible"] = heads_visible
     elif payload["screen"] == "team-lobby":
         join_url = payload.get("joinUrl")
         if not isinstance(join_url, str) or not re.fullmatch(r"https?://[^/\s]+/player", join_url):

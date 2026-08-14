@@ -47,8 +47,8 @@ export function publishStandby() {
   return publishPresentation(base("standby"));
 }
 
-export function publishIntro() {
-  return publishPresentation(base("intro"));
+export function publishIntro(headsVisible = false) {
+  return publishPresentation({ ...base("intro"), headsVisible });
 }
 
 export function publishTeamLobby(joinUrl) {

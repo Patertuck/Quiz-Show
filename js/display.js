@@ -2,7 +2,7 @@ import { animateScoreDistribution } from "./display-score-animation.js";
 import qrcode from "../assets/vendor/qrcode.js";
 import { startLivePolling, usesQuickTunnelPolling } from "./live-state.js?v=1";
 import { scheduleTextFit } from "./fit-text.js";
-import { createIntroHeads } from "./intro-heads.js";
+import { createIntroHeads } from "./intro-heads.js?v=2";
 
 const root = document.querySelector("#display-root");
 const connection = document.querySelector("#display-connection");
@@ -637,7 +637,9 @@ function renderImmediately() {
     victory
   };
   root.replaceChildren(renderers[presentation.screen]());
-  if (presentation.screen === "intro") stopIntroHeads = createIntroHeads(root.querySelector(".display-intro"));
+  if (presentation.screen === "intro" && presentation.headsVisible) {
+    stopIntroHeads = createIntroHeads(root.querySelector(".display-intro"));
+  }
   if (document.body.classList.contains("with-scoreboard")) root.append(scoreboard(presentation.teams));
   if (presentation.joinOverlay?.joinUrl) {
     const overlay = element("aside", "display-join-overlay");
