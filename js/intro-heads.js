@@ -152,20 +152,24 @@ export function createIntroHeads(container) {
     const duration = 3400;
     const contactOffset = 0.46;
     const animation = image.animate([
-      { transform: `translate(${outsideX}px, ${outsideY}px) rotate(${startRotation}deg) scale(.72)`, opacity: 0, offset: 0 },
-      { transform: `translate(${approachX}px, ${approachY}px) rotate(${kissRotation * 2}deg) scale(.92)`, opacity: 1, offset: 0.3 },
-      { transform: `translate(${kissX}px, ${kissY}px) rotate(${kissRotation}deg) scale(1)`, opacity: 1, offset: contactOffset },
-      { transform: `translate(${kissX}px, ${kissY}px) rotate(${kissRotation}deg) scale(1.13)`, opacity: 1, offset: 0.53 },
-      { transform: `translate(${recoilX}px, ${recoilY}px) rotate(${kissRotation * 1.5}deg) scale(.95)`, opacity: 1, offset: 0.64 },
-      { transform: `translate(${kissX}px, ${kissY}px) rotate(${kissRotation}deg) scale(1)`, opacity: 1, offset: 0.72 },
+      { transform: `translate(${outsideX}px, ${outsideY}px) rotate(${startRotation}deg) scale(.72)`, opacity: 0, offset: 0, easing: "cubic-bezier(.2,.8,.2,1)" },
+      { transform: `translate(${approachX}px, ${approachY}px) rotate(${kissRotation * 2}deg) scale(.92)`, opacity: 1, offset: 0.3, easing: "cubic-bezier(.15,.7,.2,1)" },
+      { transform: `translate(${kissX}px, ${kissY}px) rotate(${kissRotation}deg) scale(1)`, opacity: 1, offset: contactOffset, easing: "ease-out" },
+      { transform: `translate(${kissX}px, ${kissY}px) rotate(${kissRotation}deg) scale(1.13)`, opacity: 1, offset: 0.53, easing: "ease-in-out" },
+      { transform: `translate(${recoilX}px, ${recoilY}px) rotate(${kissRotation * 1.5}deg) scale(.95)`, opacity: 1, offset: 0.64, easing: "ease-in-out" },
+      { transform: `translate(${kissX}px, ${kissY}px) rotate(${kissRotation}deg) scale(1)`, opacity: 1, offset: 0.72, easing: "cubic-bezier(.4,0,.8,.2)" },
       { transform: `translate(${outsideX}px, ${outsideY}px) rotate(${startRotation}deg) scale(.72)`, opacity: 0, offset: 1 }
-    ], { duration, easing: "cubic-bezier(.2,.8,.2,1)", fill: "forwards" });
+    ], { duration, easing: "linear", fill: "forwards" });
 
-    const heartTimer = window.setTimeout(() => {
-      effectTimers.delete(heartTimer);
-      if (!stopped) burstHearts(contactX, contactY);
-    }, duration * contactOffset);
-    effectTimers.add(heartTimer);
+    animation.ready.then(() => {
+      if (stopped) return;
+      const remaining = Math.max(0, duration * contactOffset - (animation.currentTime || 0));
+      const heartTimer = window.setTimeout(() => {
+        effectTimers.delete(heartTimer);
+        if (!stopped) burstHearts(contactX, contactY);
+      }, remaining);
+      effectTimers.add(heartTimer);
+    }).catch(() => undefined);
     active.set(headIndex, animation);
     animation.finished.catch(() => undefined).finally(() => {
       active.delete(headIndex);
