@@ -496,6 +496,8 @@ function audioTrackFor(command) {
 function backgroundMusicMode() {
   if (!presentation || !displayAudioEnabled || !jeopardyAudio.paused
       || ["standby", "victory"].includes(presentation.screen)) return "silent";
+  if (presentation.screen === "jeopardy-question"
+      && (presentation.question?.questionAudio || presentation.question?.answerAudio)) return "silent";
   if (presentation.screen === "jeopardy-question" && !presentation.question?.answerRevealed) {
     const round = buzzer?.round;
     const hasBuzz = round?.questionId === presentation.question?.id && Boolean(round.buzzes?.length);
