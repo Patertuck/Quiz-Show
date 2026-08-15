@@ -661,7 +661,7 @@ function sync() {
   if (!["results", "distributed"].includes(round.phase)) {
     status.textContent = round.phase === "active"
       ? `${round.submittedCount} von ${syncState.participants.length} Antworten gewählt`
-      : "Lest den Prompt vor. Der Countdown beginnt, sobald die Spielleitung den Timer startet.";
+      : "";
     const panel = element("section", "sync-prompt-panel");
     panel.append(element("h2", "", round.prompt));
     const timer = element("output", "sync-host-timer",

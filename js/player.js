@@ -28,6 +28,7 @@ const listingStep = document.querySelector("#listing-step");
 const listingTeam = document.querySelector("#listing-team");
 const listingForm = document.querySelector("#listing-entry-form");
 const listingEntry = document.querySelector("#listing-entry");
+const listingAdd = listingForm.querySelector("button[type='submit']");
 const listingItems = document.querySelector("#listing-items");
 const listingStatus = document.querySelector("#listing-phone-status");
 const syncRegisterStep = document.querySelector("#sync-register-step");
@@ -253,18 +254,20 @@ function render() {
   }
 
   teamStep.hidden = true;
-  if (presentationState?.screen === "ordering" && orderingState?.round) {
+  if (presentationState?.screen === "ordering") {
     buzzStep.hidden = true;
     listingStep.hidden = true;
     orderingStep.hidden = false;
-    renderOrdering();
+    if (orderingState?.round) renderOrdering();
+    else renderOrderingPreview();
     return;
   }
-  if (presentationState?.screen === "listing" && listingState?.round) {
+  if (presentationState?.screen === "listing") {
     buzzStep.hidden = true;
     orderingStep.hidden = true;
     listingStep.hidden = false;
-    renderListing();
+    if (listingState?.round) renderListing();
+    else renderListingPreview();
     return;
   }
   if (presentationState?.screen === "sync") {
@@ -286,12 +289,15 @@ function render() {
   buzzStep.hidden = false;
   selectedTeamLabel.textContent = currentState.teams[selectedTeamIndex];
   const round = currentState.round;
+  const isBoard = presentationState.screen === "jeopardy-board";
+  const buzzOpen = !isBoard && round.open;
   const ownBuzzIndex = round.buzzes.findIndex((buzz) => buzz.teamIndex === selectedTeamIndex);
-  buzzButton.classList.toggle("registered", ownBuzzIndex !== -1);
-  if (!round.open) {
+  buzzButton.classList.toggle("registered", !isBoard && ownBuzzIndex !== -1);
+  buzzButton.hidden = false;
+  if (!buzzOpen) {
     buzzButton.disabled = true;
-    buzzButton.textContent = "WARTEN";
-    buzzStatus.textContent = "Die Spielleitung hat die Buzzer noch nicht freigegeben.";
+    buzzButton.textContent = "INAKTIV";
+    buzzStatus.textContent = "";
   } else if (ownBuzzIndex !== -1) {
     buzzButton.disabled = true;
     buzzButton.textContent = ownBuzzIndex === 0 ? "ERSTER!" : `#${ownBuzzIndex + 1}`;
@@ -299,7 +305,7 @@ function render() {
   } else {
     buzzButton.disabled = submitting;
     buzzButton.textContent = submitting ? "WIRD GESENDET" : "BUZZ";
-    buzzStatus.textContent = "Die Buzzer sind offen!";
+    buzzStatus.textContent = "";
   }
 }
 
@@ -360,7 +366,7 @@ function startPointerDrag(event, row, startIndex, order) {
     row.classList.add("drag-placeholder");
     document.body.append(drag.ghost);
     document.body.classList.add("ordering-is-dragging");
-    orderingStatus.textContent = "Verschiebt das Element und lasst es los, um zu speichern.";
+    orderingStatus.textContent = "";
   };
 
   drag.onMove = (moveEvent) => {
@@ -411,7 +417,7 @@ function startPointerDrag(event, row, startIndex, order) {
 async function submitOrder(order) {
   const round = orderingState?.round;
   if (!round || selectedTeamIndex === null || round.phase !== "active") return;
-  orderingStatus.textContent = "Wird gespeichert…";
+  orderingStatus.textContent = "";
   try {
     const response = await fetch("/api/ordering/order", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -423,7 +429,7 @@ async function submitOrder(order) {
     const payload = await response.json().catch(() => ({}));
     if (payload.state) orderingState = payload.state;
     if (!response.ok) throw new Error(payload.error || "Die Reihenfolge wurde nicht akzeptiert.");
-    orderingStatus.textContent = "Gespeichert";
+    orderingStatus.textContent = "";
   } catch (error) {
     orderingStatus.textContent = error.message || "Die Spielleitung konnte nicht erreicht werden.";
   }
@@ -432,18 +438,20 @@ async function submitOrder(order) {
 
 function renderOrdering() {
   const round = orderingState.round;
+  orderingStep.classList.remove("is-preview");
   orderingTeam.textContent = orderingState.teams[selectedTeamIndex] || "";
   orderingTitle.textContent = round.title;
-  orderingPrompt.textContent = round.prompt;
+  orderingPrompt.textContent = "";
   const active = round.phase === "active";
   orderingCountdown.hidden = !active;
   orderingList.hidden = !active;
   if (!active) {
     if (activeDrag) cancelDrag(false);
-    orderingStatus.textContent = "Die Zeit ist abgelaufen. Eure Antwort ist gesperrt.";
+    orderingStatus.textContent = "";
     return;
   }
   if (activeDrag) return;
+  if (orderingStatus.textContent === "Die Aufgabe ist noch nicht freigegeben.") orderingStatus.textContent = "";
   orderingList.classList.remove("saving", "locked-pending");
   orderingCountdown.dataset.deadline = round.deadlineAt;
   orderingCountdown.textContent = Math.max(0, Math.ceil((round.deadlineAt - Date.now()) / 1000));
@@ -459,6 +467,30 @@ function renderOrdering() {
     row.append(label); orderingList.append(row);
     row.addEventListener("pointerdown", (event) => startPointerDrag(event, row, index, order));
   });
+}
+
+function renderOrderingPreview() {
+  if (activeDrag) cancelDrag(false);
+  orderingStep.classList.add("is-preview");
+  orderingTeam.textContent = currentState.teams[selectedTeamIndex] || "";
+  orderingTitle.textContent = "Order Up";
+  orderingPrompt.textContent = "";
+  orderingCountdown.hidden = false;
+  orderingCountdown.removeAttribute("data-deadline");
+  orderingCountdown.textContent = "–";
+  orderingList.hidden = false;
+  orderingList.classList.remove("saving", "locked-pending");
+  orderingList.replaceChildren();
+  for (let index = 0; index < 5; index += 1) {
+    const row = document.createElement("li");
+    row.className = "ordering-phone-item preview-placeholder";
+    row.setAttribute("aria-hidden", "true");
+    const placeholder = document.createElement("span");
+    placeholder.className = "preview-placeholder-bar";
+    row.append(placeholder);
+    orderingList.append(row);
+  }
+  orderingStatus.textContent = "";
 }
 
 function receiveOrderingState(nextState, shouldRender = true) {
@@ -538,6 +570,7 @@ function saveListingItems(items, submit = false) {
 
 function renderListing() {
   const round = listingState.round;
+  listingStep.classList.remove("is-preview");
   const active = round.phase === "active";
   if (listingLocalRoundId !== round.id) {
     listingLocalRoundId = round.id;
@@ -558,6 +591,7 @@ function renderListing() {
   }
   const items = listingLocalItems;
   listingEntry.disabled = items.length >= round.maxItems;
+  listingAdd.disabled = false;
   listingItems.replaceChildren();
   items.forEach((text, index) => {
     const row = document.createElement("li");
@@ -586,9 +620,30 @@ function renderListing() {
   } else if (listingPendingSaves > 0) {
     listingStatus.textContent = "Wird gespeichert …";
   } else {
-    listingStatus.textContent = "Ihr könnt bis zum Ablauf der Zeit weiterarbeiten oder frühzeitig abgeben.";
+    listingStatus.textContent = "";
   }
   focusListingEntry();
+}
+
+function renderListingPreview() {
+  listingStep.classList.add("is-preview");
+  listingTeam.textContent = currentState.teams[selectedTeamIndex] || "";
+  listingForm.hidden = false;
+  listingEntry.value = "";
+  listingEntry.disabled = true;
+  listingAdd.disabled = true;
+  listingItems.hidden = false;
+  listingItems.replaceChildren();
+  for (let index = 0; index < 3; index += 1) {
+    const row = document.createElement("li");
+    row.className = "preview-placeholder";
+    row.setAttribute("aria-hidden", "true");
+    const placeholder = document.createElement("span");
+    placeholder.className = "preview-placeholder-bar";
+    row.append(placeholder);
+    listingItems.append(row);
+  }
+  listingStatus.textContent = "Die Aufgabe ist noch nicht freigegeben.";
 }
 
 function connectListingEvents() {
@@ -682,6 +737,18 @@ function renderSync() {
   syncEditRegistration.hidden = syncState.rosterLocked;
   const round = syncState.round;
   syncChoices.replaceChildren();
+  const teammates = syncState.participants.filter((item) => item.teamIndex === own.teamIndex);
+  const active = round?.phase === "active";
+  teammates.forEach((person) => {
+    const choice = document.createElement("button");
+    choice.type = "button";
+    choice.className = `sync-person-choice${round?.ownSelectionId === person.id ? " selected" : ""}`;
+    choice.textContent = person.id === own.id ? `${person.name} (ich)` : person.name;
+    choice.disabled = !active;
+    choice.addEventListener("click", () => saveSyncVote(person.id));
+    syncChoices.append(choice);
+  });
+  syncStep.classList.toggle("is-preview", !active);
   if (!syncState.rosterLocked) {
     syncPrompt.textContent = "Warten auf alle Mitspielenden";
     syncCountdown.textContent = "";
@@ -697,20 +764,9 @@ function renderSync() {
   syncPrompt.textContent = round.phase === "prepared"
     ? ""
     : round.phase === "active" ? "Wähle eine Person" : "Ergebnis";
-  const active = round.phase === "active";
   syncCountdown.textContent = active
     ? Math.max(0, Math.ceil((round.deadlineAt - Date.now()) / 1000))
     : round.phase === "prepared" ? String(round.timeLimitSeconds) : "0";
-  const teammates = syncState.participants.filter((item) => item.teamIndex === own.teamIndex);
-  teammates.forEach((person) => {
-    const choice = document.createElement("button");
-    choice.type = "button";
-    choice.className = `sync-person-choice${round.ownSelectionId === person.id ? " selected" : ""}`;
-    choice.textContent = person.id === own.id ? `${person.name} (ich)` : person.name;
-    choice.disabled = !active;
-    choice.addEventListener("click", () => saveSyncVote(person.id));
-    syncChoices.append(choice);
-  });
   if (round.phase === "prepared") syncStatus.textContent = "";
   else if (active) syncStatus.textContent = round.ownSelectionId
     ? `Aktuell gewählt: ${teammates.find((item) => item.id === round.ownSelectionId)?.name || ""}. Du kannst noch wechseln.`
@@ -965,7 +1021,7 @@ orderingTimer = setInterval(() => {
   if (seconds === 0 && activeDrag) {
     cancelDrag();
     orderingList.classList.add("locked-pending");
-    orderingStatus.textContent = "Die Zeit ist abgelaufen. Eure Antwort wird gesperrt…";
+    orderingStatus.textContent = "";
   }
 }, 200);
 

@@ -53,6 +53,10 @@ h1 { margin: 0; color: #fff45c; font-size: clamp(1.45rem, 7vw, 2.25rem); }
 .ordering-phone-item.drag-placeholder > *, .ordering-phone-item.drag-placeholder::before { visibility: hidden; }
 .ordering-phone-item.drag-ghost { position: fixed; z-index: 1000; margin: 0; border-color: #ffe16d; cursor: grabbing; pointer-events: none; box-shadow: 0 1rem 2rem #0008; transform: scale(1.025) rotate(.5deg); transition: none; }
 .ordering-phone-list.saving, .ordering-phone-list.locked-pending { pointer-events: none; opacity: .72; }
+.is-preview .ordering-phone-list, .is-preview .listing-entry-form, .is-preview .listing-phone-items, .is-preview .sync-person-choices { pointer-events: none; }
+.is-preview .ordering-phone-item, .is-preview .listing-phone-items li { cursor: not-allowed; opacity: .62; }
+.preview-placeholder-bar { display: block; width: min(78%, 16rem); height: .85rem; border-radius: 999px; background: linear-gradient(90deg, #8c91a8, #c3c6d4, #8c91a8); }
+.ordering-phone-item.preview-placeholder:hover { border-color: #ffffff40; }
 .ordering-is-dragging { cursor: grabbing; user-select: none; -webkit-user-select: none; }
 .ordering-item-text { font-weight: bold; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
@@ -60,6 +64,7 @@ h1 { margin: 0; color: #fff45c; font-size: clamp(1.45rem, 7vw, 2.25rem); }
 .listing-entry-form { display: grid; grid-template-columns: 1fr auto; gap: .5rem; }
 .listing-entry-form input { min-width: 0; padding: .75rem; border: 2px solid #ffffff55; border-radius: .55rem; font-size: 1rem; }
 .listing-entry-form button { padding: .75rem; border-radius: .55rem; background: #24a77f; color: #fff; font-weight: 800; }
+.listing-entry-form input:disabled, .listing-entry-form button:disabled { cursor: not-allowed; opacity: .58; }
 .listing-phone-items { display: grid; max-height: min(62vh, 32rem); gap: .55rem; margin: .8rem 0 0; padding: 0; overflow-y: auto; list-style: none; }
 .listing-phone-items li { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: .5rem; padding: .55rem .65rem; border-radius: .55rem; background: #fff; color: #173b3d; font-weight: 700; overflow-wrap: anywhere; }
 .listing-remove { display: grid; width: 2.75rem; height: 2.75rem; flex: 0 0 auto; place-items: center; padding: .65rem; border: 1px solid #ef98a1; border-radius: .7rem; background: linear-gradient(#fff2f3, #ffdce0); color: #a61f32; box-shadow: 0 .15rem .35rem #63101d24; }

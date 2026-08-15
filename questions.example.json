@@ -104,7 +104,7 @@
     ]
   },
   "syncUp": {
-    "timeLimitSeconds": 5,
+    "timeLimitSeconds": 8,
     "pointsPerSync": 200,
     "questions": [
       {

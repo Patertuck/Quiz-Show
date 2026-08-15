@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#111d65">
   <title>Quizspieler</title>
-  <link rel="stylesheet" href="styles/player.css">
+  <link rel="stylesheet" href="styles/player.css?v=2">
 </head>
 <body>
   <main class="player-app">
@@ -66,13 +66,14 @@
         <strong id="listing-team"></strong>
         <button id="listing-change-team" type="button">Wechseln</button>
       </div>
+      <h2>List It</h2>
       <form id="listing-entry-form" class="listing-entry-form">
         <label class="sr-only" for="listing-entry">Neuer Eintrag</label>
         <input id="listing-entry" maxlength="100" autocomplete="off" enterkeyhint="done" autofocus placeholder="Eintrag hinzufügen">
         <button type="submit">Hinzufügen</button>
       </form>
       <ul id="listing-items" class="listing-phone-items"></ul>
-      <p id="listing-phone-status" class="sr-only" role="status" aria-live="polite"></p>
+      <p id="listing-phone-status" class="buzz-status" role="status" aria-live="polite"></p>
     </section>
     <section id="sync-register-step" class="player-card sync-phone" hidden>
       <div class="selected-team-row">
@@ -102,6 +103,6 @@
       <p id="sync-phone-status" class="buzz-status" role="status" aria-live="polite"></p>
     </section>
   </main>
-  <script type="module" src="js/player.js?v=7"></script>
+  <script type="module" src="js/player.js?v=12"></script>
 </body>
 </html>

@@ -1,23 +1,30 @@
-.sync-shell { display: grid; height: 100%; grid-template-rows: auto 1fr; gap: 1rem; padding: clamp(1rem, 3vw, 2rem); }
+.sync-shell { display: grid; height: 100%; min-height: 0; grid-template-rows: auto minmax(0, 1fr); gap: clamp(.4rem, 1.5vh, 1rem); padding: clamp(.55rem, 2vh, 1.5rem) clamp(.75rem, 2vw, 2rem); overflow: hidden; }
 .sync-heading { text-align: center; }
-.sync-heading h1 { margin: 0; color: var(--yellow); font-size: clamp(2rem, 5vw, 3.6rem); }
-#sync-content { display: grid; min-height: 0; align-content: center; gap: 1rem; overflow: auto; }
-.sync-roster, .sync-result-teams { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: 1rem; }
-.sync-roster-team, .sync-result-team { padding: 1rem; border: 2px solid #ffffff38; border-radius: 1rem; background: #111d65cc; }
-.sync-roster-team h2, .sync-result-team h2 { margin-top: 0; color: var(--yellow); text-align: center; }
-.sync-roster-person, .sync-result-vote { margin: .4rem 0; padding: .55rem .75rem; border-radius: .5rem; background: #ffffff12; }
+.sync-heading h1 { margin: 0; color: var(--yellow); font-size: clamp(1.6rem, min(5vw, 5vh), 3.6rem); }
+.sync-heading p { margin: clamp(.15rem, .6vh, .45rem) 0 0; font-size: clamp(.75rem, 1.8vh, 1rem); line-height: 1.25; }
+#sync-content { display: grid; min-height: 0; align-content: center; gap: clamp(.4rem, 1.4vh, 1rem); overflow: hidden; }
+.sync-roster, .sync-result-teams { display: grid; min-height: 0; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: clamp(.35rem, 1.2vh, 1rem); align-content: center; }
+.sync-roster-team, .sync-result-team { min-height: 0; padding: clamp(.35rem, 1.2vh, 1rem); overflow: hidden; border: 2px solid #ffffff38; border-radius: clamp(.55rem, 1.5vh, 1rem); background: #111d65cc; }
+.sync-roster-team h2, .sync-result-team h2 { margin: 0 0 clamp(.2rem, .7vh, .7rem); color: var(--yellow); font-size: clamp(.9rem, 2.2vh, 1.5rem); text-align: center; }
+.sync-roster-person, .sync-result-vote { margin: clamp(.12rem, .45vh, .4rem) 0; padding: clamp(.2rem, .7vh, .55rem) clamp(.35rem, 1vw, .75rem); border-radius: .5rem; background: #ffffff12; font-size: clamp(.7rem, 1.65vh, 1rem); line-height: 1.15; overflow-wrap: anywhere; }
 .sync-roster-person::before { content: "○"; margin-right: .5rem; color: #9aa6d8; }
 .sync-roster-person.connected::before { content: "●"; color: #65e99a; }
-.sync-question-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: .8rem; }
-.sync-question-card { min-height: 7rem; padding: 1rem; border: 2px solid #ffffff44; border-radius: 1rem; background: linear-gradient(145deg, #293eaa, #171f65); color: #fff; font-size: 1.1rem; font-weight: 800; }
+.sync-question-grid { display: grid; min-height: 0; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: clamp(.35rem, 1vh, .8rem); align-content: center; }
+.sync-question-card { min-height: clamp(3.2rem, 10vh, 7rem); padding: clamp(.4rem, 1.2vh, 1rem); border: 2px solid #ffffff44; border-radius: clamp(.55rem, 1.5vh, 1rem); background: linear-gradient(145deg, #293eaa, #171f65); color: #fff; font-size: clamp(.72rem, 1.7vh, 1.1rem); font-weight: 800; }
 .sync-question-card.completed { opacity: .4; }
-.sync-overview { display: grid; gap: 1.5rem; }
-.sync-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: .75rem; }
-.sync-prompt-panel { display: grid; place-items: center; gap: 1rem; text-align: center; }
-.sync-prompt-panel h2, .sync-result-prompt { max-width: 18ch; margin: 0 auto; color: #fff; font-size: clamp(2rem, 6vw, 4.6rem); text-align: center; }
-.sync-result-prompt { font-size: clamp(2.2rem, 8vh, 6rem); }
-.sync-host-timer { display: grid; width: clamp(5rem, 11vw, 8rem); aspect-ratio: 1; place-items: center; border: .35rem solid var(--yellow); border-radius: 50%; color: var(--yellow); font-size: clamp(2.5rem, 6vw, 4rem); font-weight: 900; }
+.sync-overview { display: grid; min-height: 0; gap: clamp(.4rem, 1.5vh, 1.2rem); }
+.sync-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: clamp(.35rem, 1vh, .75rem); }
+.sync-actions button { padding-block: clamp(.4rem, 1vh, .75rem); font-size: clamp(.75rem, 1.7vh, 1rem); }
+.sync-prompt-panel { display: grid; min-height: 0; place-items: center; align-content: center; gap: clamp(.45rem, 1.5vh, 1rem); text-align: center; }
+.sync-prompt-panel h2, .sync-result-prompt { max-width: 18ch; margin: 0 auto; color: #fff; font-size: clamp(1.4rem, min(6vw, 6.5vh), 4.6rem); line-height: 1.08; text-align: center; overflow-wrap: anywhere; }
+.sync-result-prompt { font-size: clamp(1.5rem, 5.5vh, 4.5rem); }
+.sync-host-timer { display: grid; width: clamp(4rem, min(11vw, 15vh), 8rem); aspect-ratio: 1; place-items: center; border: clamp(.22rem, .7vh, .35rem) solid var(--yellow); border-radius: 50%; color: var(--yellow); font-size: clamp(2rem, min(6vw, 7vh), 4rem); font-weight: 900; }
 .sync-result-team.synced { border-color: #60ef96; background: linear-gradient(145deg, #197347, #0d462c); box-shadow: 0 0 2rem #43ec7c66; }
 .sync-result-team:not(.synced) { border-color: #ff7887; background: linear-gradient(145deg, #92283b, #551426); box-shadow: 0 0 1.7rem #ff405055; }
-.sync-result-points { display: block; margin: -.35rem 0 .55rem; color: var(--yellow); font-size: clamp(1.1rem, 2.5vw, 1.7rem); text-align: center; }
+.sync-result-points { display: block; margin: 0 0 clamp(.15rem, .6vh, .55rem); color: var(--yellow); font-size: clamp(.9rem, 2.5vh, 1.7rem); text-align: center; }
+@media (max-height: 620px) {
+  .sync-shell { padding-block: .4rem; }
+  .sync-heading h1 { font-size: 1.45rem; }
+  .sync-roster-person, .sync-result-vote { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
 @media (max-width: 720px) { .sync-overview { grid-template-columns: 1fr; } }
