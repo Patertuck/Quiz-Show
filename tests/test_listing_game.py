@@ -125,6 +125,7 @@ class ListingStateTests(unittest.TestCase):
         snapshot = wait_until(state, "review")
         self.assertEqual(2, snapshot["round"]["review"]["total"])
         self.assertIn("manuell geprüft", snapshot["round"]["warning"])
+        self.assertNotIn("offline", snapshot["round"]["warning"])
         self.assertNotIn("warning", state.snapshot("public")["round"])
         state.control({"action": "retry-ai"})
         recovered = wait_until(state, "results")

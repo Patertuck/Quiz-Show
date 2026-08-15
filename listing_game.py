@@ -356,8 +356,8 @@ class ListingState:
         warning = None
         try:
             classifications, warning = self.classifier(question, entries) if entries else ([], None)
-        except Exception as error:  # the game must remain playable after any provider failure
-            warning = f"AI-Prüfung nicht verfügbar: {error} Alle Einträge werden manuell geprüft."
+        except Exception:  # the game must remain playable after any provider failure
+            warning = "AI-Prüfung nicht verfügbar. Alle Einträge werden manuell geprüft."
             classifications = [
                 {"id": item["id"], "verdict": "uncertain", "canonical": item["text"].casefold(),
                  "reason": "Keine AI-Klassifikation verfügbar."}

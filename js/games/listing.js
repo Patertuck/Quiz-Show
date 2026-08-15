@@ -186,7 +186,9 @@ function renderClassifying(round) {
 
 function renderReview(round) {
   const review = round.review;
-  setStatus(round.warning || `${review.decidedCount} von ${review.total} Entscheidungen getroffen.`);
+  setStatus(round.warning
+    ? "AI-Prüfung nicht verfügbar. Alle Einträge werden manuell geprüft."
+    : `${review.decidedCount} von ${review.total} Entscheidungen getroffen.`);
   const panel = document.createElement("section");
   panel.className = "listing-review";
   const progress = document.createElement("p");

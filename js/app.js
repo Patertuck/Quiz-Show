@@ -7,7 +7,7 @@ import * as warmup from "./views/warmup.js";
 import * as hub from "./views/hub.js";
 import * as jeopardy from "./games/jeopardy.js?v=2";
 import * as ordering from "./games/ordering.js?v=2";
-import * as listing from "./games/listing.js?v=2";
+import * as listing from "./games/listing.js?v=3";
 import * as sync from "./games/sync.js?v=3";
 import * as victory from "./views/victory.js?v=4";
 
