@@ -1,4 +1,4 @@
-import { animateScoreDistribution } from "./display-score-animation.js?v=6";
+import { animateScoreDistribution } from "./display-score-animation.js?v=7";
 import qrcode from "../assets/vendor/qrcode.js";
 import { startLivePolling, usesQuickTunnelPolling } from "./live-state.js?v=1";
 import { scheduleTextFit } from "./fit-text.js";
@@ -8,11 +8,13 @@ import {
   playBuzzerSound,
   playWinnerCheer,
   setDisplaySoundBlockedHandler,
+  setDisplaySoundsEnabled,
   startVictoryDrumroll,
   stopVictoryDrumroll,
   stopVictorySounds,
+  syncBackgroundMusic,
   unlockDisplaySounds
-} from "./display-sounds.js?v=6";
+} from "./display-sounds.js?v=8";
 
 const root = document.querySelector("#display-root");
 const connection = document.querySelector("#display-connection");
@@ -22,6 +24,7 @@ let jeopardyAudioSource = null;
 let lastJeopardyAudioCommandId = null;
 let pendingJeopardyAudioCommand = null;
 let displayAudioEnabled = false;
+let resumeJeopardyAudioAfterEnable = false;
 let presentation = null;
 let buzzer = null;
 let buzzerInitialized = false;
@@ -488,18 +491,45 @@ function audioTrackFor(command) {
   return command.target === "answer" ? presentation.question.answerAudio : presentation.question.questionAudio;
 }
 
+function backgroundMusicMode() {
+  if (!presentation || !displayAudioEnabled || !jeopardyAudio.paused
+      || ["standby", "victory"].includes(presentation.screen)) return "silent";
+  if (presentation.screen === "jeopardy-question" && !presentation.question?.answerRevealed) {
+    const round = buzzer?.round;
+    const hasBuzz = round?.questionId === presentation.question?.id && Boolean(round.buzzes?.length);
+    return hasBuzz ? "silent" : "tension";
+  }
+  if (presentation.screen === "ordering" && orderingState?.round?.phase === "active") return "tension";
+  if (presentation.screen === "listing" && listingState?.round?.phase === "active") return "tension";
+  if (presentation.screen === "sync" && syncState?.round?.phase === "active") return "tension";
+  return "ambient";
+}
+
+function syncDisplayBackgroundMusic(immediate = false) {
+  syncBackgroundMusic(backgroundMusicMode(), immediate);
+}
+
+function updateAudioButton() {
+  audioUnlock.hidden = false;
+  audioUnlock.textContent = displayAudioEnabled ? "🔊 Audio an" : "🔇 Audio aus";
+  audioUnlock.setAttribute("aria-pressed", String(displayAudioEnabled));
+  audioUnlock.title = displayAudioEnabled ? "Gesamtes Display-Audio ausschalten" : "Gesamtes Display-Audio einschalten";
+}
+
 async function executeJeopardyAudio(command) {
   if (command.action === "stop") {
     jeopardyAudio.pause();
     jeopardyAudio.currentTime = 0;
     pendingJeopardyAudioCommand = null;
-    audioUnlock.hidden = true;
+    resumeJeopardyAudioAfterEnable = false;
+    syncDisplayBackgroundMusic();
     return;
   }
   if (command.action === "pause") {
     jeopardyAudio.pause();
     pendingJeopardyAudioCommand = null;
-    audioUnlock.hidden = true;
+    resumeJeopardyAudioAfterEnable = false;
+    syncDisplayBackgroundMusic();
     return;
   }
   const track = audioTrackFor(command);
@@ -509,22 +539,30 @@ async function executeJeopardyAudio(command) {
     jeopardyAudioSource = track.src;
   }
   if (command.action === "restart") jeopardyAudio.currentTime = 0;
+  if (!displayAudioEnabled) {
+    pendingJeopardyAudioCommand = command;
+    return;
+  }
   try {
     await jeopardyAudio.play();
     pendingJeopardyAudioCommand = null;
-    audioUnlock.textContent = "🔊 Audio aktivieren";
-    audioUnlock.hidden = true;
+    resumeJeopardyAudioAfterEnable = false;
+    syncDisplayBackgroundMusic();
   } catch (error) {
     console.warn("Audio playback needs audience interaction:", error);
     pendingJeopardyAudioCommand = command;
-    audioUnlock.hidden = false;
+    displayAudioEnabled = false;
+    setDisplaySoundsEnabled(false);
+    updateAudioButton();
   }
 }
 
 jeopardyAudio.addEventListener("error", () => {
   console.warn("Jeopardy audio could not be loaded.");
-  audioUnlock.hidden = true;
 });
+jeopardyAudio.addEventListener("play", () => syncDisplayBackgroundMusic(true));
+jeopardyAudio.addEventListener("pause", () => syncDisplayBackgroundMusic());
+jeopardyAudio.addEventListener("ended", () => syncDisplayBackgroundMusic());
 
 function handleJeopardyAudioCommand() {
   const command = presentation?.screen === "jeopardy-question" ? presentation.question?.audioCommand : null;
@@ -536,24 +574,48 @@ function handleJeopardyAudioCommand() {
 setDisplaySoundBlockedHandler((error) => {
   console.warn("Automatic display audio was blocked:", error);
   displayAudioEnabled = false;
-  audioUnlock.hidden = false;
+  setDisplaySoundsEnabled(false);
+  updateAudioButton();
 });
 
 async function enableAudioFromInteraction() {
   if (displayAudioEnabled) return;
-  displayAudioEnabled = true;
-  audioUnlock.hidden = true;
   await unlockDisplaySounds();
+  displayAudioEnabled = true;
+  setDisplaySoundsEnabled(true);
+  updateAudioButton();
   if (pendingJeopardyAudioCommand) await executeJeopardyAudio(pendingJeopardyAudioCommand);
+  else if (resumeJeopardyAudioAfterEnable) {
+    try { await jeopardyAudio.play(); }
+    catch (error) { console.warn("Jeopardy audio could not resume:", error); }
+    resumeJeopardyAudioAfterEnable = false;
+  }
   const winnerIndex = presentation?.screen === "victory"
     ? presentation.steps?.findIndex((step) => step.kind === "podium" && step.rank === 1) ?? -1
     : -1;
   if (winnerIndex >= 0 && presentation.revealedCount <= winnerIndex) startVictoryDrumroll();
+  syncDisplayBackgroundMusic();
 }
 
-audioUnlock.addEventListener("click", enableAudioFromInteraction);
-document.addEventListener("pointerdown", enableAudioFromInteraction, { once: true, capture: true });
-document.addEventListener("keydown", enableAudioFromInteraction, { once: true, capture: true });
+function disableDisplayAudio() {
+  resumeJeopardyAudioAfterEnable = !jeopardyAudio.paused;
+  displayAudioEnabled = false;
+  jeopardyAudio.pause();
+  setDisplaySoundsEnabled(false);
+  updateAudioButton();
+}
+
+audioUnlock.addEventListener("click", () => {
+  if (displayAudioEnabled) disableDisplayAudio();
+  else enableAudioFromInteraction();
+});
+document.addEventListener("pointerdown", (event) => {
+  if (event.target !== audioUnlock) enableAudioFromInteraction();
+}, { once: true, capture: true });
+document.addEventListener("keydown", (event) => {
+  if (event.target !== audioUnlock) enableAudioFromInteraction();
+}, { once: true, capture: true });
+updateAudioButton();
 
 function sync() {
   const screen = element("section", "display-screen display-sync");
@@ -756,6 +818,7 @@ function renderImmediately() {
 
 function render() {
   if (!presentation) return;
+  syncDisplayBackgroundMusic();
   const nextSceneKey = sceneKey();
   const shouldAnimate = lastRenderedSceneKey !== null
     && nextSceneKey !== lastRenderedSceneKey
@@ -906,7 +969,9 @@ function receiveBuzzerState(nextBuzzer, initial = false) {
   const previousBuzzCount = sameRound ? (previousRound.buzzes?.length || 0) : 0;
   const nextBuzzCount = nextRound?.buzzes?.length || 0;
   buzzer = nextBuzzer;
-  if (!initial && buzzerInitialized && previousBuzzCount === 0 && nextBuzzCount > 0) playBuzzerSound();
+  const firstBuzz = !initial && buzzerInitialized && previousBuzzCount === 0 && nextBuzzCount > 0;
+  syncDisplayBackgroundMusic(firstBuzz);
+  if (firstBuzz) playBuzzerSound();
   buzzerInitialized = true;
   updateBuzzerBanner();
 }

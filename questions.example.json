@@ -105,7 +105,7 @@
   },
   "syncUp": {
     "timeLimitSeconds": 5,
-    "pointsPerSync": 100,
+    "pointsPerSync": 200,
     "questions": [
       {
         "id": "verschlafen",
