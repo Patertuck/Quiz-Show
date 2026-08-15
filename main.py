@@ -934,7 +934,18 @@ def validate_presentation(payload: object) -> dict:
         if (not isinstance(used_tiles, list)
                 or any(not isinstance(item, str) or not TILE_ID_PATTERN.fullmatch(item) for item in used_tiles)):
             raise ValueError("Board usedTiles are invalid.")
-        clean["board"] = {"categories": categories, "values": values, "usedTiles": used_tiles}
+        highlighted_tile = board.get("highlightedTile")
+        if highlighted_tile is not None:
+            if not isinstance(highlighted_tile, str) or not TILE_ID_PATTERN.fullmatch(highlighted_tile):
+                raise ValueError("Board highlightedTile is invalid.")
+            category_index, row_index = map(int, highlighted_tile.split(":"))
+            if (category_index >= len(categories) or row_index >= len(values)
+                    or highlighted_tile in used_tiles):
+                raise ValueError("Board highlightedTile is unavailable.")
+        clean["board"] = {
+            "categories": categories, "values": values, "usedTiles": used_tiles,
+            "highlightedTile": highlighted_tile,
+        }
     elif payload["screen"] == "jeopardy-question":
         question = payload.get("question")
         if not isinstance(question, dict) or not isinstance(question.get("id"), str) or not TILE_ID_PATTERN.fullmatch(question["id"]):

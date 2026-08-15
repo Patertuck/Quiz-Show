@@ -103,14 +103,15 @@ export function publishHub(highlightedGame = null) {
   return publishPresentation({ ...base("hub"), highlightedGame });
 }
 
-export function publishJeopardy() {
+export function publishJeopardy(highlightedTile = null) {
   if (!state.activeQuestion) {
     return publishPresentation({
       ...base("jeopardy-board"),
       board: {
         categories: state.config.categories.map(({ name }) => name),
         values: [...state.config.values],
-        usedTiles: Array.from(state.usedTiles).sort()
+        usedTiles: Array.from(state.usedTiles).sort(),
+        highlightedTile
       }
     });
   }

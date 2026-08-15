@@ -237,13 +237,18 @@ function jeopardyBoard() {
   const screen = element("section", "display-screen display-board-screen");
   screen.append(element("h1", "display-game-title", presentation.title));
   const board = element("div", "display-board");
-  const { categories, values, usedTiles } = presentation.board;
+  const { categories, values, usedTiles, highlightedTile } = presentation.board;
   const used = new Set(usedTiles);
   board.style.gridTemplateColumns = `repeat(${categories.length}, minmax(0, 1fr))`;
   board.style.gridTemplateRows = `minmax(0, 1.1fr) repeat(${values.length}, minmax(0, 1fr))`;
   categories.forEach((category) => board.append(element("div", "display-category", category)));
   values.forEach((value, row) => categories.forEach((_, category) => {
-    board.append(element("div", `display-tile${used.has(`${category}:${row}`) ? " used" : ""}`, value.toLocaleString()));
+    const tileId = `${category}:${row}`;
+    board.append(element(
+      "div",
+      `display-tile${used.has(tileId) ? " used" : ""}${highlightedTile === tileId ? " highlighted" : ""}`,
+      value.toLocaleString()
+    ));
   }));
   screen.append(board);
   requestAnimationFrame(() => fitBoard(board, categories.length, values.length));

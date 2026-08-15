@@ -151,6 +151,15 @@ export async function mount(root) {
       tile.dataset.category = categoryIndex;
       tile.dataset.availableLabel = `${category.name} für ${value} Punkte`;
       setTileUsed(tile, state.usedTiles.has(`${categoryIndex}:${rowIndex}`));
+      const tileId = `${categoryIndex}:${rowIndex}`;
+      const publishTileHighlight = (highlighted) => {
+        if (state.activeQuestion || tile.classList.contains("used")) return;
+        publishJeopardy(highlighted ? tileId : null).catch(() => undefined);
+      };
+      tile.addEventListener("pointerenter", () => publishTileHighlight(true));
+      tile.addEventListener("pointerleave", () => publishTileHighlight(false));
+      tile.addEventListener("focus", () => publishTileHighlight(true));
+      tile.addEventListener("blur", () => publishTileHighlight(false));
       tile.addEventListener("click", () => {
         if (!tile.classList.contains("used")) openQuestion(tile, categoryIndex, rowIndex);
       });
