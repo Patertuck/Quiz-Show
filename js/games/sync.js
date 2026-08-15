@@ -180,7 +180,10 @@ function renderResults(round) {
   if (round.phase === "distributed") {
     actions.append(button("Weiter", "primary-button", () => request("close")));
   } else {
-    actions.append(button("Punkte verteilen", "primary-button", distribute));
+    actions.append(
+      button("Punkte verteilen", "primary-button", distribute),
+      button("Frage abbrechen", "danger-button", () => request("cancel"))
+    );
   }
   content.replaceChildren(heading, resultTeams(round), actions);
 }

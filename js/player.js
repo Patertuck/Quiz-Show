@@ -752,13 +752,13 @@ function renderSync() {
   if (!syncState.rosterLocked) {
     syncPrompt.textContent = "Warten auf alle Mitspielenden";
     syncCountdown.textContent = "";
-    syncStatus.textContent = "Die Spielleitung sperrt die Teilnehmerliste, sobald alle registriert sind.";
+    syncStatus.textContent = "";
     return;
   }
   if (!round) {
     syncPrompt.textContent = "Warten auf den nächsten Prompt";
     syncCountdown.textContent = "";
-    syncStatus.textContent = "Bleibt bereit.";
+    syncStatus.textContent = "";
     return;
   }
   syncPrompt.textContent = round.phase === "prepared"
@@ -767,13 +767,7 @@ function renderSync() {
   syncCountdown.textContent = active
     ? Math.max(0, Math.ceil((round.deadlineAt - Date.now()) / 1000))
     : round.phase === "prepared" ? String(round.timeLimitSeconds) : "0";
-  if (round.phase === "prepared") syncStatus.textContent = "";
-  else if (active) syncStatus.textContent = round.ownSelectionId
-    ? `Aktuell gewählt: ${teammates.find((item) => item.id === round.ownSelectionId)?.name || ""}. Du kannst noch wechseln.`
-    : "Wähle eine Person. Du kannst bis zum Ablauf der Zeit wechseln.";
-  else {
-    syncStatus.textContent = "";
-  }
+  syncStatus.textContent = "";
 }
 
 async function saveSyncVote(selectedParticipantId) {

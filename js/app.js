@@ -8,7 +8,7 @@ import * as hub from "./views/hub.js";
 import * as jeopardy from "./games/jeopardy.js";
 import * as ordering from "./games/ordering.js";
 import * as listing from "./games/listing.js";
-import * as sync from "./games/sync.js";
+import * as sync from "./games/sync.js?v=2";
 import * as victory from "./views/victory.js?v=2";
 
 const app = document.querySelector("#app");

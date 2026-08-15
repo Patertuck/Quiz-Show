@@ -327,8 +327,10 @@ class SyncState:
                         if participant.get("isTest") and target:
                             self.round["votes"][participant["id"]] = target
             elif action == "cancel":
-                if not self.round or self.round["phase"] not in {"prepared", "active"}:
+                if not self.round or self.round["phase"] not in {"prepared", "active", "results"}:
                     raise ValueError("Diese Runde kann nicht mehr abgebrochen werden.")
+                if self.round["phase"] == "results" and self.round["questionId"] in self.completed:
+                    self.completed.remove(self.round["questionId"])
                 self.round = None
             elif action == "close":
                 if not self.round or self.round["phase"] != "distributed":
