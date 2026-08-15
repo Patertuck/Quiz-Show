@@ -428,9 +428,10 @@ function listing() {
     } else {
       result.items.forEach((item) => {
         const card = element("div", `display-listing-item ${item.status}`);
-        card.textContent = item.text;
         card.title = item.text;
+        card.append(element("span", "display-listing-item-text", item.text));
         items.append(card);
+        scheduleTextFit(card, ".display-listing-item-text");
       });
     }
     content.append(heading, items, element(
@@ -975,4 +976,7 @@ window.addEventListener("resize", () => {
   const board = root.querySelector(".display-board");
   if (board && presentation?.board) fitBoard(board, presentation.board.categories.length, presentation.board.values.length);
   scheduleTextFit(root.querySelector(".display-warmup"), ".display-warmup-question");
+  root.querySelectorAll(".display-listing-item").forEach((card) => {
+    scheduleTextFit(card, ".display-listing-item-text");
+  });
 });

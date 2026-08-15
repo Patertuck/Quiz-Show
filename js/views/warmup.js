@@ -4,7 +4,7 @@ import { scheduleTextFit } from "../fit-text.js";
 const QUESTIONS = [
   { text: "Nenne so viele Taylor-Swift-Songs wie möglich." },
   { text: "Was besagt Artikel 7 der Schweizer Bundesverfassung?" },
-  { text: "Nella serie televisiva Friends, ogni volta che Phoebe va dal dentista, pensa che qualcuno che conosce morirà. Vero o falso?" },
+  { text: "Nella serie televisiva Friends, cosa crede Phoebe che succeda ogni volta che va dal dentista??" },
   { text: "Nenne so viele Gondelbahnmarken wie möglich." },
   { text: "Benenne folgende Krankheiten an einem menschlichen Penis.", concealedImageCount: 3 }
 ];

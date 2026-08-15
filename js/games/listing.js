@@ -1,6 +1,7 @@
 import { publishListing } from "../presentation-host.js";
 import { state, applyAward, saveState } from "../store.js";
 import { renderScoreboard } from "../scoreboard.js";
+import { scheduleTextFit } from "../fit-text.js";
 
 let root;
 let content;
@@ -8,7 +9,14 @@ let statusLine;
 let listingState;
 let events;
 let ticker;
+let resultFitObserver;
 let selectedQuestion = null;
+
+function fitResultItems(scope = content) {
+  scope?.querySelectorAll(".listing-result-item").forEach((card) => {
+    scheduleTextFit(card, ".listing-result-item-text");
+  });
+}
 
 function questionPreview() {
   return selectedQuestion ? {
@@ -235,7 +243,10 @@ function resultItems(items) {
     card.title = `${item.text} · Anklicken, um als ${item.accepted ? "falsch" : "richtig"} zu markieren`;
     card.setAttribute("aria-label", `${item.text}: ${item.accepted ? "richtig" : "falsch"}. Zum Ändern anklicken.`);
     card.setAttribute("aria-pressed", String(item.accepted));
-    card.textContent = item.text;
+    const text = document.createElement("span");
+    text.className = "listing-result-item-text";
+    text.textContent = item.text;
+    card.append(text);
     card.addEventListener("click", async () => {
       card.disabled = true;
       try {
@@ -280,6 +291,7 @@ function renderTeamResult(round) {
   );
   panel.append(heading, resultItems(result.items || []), actions);
   content.replaceChildren(panel);
+  fitResultItems(panel);
 }
 
 function renderRanking(round) {
@@ -340,6 +352,8 @@ export async function mount(element) {
   render(await fetch("/api/listing/state", { cache: "no-store" }).then((response) => response.json()));
   events = new EventSource("/api/listing/events");
   events.addEventListener("state", (event) => render(JSON.parse(event.data)));
+  resultFitObserver = new ResizeObserver(() => fitResultItems());
+  resultFitObserver.observe(content);
   const scoreListener = () => publishListing(questionPreview()).catch(() => undefined);
   window.addEventListener("quiz-score-changed", scoreListener);
   ticker = setInterval(() => {
@@ -348,6 +362,8 @@ export async function mount(element) {
   }, 200);
   return () => {
     events?.close();
+    resultFitObserver?.disconnect();
+    resultFitObserver = null;
     clearInterval(ticker);
     window.removeEventListener("quiz-score-changed", scoreListener);
   };

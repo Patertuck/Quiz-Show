@@ -48,7 +48,8 @@
 .listing-team-result-heading h2 { margin: 0; overflow: hidden; font-size: clamp(1.2rem, 3vh, 2rem); text-align: center; text-overflow: ellipsis; white-space: nowrap; }
 .listing-team-result-heading > span { color: #baffdb; font-size: clamp(.75rem, 1.7vh, 1rem); font-weight: 800; }
 .listing-result-items { display: flex; min-height: 0; flex-flow: row wrap; gap: .4rem; align-content: flex-start; justify-content: flex-start; overflow: hidden; }
-.listing-result-item { display: grid; width: 8.5rem; height: 2.35rem; flex: 0 0 8.5rem; place-items: center; padding: .35rem .5rem; overflow: hidden; border: 1px solid transparent; border-radius: .5rem; color: #fff; font-size: .78rem; font-weight: 800; line-height: 1.15; text-align: center; text-overflow: ellipsis; white-space: nowrap; transition: filter 120ms ease, transform 120ms ease; }
+.listing-result-item { display: grid; width: 8.5rem; height: 2.9rem; flex: 0 0 8.5rem; place-items: center; padding: .35rem .5rem; overflow: hidden; border: 1px solid transparent; border-radius: .5rem; color: #fff; font-size: .78rem; font-weight: 800; line-height: 1.1; text-align: center; transition: filter 120ms ease, transform 120ms ease; }
+.listing-result-item-text { display: block; min-width: 0; max-width: 100%; overflow-wrap: anywhere; white-space: normal; }
 .listing-result-item:hover, .listing-result-item:focus-visible { filter: brightness(1.25); transform: translateY(-1px); }
 .listing-result-item:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
 .listing-result-item:disabled { cursor: wait; opacity: .7; }
