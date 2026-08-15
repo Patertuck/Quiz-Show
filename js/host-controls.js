@@ -1,6 +1,6 @@
 import { saveState } from "./store.js";
 import qrcode from "../assets/vendor/qrcode.js";
-import { setJoinOverlay } from "./presentation-host.js";
+import { getDisplayAudioSettings, setDisplayAudioSettings, setJoinOverlay } from "./presentation-host.js";
 
 export function initializeHostControls({ navigate }) {
   const setupButton = document.querySelector("#team-setup-button");
@@ -14,6 +14,45 @@ export function initializeHostControls({ navigate }) {
   const displayUrl = document.querySelector("#buzzer-display-url");
   const instructions = document.querySelector("#buzzer-dialog-instructions");
   const note = document.querySelector("#buzzer-dialog-note");
+  const audioButton = document.querySelector("#audio-settings-button");
+  const audioDialog = document.querySelector("#audio-settings-dialog");
+  const audioStatus = document.querySelector("#audio-settings-status");
+  const audioInputs = {
+    effectsEnabled: document.querySelector("#audio-effects-enabled"),
+    tensionMusicEnabled: document.querySelector("#audio-tension-enabled"),
+    ambientMusicEnabled: document.querySelector("#audio-ambient-enabled")
+  };
+  let audioUpdateChain = Promise.resolve();
+
+  const readAudioInputs = () => Object.fromEntries(
+    Object.entries(audioInputs).map(([key, input]) => [key, input.checked])
+  );
+  const updateAudioButton = (settings = readAudioInputs()) => {
+    const disabledCount = Object.values(settings).filter((enabled) => !enabled).length;
+    audioButton.classList.toggle("partially-muted", disabledCount > 0);
+    audioButton.title = disabledCount ? `Display-Audio · ${disabledCount} deaktiviert` : "Display-Audio";
+    audioButton.setAttribute("aria-label", audioButton.title);
+  };
+  const initialAudioSettings = getDisplayAudioSettings();
+  Object.entries(audioInputs).forEach(([key, input]) => {
+    input.checked = initialAudioSettings[key];
+    input.addEventListener("change", () => {
+      const settings = readAudioInputs();
+      updateAudioButton(settings);
+      audioStatus.textContent = "Wird übernommen …";
+      audioUpdateChain = audioUpdateChain.catch(() => undefined).then(() => setDisplayAudioSettings(settings)).then(() => {
+        audioStatus.textContent = "Einstellung übernommen.";
+      }).catch((error) => {
+        console.error("Could not update display audio settings:", error);
+        audioStatus.textContent = `Display nicht erreichbar: ${error.message}`;
+      });
+    });
+  });
+  updateAudioButton(initialAudioSettings);
+  audioButton.addEventListener("click", () => {
+    audioStatus.textContent = "";
+    audioDialog.showModal();
+  });
 
   audienceButton.addEventListener("click", () => {
     const display = window.open("/display", "quiz-audience-display");

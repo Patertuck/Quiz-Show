@@ -8,13 +8,14 @@ import {
   playBuzzerSound,
   playWinnerCheer,
   setDisplaySoundBlockedHandler,
+  setDisplaySoundSettings,
   setDisplaySoundsEnabled,
   startVictoryDrumroll,
   stopVictoryDrumroll,
   stopVictorySounds,
   syncBackgroundMusic,
   unlockDisplaySounds
-} from "./display-sounds.js?v=8";
+} from "./display-sounds.js?v=9";
 
 const root = document.querySelector("#display-root");
 const connection = document.querySelector("#display-connection");
@@ -24,6 +25,7 @@ let jeopardyAudioSource = null;
 let lastJeopardyAudioCommandId = null;
 let pendingJeopardyAudioCommand = null;
 let displayAudioEnabled = false;
+let audioInteractionRequired = true;
 let resumeJeopardyAudioAfterEnable = false;
 let presentation = null;
 let buzzer = null;
@@ -511,6 +513,7 @@ function syncDisplayBackgroundMusic(immediate = false) {
 
 function updateAudioButton() {
   audioUnlock.hidden = false;
+  audioUnlock.classList.toggle("needs-interaction", audioInteractionRequired);
   audioUnlock.textContent = displayAudioEnabled ? "🔊 Audio an" : "🔇 Audio aus";
   audioUnlock.setAttribute("aria-pressed", String(displayAudioEnabled));
   audioUnlock.title = displayAudioEnabled ? "Gesamtes Display-Audio ausschalten" : "Gesamtes Display-Audio einschalten";
@@ -552,6 +555,7 @@ async function executeJeopardyAudio(command) {
     console.warn("Audio playback needs audience interaction:", error);
     pendingJeopardyAudioCommand = command;
     displayAudioEnabled = false;
+    audioInteractionRequired = true;
     setDisplaySoundsEnabled(false);
     updateAudioButton();
   }
@@ -574,6 +578,7 @@ function handleJeopardyAudioCommand() {
 setDisplaySoundBlockedHandler((error) => {
   console.warn("Automatic display audio was blocked:", error);
   displayAudioEnabled = false;
+  audioInteractionRequired = true;
   setDisplaySoundsEnabled(false);
   updateAudioButton();
 });
@@ -582,6 +587,7 @@ async function enableAudioFromInteraction() {
   if (displayAudioEnabled) return;
   await unlockDisplaySounds();
   displayAudioEnabled = true;
+  audioInteractionRequired = false;
   setDisplaySoundsEnabled(true);
   updateAudioButton();
   if (pendingJeopardyAudioCommand) await executeJeopardyAudio(pendingJeopardyAudioCommand);
@@ -600,6 +606,7 @@ async function enableAudioFromInteraction() {
 function disableDisplayAudio() {
   resumeJeopardyAudioAfterEnable = !jeopardyAudio.paused;
   displayAudioEnabled = false;
+  audioInteractionRequired = false;
   jeopardyAudio.pause();
   setDisplaySoundsEnabled(false);
   updateAudioButton();
@@ -933,6 +940,7 @@ async function drainPresentationQueue() {
       const plan = audienceAnimationPlan(nextPresentation);
       const previousPresentation = presentation;
       presentation = nextPresentation;
+      setDisplaySoundSettings(presentation.audioSettings);
       syncVictorySounds(previousPresentation, nextPresentation, previousPresentation === null);
       syncGameEventSource();
       handleJeopardyAudioCommand();

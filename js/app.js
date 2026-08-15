@@ -1,6 +1,6 @@
 import { state, loadApplicationData, stateSnapshot, resumeRuntime } from "./store.js";
 import { initializeScoreboard, renderScoreboard, setScoreboard, updateScoreControls } from "./scoreboard.js";
-import { initializeHostControls } from "./host-controls.js";
+import { initializeHostControls } from "./host-controls.js?v=2";
 import * as setup from "./views/setup.js";
 import * as intro from "./views/intro.js";
 import * as warmup from "./views/warmup.js";
@@ -18,9 +18,9 @@ initializeScoreboard(scoreboardElement);
 initializeHostControls({ navigate });
 
 const routes = {
-  setup: { template: "views/setup.html", controller: setup, scoreboard: "hidden", requiresGame: false, hostControls: false },
-  intro: { template: "views/intro.html", controller: intro, scoreboard: "hidden", requiresGame: false, hostControls: false },
-  warmup: { template: "views/warmup.html", controller: warmup, scoreboard: "hidden", requiresGame: true, hostControls: false },
+  setup: { template: "views/setup.html", controller: setup, scoreboard: "hidden", requiresGame: false, hostControls: "hidden" },
+  intro: { template: "views/intro.html", controller: intro, scoreboard: "hidden", requiresGame: false, hostControls: "audio" },
+  warmup: { template: "views/warmup.html", controller: warmup, scoreboard: "hidden", requiresGame: true, hostControls: "audio" },
   hub: { template: "views/hub.html", controller: hub, scoreboard: "standings", requiresGame: true },
   jeopardy: { template: "views/jeopardy.html", controller: jeopardy, scoreboard: "game", requiresGame: true },
   ordering: { template: "views/ordering.html", controller: ordering, scoreboard: "standings", requiresGame: true },
@@ -79,7 +79,8 @@ async function renderRoute() {
     }
     setScoreboard(route.scoreboard);
     document.body.classList.toggle("app-active", name !== "setup");
-    hostControls.hidden = route.hostControls === false;
+    hostControls.hidden = route.hostControls === "hidden";
+    hostControls.classList.toggle("audio-only", route.hostControls === "audio");
     const template = await templateFor(route.template);
     if (thisNavigation !== navigationId) return;
     app.innerHTML = template;

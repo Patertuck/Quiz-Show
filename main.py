@@ -860,6 +860,17 @@ def validate_presentation(payload: object) -> dict:
         clean_teams.append({"name": team["name"], "score": score})
 
     clean: dict = {"screen": payload["screen"], "title": title, "teams": clean_teams}
+    audio_settings = payload.get("audioSettings")
+    if audio_settings is None:
+        clean["audioSettings"] = {
+            "effectsEnabled": True, "tensionMusicEnabled": True, "ambientMusicEnabled": True
+        }
+    else:
+        audio_keys = ("effectsEnabled", "tensionMusicEnabled", "ambientMusicEnabled")
+        if (not isinstance(audio_settings, dict)
+                or any(not isinstance(audio_settings.get(key), bool) for key in audio_keys)):
+            raise ValueError("Presentation audio settings are invalid.")
+        clean["audioSettings"] = {key: audio_settings[key] for key in audio_keys}
     join_overlay = payload.get("joinOverlay")
     if join_overlay is not None:
         if not isinstance(join_overlay, dict) or not isinstance(join_overlay.get("joinUrl"), str):

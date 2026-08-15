@@ -1,15 +1,36 @@
 import { state } from "./store.js";
 
 let publishChain = Promise.resolve();
+let latestPresentation = null;
 let joinOverlay = null;
 let jeopardyAudioCommand = null;
+const AUDIO_SETTINGS_STORAGE_KEY = "quiz-display-audio-settings-v1";
+const defaultAudioSettings = {
+  effectsEnabled: true,
+  tensionMusicEnabled: true,
+  ambientMusicEnabled: true
+};
+
+function cleanAudioSettings(value) {
+  if (!value || typeof value !== "object") return { ...defaultAudioSettings };
+  return Object.fromEntries(Object.entries(defaultAudioSettings).map(([key, fallback]) => [
+    key, typeof value[key] === "boolean" ? value[key] : fallback
+  ]));
+}
+
+function loadAudioSettings() {
+  try { return cleanAudioSettings(JSON.parse(localStorage.getItem(AUDIO_SETTINGS_STORAGE_KEY))); }
+  catch { return { ...defaultAudioSettings }; }
+}
+
+let audioSettings = loadAudioSettings();
 
 function teams() {
   return state.teams.map(({ name, score }) => ({ name, score }));
 }
 
 function base(screen) {
-  return { screen, title: state.config?.title || "Quiz Show", teams: teams(), joinOverlay };
+  return { screen, title: state.config?.title || "Quiz Show", teams: teams(), joinOverlay, audioSettings };
 }
 
 function media(image) {
@@ -26,11 +47,13 @@ export function commandJeopardyAudio(action, target = null) {
 }
 
 export function publishPresentation(snapshot) {
+  const nextPresentation = { ...snapshot, audioSettings };
+  latestPresentation = nextPresentation;
   publishChain = publishChain.catch(() => undefined).then(async () => {
     const response = await fetch("/api/presentation/state", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(snapshot)
+      body: JSON.stringify(nextPresentation)
     });
     if (!response.ok) {
       const detail = await response.json().catch(() => ({}));
@@ -49,6 +72,21 @@ export function publishStandby() {
 
 export function publishIntro(headsVisible = false) {
   return publishPresentation({ ...base("intro"), headsVisible });
+}
+
+export function getDisplayAudioSettings() {
+  return { ...audioSettings };
+}
+
+export async function setDisplayAudioSettings(nextSettings) {
+  audioSettings = cleanAudioSettings(nextSettings);
+  try { localStorage.setItem(AUDIO_SETTINGS_STORAGE_KEY, JSON.stringify(audioSettings)); }
+  catch (error) { console.warn("Could not persist display audio settings:", error); }
+  if (latestPresentation) return publishPresentation({ ...latestPresentation, audioSettings });
+  const response = await fetch("/api/presentation/state", { cache: "no-store" });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const { version: _version, ...current } = await response.json();
+  return publishPresentation({ ...current, audioSettings });
 }
 
 export function publishTeamLobby(joinUrl) {

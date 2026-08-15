@@ -33,6 +33,11 @@ let duckRestoreTimer;
 let fadeFrame;
 let fadeGeneration = 0;
 let soundsEnabled = false;
+let channelSettings = {
+  effectsEnabled: true,
+  tensionMusicEnabled: true,
+  ambientMusicEnabled: true
+};
 let desiredMusicMode = "silent";
 let musicDuck = 1;
 const MUSIC_FADE_MS = 600;
@@ -44,13 +49,17 @@ function reportFailure(error) {
 }
 
 function playFromStart(audio) {
-  if (!soundsEnabled) return Promise.resolve();
+  if (!soundsEnabled || !channelSettings.effectsEnabled) return Promise.resolve();
   audio.currentTime = 0;
   return audio.play().catch(reportFailure);
 }
 
+function musicAllowed(name) {
+  return name === "ambient" ? channelSettings.ambientMusicEnabled : channelSettings.tensionMusicEnabled;
+}
+
 function musicTarget(name, mode = desiredMusicMode) {
-  return soundsEnabled && name === mode ? music[name].volume * musicDuck : 0;
+  return soundsEnabled && musicAllowed(name) && name === mode ? music[name].volume * musicDuck : 0;
 }
 
 function stopMusicTrack(track) {
@@ -66,7 +75,7 @@ function fadeMusic(mode, immediate = false) {
   const startedAt = performance.now();
   const starts = Object.fromEntries(Object.entries(music).map(([name, track]) => [name, track.audio.volume]));
   const target = music[desiredMusicMode];
-  if (soundsEnabled && target?.audio.paused) {
+  if (soundsEnabled && musicAllowed(desiredMusicMode) && target?.audio.paused) {
     target.audio.currentTime = 0;
     target.audio.play().catch(reportFailure);
   }
@@ -82,7 +91,7 @@ function fadeMusic(mode, immediate = false) {
       return;
     }
     Object.entries(music).forEach(([name, track]) => {
-      if (!soundsEnabled || name !== desiredMusicMode) stopMusicTrack(track);
+      if (!soundsEnabled || !musicAllowed(name) || name !== desiredMusicMode) stopMusicTrack(track);
     });
   };
   step(startedAt);
@@ -129,8 +138,26 @@ export function setDisplaySoundsEnabled(enabled) {
       audio.pause();
       audio.currentTime = 0;
     });
-    fadeMusic("silent", true);
+    ++fadeGeneration;
+    cancelAnimationFrame(fadeFrame);
+    Object.values(music).forEach(stopMusicTrack);
     return;
+  }
+  fadeMusic(desiredMusicMode);
+}
+
+export function setDisplaySoundSettings(settings) {
+  channelSettings = {
+    effectsEnabled: settings?.effectsEnabled !== false,
+    tensionMusicEnabled: settings?.tensionMusicEnabled !== false,
+    ambientMusicEnabled: settings?.ambientMusicEnabled !== false
+  };
+  if (!channelSettings.effectsEnabled) {
+    clearTimeout(buzzerStopTimer);
+    Object.values(sounds).forEach((audio) => {
+      audio.pause();
+      audio.currentTime = 0;
+    });
   }
   fadeMusic(desiredMusicMode);
 }
@@ -153,7 +180,7 @@ export const playPointSound = (points) => points
   : Promise.resolve();
 
 export function startVictoryDrumroll() {
-  if (!soundsEnabled) return Promise.resolve();
+  if (!soundsEnabled || !channelSettings.effectsEnabled) return Promise.resolve();
   if (!sounds.drumroll.paused) return Promise.resolve();
   return playFromStart(sounds.drumroll);
 }

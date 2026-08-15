@@ -2,12 +2,17 @@
 #hub-view > h1 { margin: 0; color: var(--yellow); font-size: clamp(2rem, 5vw, 4rem); text-align: center; text-shadow: 0 0.18rem 0 #10194f, 0 0 1rem rgb(255 244 92 / 28%); }
 #host-controls { position: fixed; z-index: 12; top: clamp(0.8rem, 2.5vw, 1.5rem); right: clamp(0.8rem, 2.5vw, 1.5rem); display: flex; gap: clamp(0.35rem, 1vw, 0.65rem); }
 #host-controls > button { position: static; }
+#host-controls.audio-only > button:not(#audio-settings-button) { display: none; }
 #audience-display-button { position: absolute; z-index: 1; top: clamp(0.8rem, 2.5vw, 1.5rem); right: clamp(7.4rem, 13.5vw, 9.5rem); display: grid; width: clamp(2.7rem, 5vw, 3.5rem); aspect-ratio: 1; place-items: center; padding: 0.65rem; border: 2px solid rgb(255 255 255 / 38%); border-radius: 50%; background: rgb(8 15 53 / 58%); color: #fff; box-shadow: 0 0.4rem 1rem rgb(0 0 0 / 22%); transition: border-color 180ms ease, background 180ms ease, transform 180ms ease; }
 #audience-display-button:hover, #audience-display-button:focus-visible { border-color: var(--yellow); background: rgb(25 41 126 / 90%); transform: translateY(-0.15rem); }
 #audience-display-button svg { width: 100%; height: 100%; fill: currentColor; }
 #buzzer-join-button { position: absolute; z-index: 1; top: clamp(0.8rem, 2.5vw, 1.5rem); right: clamp(4.1rem, 8vw, 5.5rem); display: grid; width: clamp(2.7rem, 5vw, 3.5rem); aspect-ratio: 1; place-items: center; padding: 0.65rem; border: 2px solid rgb(255 255 255 / 38%); border-radius: 50%; background: rgb(8 15 53 / 58%); color: #fff; box-shadow: 0 0.4rem 1rem rgb(0 0 0 / 22%); transition: border-color 180ms ease, background 180ms ease, transform 180ms ease; }
 #buzzer-join-button:hover, #buzzer-join-button:focus-visible { border-color: var(--yellow); background: rgb(25 41 126 / 90%); transform: translateY(-0.15rem); }
 #buzzer-join-button svg { width: 100%; height: 100%; fill: currentColor; }
+#audio-settings-button { display: grid; width: clamp(2.7rem, 5vw, 3.5rem); aspect-ratio: 1; place-items: center; padding: 0.65rem; border: 2px solid rgb(255 255 255 / 38%); border-radius: 50%; background: rgb(8 15 53 / 58%); color: #fff; box-shadow: 0 0.4rem 1rem rgb(0 0 0 / 22%); transition: border-color 180ms ease, background 180ms ease, transform 180ms ease; }
+#audio-settings-button:hover, #audio-settings-button:focus-visible { border-color: var(--yellow); background: rgb(25 41 126 / 90%); transform: translateY(-0.15rem); }
+#audio-settings-button.partially-muted { border-color: var(--yellow); color: var(--yellow); }
+#audio-settings-button svg { width: 100%; height: 100%; fill: currentColor; }
 #team-setup-button { position: absolute; z-index: 1; top: clamp(0.8rem, 2.5vw, 1.5rem); right: clamp(0.8rem, 2.5vw, 1.5rem); display: grid; width: clamp(2.7rem, 5vw, 3.5rem); aspect-ratio: 1; place-items: center; padding: 0.65rem; border: 2px solid rgb(255 255 255 / 38%); border-radius: 50%; background: rgb(8 15 53 / 58%); color: #fff; box-shadow: 0 0.4rem 1rem rgb(0 0 0 / 22%); transition: border-color 180ms ease, background 180ms ease, transform 180ms ease; }
 #team-setup-button:hover, #team-setup-button:focus-visible { border-color: var(--yellow); background: rgb(25 41 126 / 90%); transform: rotate(20deg); }
 #team-setup-button:disabled { cursor: wait; opacity: 0.6; }
@@ -22,6 +27,13 @@
 #buzzer-display-row { margin: 1rem 0 0; }
 #buzzer-local-url { display: inline-block; margin-top: 0.75rem; color: #596080; font-size: 0.85rem; text-decoration: underline; }
 .buzzer-dialog-note { margin-bottom: 0; color: #555b7c; font-size: 0.85rem; line-height: 1.4; }
+#audio-settings-dialog { width: min(28rem, calc(100% - 2rem)); padding: clamp(1.25rem, 4vw, 2rem); border: 2px solid #596bd4; border-radius: 1rem; background: #fff; color: #17206a; box-shadow: 0 1.5rem 4rem rgb(0 0 0 / 55%); }
+#audio-settings-dialog::backdrop { background: rgb(2 5 24 / 78%); backdrop-filter: blur(3px); }
+#audio-settings-dialog h2 { margin: 0 2rem 1.25rem 0; font-size: clamp(1.5rem, 5vw, 2.2rem); }
+.audio-settings-options { display: grid; gap: 0.75rem; }
+.audio-settings-options label { display: flex; align-items: center; gap: 0.8rem; padding: 0.85rem 1rem; border: 2px solid #d7dcf7; border-radius: 0.75rem; background: #f3f5ff; font-weight: 800; cursor: pointer; }
+.audio-settings-options input { width: 1.35rem; height: 1.35rem; accent-color: #243bb3; }
+#audio-settings-status { min-height: 1.25em; margin: 0.75rem 0 0; color: #555b7c; font-size: 0.9rem; }
 .game-card-area { display: grid; min-width: 0; min-height: 0; container-type: size; place-items: center; }
 .game-cards { display: grid; width: min(100cqw, 400cqh); aspect-ratio: 4; grid-template: minmax(0, 1fr) / repeat(4, minmax(0, 1fr)); gap: clamp(1rem, 3vw, 2rem); }
 .game-card { display: grid; min-width: 0; min-height: 0; place-items: center; }
