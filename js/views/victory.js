@@ -1,5 +1,6 @@
 import { state, saveState } from "../store.js";
-import { publishVictory } from "../presentation-host.js";
+import { publishScoreHistory, publishVictory } from "../presentation-host.js";
+import { createScoreHistoryChart } from "../score-history-chart.js";
 
 export async function mount(root) {
   await saveState().catch((error) => console.error("Could not save before final standings:", error));
@@ -65,6 +66,7 @@ export async function mount(root) {
   });
 
   let stepIndex = 0;
+  let graphShown = false;
   function createConfetti() {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     confetti.replaceChildren(...Array.from({ length: 100 }, (_, index) => {
@@ -83,7 +85,18 @@ export async function mount(root) {
   function advance(event) {
     if (event.target.closest(".back-to-hub")) return;
     const step = steps[stepIndex];
-    if (!step) return;
+    if (!step) {
+      if (graphShown || stepIndex < steps.length) return;
+      graphShown = true;
+      view.classList.add("score-history-mode");
+      reveals.hidden = true;
+      podium.hidden = true;
+      confetti.replaceChildren();
+      view.querySelector(":scope > h1").hidden = true;
+      view.append(createScoreHistoryChart(state.teams, state.scoreHistory));
+      publishScoreHistory(state.scoreHistory).catch(() => undefined);
+      return;
+    }
     step.classList.add("is-revealed");
     stepIndex += 1;
     publishVictory(presentationSteps, stepIndex).catch(() => undefined);

@@ -3,6 +3,7 @@ import qrcode from "../assets/vendor/qrcode.js";
 import { startLivePolling, usesQuickTunnelPolling } from "./live-state.js?v=1";
 import { scheduleTextFit } from "./fit-text.js";
 import { createIntroHeads } from "./intro-heads.js?v=10";
+import { createScoreHistoryChart } from "./score-history-chart.js?v=1";
 import {
   playBuzzerSound,
   playWinnerCheer,
@@ -635,6 +636,12 @@ function victory() {
   return screen;
 }
 
+function scoreHistory() {
+  const screen = element("section", "display-screen display-score-history");
+  screen.append(createScoreHistoryChart(presentation.teams, presentation.scoreHistory));
+  return screen;
+}
+
 function syncVictorySounds(previousPresentation, nextPresentation, initial = false) {
   if (nextPresentation?.screen !== "victory") {
     if (previousPresentation?.screen === "victory") stopVictorySounds();
@@ -706,7 +713,8 @@ function renderImmediately() {
     ordering,
     listing,
     sync,
-    victory
+    victory,
+    "score-history": scoreHistory
   };
   root.replaceChildren(renderers[presentation.screen]());
   if (presentation.screen === "intro" && presentation.headsVisible) {

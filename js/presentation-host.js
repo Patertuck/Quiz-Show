@@ -118,3 +118,10 @@ export async function setJoinOverlay(joinUrl = null) {
 export function publishVictory(steps, revealedCount) {
   return publishPresentation({ ...base("victory"), steps, revealedCount });
 }
+
+export function publishScoreHistory(scoreHistory) {
+  return publishPresentation({
+    ...base("score-history"),
+    scoreHistory: scoreHistory.map(({ scores }) => ({ scores: [...scores] }))
+  });
+}

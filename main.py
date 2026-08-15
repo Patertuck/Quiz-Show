@@ -42,7 +42,7 @@ STATE_LOCK = threading.Lock()
 TILE_ID_PATTERN = re.compile(r"^\d+:\d+$")
 MAX_BUZZER_BODY_BYTES = 16_384
 MAX_PRESENTATION_BODY_BYTES = 262_144
-PRESENTATION_SCREENS = {"standby", "intro", "team-lobby", "warmup-question", "hub", "jeopardy-board", "jeopardy-question", "ordering", "listing", "sync", "victory"}
+PRESENTATION_SCREENS = {"standby", "intro", "team-lobby", "warmup-question", "hub", "jeopardy-board", "jeopardy-question", "ordering", "listing", "sync", "victory", "score-history"}
 HUB_GAME_IDS = {"jeopardy", "ordering", "listing", "sync"}
 QUICK_TUNNEL_PATTERN = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com", re.IGNORECASE)
 PUBLIC_URL_LOCK = threading.Lock()
@@ -192,7 +192,7 @@ def validate_state(state: object) -> dict:
     """Validate the stable portion of the browser-to-server state contract."""
     if not isinstance(state, dict):
         raise ValueError("State must be a JSON object.")
-    if state.get("version") not in {1, 2}:
+    if state.get("version") not in {1, 2, 3}:
         raise ValueError("Unsupported state version.")
     if not isinstance(state.get("configFingerprint"), str) or not state["configFingerprint"]:
         raise ValueError("configFingerprint must be a non-empty string.")
@@ -238,6 +238,18 @@ def validate_state(state: object) -> dict:
     awards = state.get("appliedAwards")
     if not isinstance(awards, list) or any(not isinstance(item, str) or not item for item in awards):
         raise ValueError("appliedAwards must contain non-empty strings.")
+    if state["version"] == 2:
+        state = {**state, "version": 3, "scoreHistory": [{"scores": [team["score"] for team in teams]}]}
+    history = state.get("scoreHistory")
+    if not isinstance(history, list) or not history:
+        raise ValueError("scoreHistory must be a non-empty array.")
+    for entry in history:
+        scores = entry.get("scores") if isinstance(entry, dict) else None
+        if (not isinstance(scores, list) or len(scores) != len(teams)
+                or any(not isinstance(score, int) or isinstance(score, bool) for score in scores)):
+            raise ValueError("Each scoreHistory entry must contain one integer score per team.")
+    if any(score != teams[index]["score"] for index, score in enumerate(history[-1]["scores"])):
+        raise ValueError("The final scoreHistory entry must match the current team scores.")
     return state
 
 
@@ -1036,6 +1048,18 @@ def validate_presentation(payload: object) -> dict:
             clean_steps.append({"kind": step["kind"], "rank": step["rank"], "names": step["names"], "score": step["score"]})
         clean["steps"] = clean_steps
         clean["revealedCount"] = max(0, min(revealed_count, len(clean_steps)))
+    elif payload["screen"] == "score-history":
+        history = payload.get("scoreHistory")
+        if not isinstance(history, list) or not history:
+            raise ValueError("Score history presentation data is invalid.")
+        clean_history = []
+        for entry in history:
+            scores = entry.get("scores") if isinstance(entry, dict) else None
+            if (not isinstance(scores, list) or len(scores) != len(clean_teams)
+                    or any(not isinstance(score, int) or isinstance(score, bool) for score in scores)):
+                raise ValueError("Each score history step needs one integer score per team.")
+            clean_history.append({"scores": scores})
+        clean["scoreHistory"] = clean_history
     return clean
 
 
@@ -1410,7 +1434,7 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
                 "/player", "/player.html", "/styles/player.css", "/js/player.js",
                 "/buzzer", "/buzzer.html", "/styles/buzzer.css", "/js/buzzer.js",
                 "/display", "/display.html", "/styles/display.css", "/styles/sync.css", "/js/display.js", "/js/intro-heads.js",
-                "/js/display-score-animation.js", "/js/display-sounds.js", "/js/live-state.js", "/js/fit-text.js",
+                "/js/display-score-animation.js", "/js/display-sounds.js", "/js/score-history-chart.js", "/js/live-state.js", "/js/fit-text.js",
             }
             if self.request_path not in allowed and not self.request_path.startswith("/assets/"):
                 self.send_error(403, "Von einem anderen Gerät sind nur die Spieler- und Publikumsansicht verfügbar.")
@@ -1433,7 +1457,7 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
             "/player", "/player.html", "/styles/player.css", "/js/player.js",
             "/buzzer", "/buzzer.html", "/styles/buzzer.css", "/js/buzzer.js",
             "/display", "/display.html", "/styles/display.css", "/styles/sync.css", "/js/display.js", "/js/intro-heads.js",
-            "/js/display-score-animation.js", "/js/display-sounds.js", "/js/live-state.js", "/js/fit-text.js",
+            "/js/display-score-animation.js", "/js/display-sounds.js", "/js/score-history-chart.js", "/js/live-state.js", "/js/fit-text.js",
         }
         if not self.is_host and self.request_path not in allowed and not self.request_path.startswith("/assets/"):
             self.send_error(403, "Von einem anderen Gerät sind nur die Spieler- und Publikumsansicht verfügbar.")

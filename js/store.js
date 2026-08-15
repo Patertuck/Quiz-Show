@@ -9,7 +9,8 @@ export const state = {
   savedState: null,
   saveChain: Promise.resolve(),
   revision: 0,
-  appliedAwards: new Set()
+  appliedAwards: new Set(),
+  scoreHistory: []
 };
 
 function requireString(value, path) {
@@ -188,7 +189,7 @@ async function fingerprint(config) {
 }
 
 function validateSavedState(saved) {
-  if (!saved || typeof saved !== "object" || ![1, 2].includes(saved.version)) throw new Error("Das gespeicherte Spiel hat ein nicht unterstütztes Format.");
+  if (!saved || typeof saved !== "object" || ![1, 2, 3].includes(saved.version)) throw new Error("Das gespeicherte Spiel hat ein nicht unterstütztes Format.");
   if (typeof saved.configFingerprint !== "string" || typeof saved.gameStarted !== "boolean") throw new Error("Im gespeicherten Spiel fehlen erforderliche Felder.");
   if (!Number.isInteger(saved.revision) || saved.revision < 1) throw new Error("Das gespeicherte Spiel hat eine ungültige Revision.");
   if (!Array.isArray(saved.teams) || !saved.teams.length) throw new Error("Das gespeicherte Spiel muss mindestens ein Team enthalten.");
@@ -216,6 +217,18 @@ function validateSavedState(saved) {
   if (!Array.isArray(saved.appliedAwards) || saved.appliedAwards.some((id) => typeof id !== "string" || !id)) {
     throw new Error("Das gespeicherte Spiel enthält ungültige Punktevergaben.");
   }
+  if (saved.version === 2) saved = {
+    ...saved, version: 3, scoreHistory: [{ scores: saved.teams.map(({ score }) => score) }]
+  };
+  if (!Array.isArray(saved.scoreHistory) || !saved.scoreHistory.length
+      || saved.scoreHistory.some((entry) => !entry || !Array.isArray(entry.scores)
+        || entry.scores.length !== saved.teams.length
+        || entry.scores.some((score) => !Number.isInteger(score)))) {
+    throw new Error("Das gespeicherte Spiel enthält einen ungültigen Punkteverlauf.");
+  }
+  if (!saved.scoreHistory.at(-1).scores.every((score, index) => score === saved.teams[index].score)) {
+    throw new Error("Der letzte Punkteverlauf stimmt nicht mit dem aktuellen Punktestand überein.");
+  }
   return saved;
 }
 
@@ -239,7 +252,7 @@ export async function loadApplicationData() {
 
 export function stateSnapshot() {
   return {
-    version: 2,
+    version: 3,
     configFingerprint: state.configFingerprint,
     updatedAt: new Date().toISOString(),
     revision: ++state.revision,
@@ -247,7 +260,8 @@ export function stateSnapshot() {
     teams: state.teams.map(({ name, score }) => ({ name, score })),
     usedTiles: Array.from(state.usedTiles).sort(),
     activeQuestion: state.activeQuestion ? { ...state.activeQuestion } : null,
-    appliedAwards: Array.from(state.appliedAwards).sort()
+    appliedAwards: Array.from(state.appliedAwards).sort(),
+    scoreHistory: state.scoreHistory.map(({ scores }) => ({ scores: [...scores] }))
   };
 }
 
@@ -284,6 +298,7 @@ export function startRuntime(teams) {
   state.gameStarted = true;
   state.revision = 0;
   state.appliedAwards = new Set();
+  state.scoreHistory = [{ scores: state.teams.map(({ score }) => score) }];
 }
 
 export function resumeRuntime(teams) {
@@ -295,6 +310,15 @@ export function resumeRuntime(teams) {
   state.gameStarted = saved.gameStarted;
   state.revision = saved.revision;
   state.appliedAwards = new Set(saved.appliedAwards || []);
+  state.scoreHistory = saved.scoreHistory.map(({ scores }) => ({ scores: [...scores] }));
+}
+
+export function recordScoreHistory() {
+  const scores = state.teams.map(({ score }) => score);
+  const previous = state.scoreHistory.at(-1)?.scores;
+  if (previous?.length === scores.length && previous.every((score, index) => score === scores[index])) return false;
+  state.scoreHistory.push({ scores });
+  return true;
 }
 
 export function applyAward(awardId, awards) {
@@ -306,6 +330,7 @@ export function applyAward(awardId, awards) {
     }
   });
   awards.forEach(({ teamIndex, points }) => { state.teams[teamIndex].score += points; });
+  recordScoreHistory();
   state.appliedAwards.add(awardId);
   return true;
 }

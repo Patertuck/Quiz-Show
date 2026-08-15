@@ -1,4 +1,4 @@
-import { state, saveState } from "./store.js";
+import { state, recordScoreHistory, saveState } from "./store.js";
 
 let container;
 let scoreDialog;
@@ -97,6 +97,7 @@ function updateTeamScore(teamIndex, nextScore, source) {
   const team = state.teams[teamIndex];
   const amount = nextScore - team.score;
   team.score = nextScore;
+  recordScoreHistory();
   container.querySelector(`#team-score-${teamIndex}`).textContent = team.score.toLocaleString("de-CH");
   updateStandings();
   saveState().catch(() => undefined);
