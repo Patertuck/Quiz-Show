@@ -99,8 +99,8 @@ export function publishOrdering(questionSelection = null, orderingMap = null) {
   return publishPresentation({ ...base("ordering"), questionSelection, orderingMap });
 }
 
-export function publishListing(questionPreview = null) {
-  return publishPresentation({ ...base("listing"), questionPreview });
+export function publishListing(questionSelection = null) {
+  return publishPresentation({ ...base("listing"), questionSelection });
 }
 
 export function publishSync() {

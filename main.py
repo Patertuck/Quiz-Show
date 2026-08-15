@@ -1021,18 +1021,49 @@ def validate_presentation(payload: object) -> dict:
                 "selectedQuestion": clean_selected_question
             }
     elif payload["screen"] == "listing":
-        preview = payload.get("questionPreview")
-        clean_preview = None
-        if preview is not None:
-            if (not isinstance(preview, dict)
-                    or not isinstance(preview.get("id"), str) or not preview["id"].strip()
-                    or not isinstance(preview.get("title"), str) or not preview["title"].strip()
-                    or not isinstance(preview.get("prompt"), str) or not preview["prompt"].strip()):
-                raise ValueError("List It question preview is invalid.")
-            clean_preview = {
-                "id": preview["id"], "title": preview["title"], "prompt": preview["prompt"]
+        selection = payload.get("questionSelection")
+        clean_selection = None
+        if selection is not None:
+            if not isinstance(selection, dict) or not isinstance(selection.get("questions"), list):
+                raise ValueError("List It question selection is invalid.")
+            clean_questions = []
+            question_ids = set()
+            for question in selection["questions"]:
+                if (not isinstance(question, dict) or not isinstance(question.get("id"), str)
+                        or not question["id"].strip()
+                        or not isinstance(question.get("displayCategory"), str)
+                        or not question["displayCategory"].strip()
+                        or not isinstance(question.get("completed"), bool)):
+                    raise ValueError("Each List It question selection needs an id, display category, and completed flag.")
+                if question["id"] in question_ids:
+                    raise ValueError("List It question selection ids must be unique.")
+                question_ids.add(question["id"])
+                clean_questions.append({
+                    "id": question["id"], "displayCategory": question["displayCategory"],
+                    "completed": question["completed"]
+                })
+            highlighted_id = selection.get("highlightedQuestionId")
+            if highlighted_id is not None and highlighted_id not in question_ids:
+                raise ValueError("Highlighted List It question is invalid.")
+            selected_question = selection.get("selectedQuestion")
+            clean_selected_question = None
+            if selected_question is not None:
+                if (not isinstance(selected_question, dict)
+                        or selected_question.get("id") not in question_ids
+                        or not isinstance(selected_question.get("title"), str)
+                        or not selected_question["title"].strip()
+                        or not isinstance(selected_question.get("prompt"), str)
+                        or not selected_question["prompt"].strip()):
+                    raise ValueError("Selected List It question is invalid.")
+                clean_selected_question = {
+                    "id": selected_question["id"], "title": selected_question["title"],
+                    "prompt": selected_question["prompt"]
+                }
+            clean_selection = {
+                "questions": clean_questions, "highlightedQuestionId": highlighted_id,
+                "selectedQuestion": clean_selected_question
             }
-        clean["questionPreview"] = clean_preview
+        clean["questionSelection"] = clean_selection
     elif payload["screen"] == "victory":
         steps = payload.get("steps")
         revealed_count = payload.get("revealedCount")

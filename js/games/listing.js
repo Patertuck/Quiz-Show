@@ -18,12 +18,24 @@ function fitResultItems(scope = content) {
   });
 }
 
-function questionPreview() {
-  return selectedQuestion ? {
-    id: selectedQuestion.id,
-    title: selectedQuestion.title,
-    prompt: selectedQuestion.prompt
-  } : null;
+function questionSelection(highlightedQuestionId = selectedQuestion?.id || null) {
+  return {
+    questions: state.config.listing.questions.map(({ id, displayCategory }) => ({
+      id,
+      displayCategory,
+      completed: listingState?.completedQuestionIds.includes(id) || false
+    })),
+    highlightedQuestionId,
+    selectedQuestion: selectedQuestion ? {
+      id: selectedQuestion.id,
+      title: selectedQuestion.title,
+      prompt: selectedQuestion.prompt
+    } : null
+  };
+}
+
+function publishQuestionSelection(highlightedQuestionId) {
+  publishListing(questionSelection(highlightedQuestionId)).catch(() => undefined);
 }
 
 async function request(action, extra = {}) {
@@ -65,16 +77,16 @@ function renderOverview() {
   grid.className = "listing-question-grid";
   state.config.listing.questions.forEach((question) => {
     const complete = listingState.completedQuestionIds.includes(question.id);
-    const card = button(question.title, `listing-question-card${complete ? " completed" : ""}`, async () => {
+    const card = button(question.displayCategory, `listing-question-card${complete ? " completed" : ""}`, async () => {
       if (complete) return;
       selectedQuestion = question;
       renderPreview();
-      await publishListing(questionPreview());
+      await publishListing(questionSelection(question.id));
     });
     if (complete) {
       card.title = "Bereits abgeschlossen · mit Rechtsklick erneut freischalten";
       card.setAttribute("aria-disabled", "true");
-      card.setAttribute("aria-label", `${question.title}, abgeschlossen. Mit Rechtsklick erneut freischalten.`);
+      card.setAttribute("aria-label", `${question.displayCategory}, abgeschlossen. Mit Rechtsklick erneut freischalten.`);
       card.addEventListener("contextmenu", async (event) => {
         event.preventDefault();
         try {
@@ -85,6 +97,12 @@ function renderOverview() {
           setStatus(error.message);
         }
       });
+    }
+    if (!complete) {
+      card.addEventListener("pointerenter", () => publishQuestionSelection(question.id));
+      card.addEventListener("pointerleave", () => publishQuestionSelection(null));
+      card.addEventListener("focus", () => publishQuestionSelection(question.id));
+      card.addEventListener("blur", () => publishQuestionSelection(null));
     }
     grid.append(card);
   });
@@ -116,7 +134,7 @@ function renderPreview() {
     button("Zurück", "secondary-button", async () => {
       selectedQuestion = null;
       renderOverview();
-      await publishListing(null);
+      await publishListing(questionSelection(null));
     })
   );
   preview.append(title, prompt, details, rule, actions);
@@ -324,7 +342,7 @@ async function distribute() {
   if (applyAward(award.awardId, award.awards)) renderScoreboard();
   await saveState();
   await request("confirm-distribution");
-  await publishListing(questionPreview());
+  await publishListing(questionSelection());
 }
 
 function render(snapshot) {
@@ -348,13 +366,18 @@ export async function mount(element) {
     questionIds: state.config.listing.questions.map((question) => question.id)
   });
   selectedQuestion = null;
-  await publishListing(null);
-  render(await fetch("/api/listing/state", { cache: "no-store" }).then((response) => response.json()));
+  listingState = await fetch("/api/listing/state", { cache: "no-store" }).then((response) => response.json());
+  await publishListing(questionSelection(null));
+  render(listingState);
   events = new EventSource("/api/listing/events");
-  events.addEventListener("state", (event) => render(JSON.parse(event.data)));
+  events.addEventListener("state", (event) => {
+    const snapshot = JSON.parse(event.data);
+    render(snapshot);
+    if (!snapshot.round) publishListing(questionSelection()).catch(() => undefined);
+  });
   resultFitObserver = new ResizeObserver(() => fitResultItems());
   resultFitObserver.observe(content);
-  const scoreListener = () => publishListing(questionPreview()).catch(() => undefined);
+  const scoreListener = () => publishListing(questionSelection()).catch(() => undefined);
   window.addEventListener("quiz-score-changed", scoreListener);
   ticker = setInterval(() => {
     const timer = content.querySelector(".listing-timer");

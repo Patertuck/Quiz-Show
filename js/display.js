@@ -313,10 +313,10 @@ function ordering() {
         grid.append(card);
       });
       content.append(grid);
-      screen.append(logoImage("display-game-waiting-logo"), content);
+      screen.append(content);
     } else {
       content.append(element("p", "", "Macht euch bereit für die nächste Herausforderung."));
-      screen.append(logoImage("display-game-waiting-logo"), content);
+      screen.append(content);
     }
     return screen;
   }
@@ -375,19 +375,30 @@ function listing() {
   const screen = element("section", "display-screen display-listing");
   const round = listingState?.round;
   if (!round) {
-    const content = element("div", "display-listing-waiting");
+    const selection = presentation.questionSelection;
+    const content = element("div", "display-listing-selection");
     content.append(element("h1", "", "List It"));
-    if (presentation.questionPreview) {
+    if (selection?.selectedQuestion) {
       const preview = element("section", "display-listing-question-preview");
       preview.append(
-        element("h2", "", presentation.questionPreview.title),
-        element("p", "", presentation.questionPreview.prompt)
+        element("h2", "", selection.selectedQuestion.title),
+        element("p", "", selection.selectedQuestion.prompt)
       );
       content.append(preview);
       screen.append(content);
+    } else if (selection?.questions?.length) {
+      const grid = element("div", "display-listing-question-grid");
+      selection.questions.forEach((question) => {
+        const card = element("div", "display-listing-question-card", question.displayCategory);
+        card.classList.toggle("completed", question.completed);
+        card.classList.toggle("highlighted", selection.highlightedQuestionId === question.id);
+        grid.append(card);
+      });
+      content.append(grid);
+      screen.append(content);
     } else {
       content.append(element("p", "", "Macht euch bereit für die nächste Aufgabe."));
-      screen.append(logoImage("display-game-waiting-logo"), content);
+      screen.append(content);
     }
     return screen;
   }
@@ -677,7 +688,7 @@ function sceneKey() {
   }
   if (presentation.screen === "listing") {
     const round = listingState?.round;
-    if (!round) return `listing:waiting:${presentation.questionPreview?.id || "none"}`;
+    if (!round) return `listing:waiting:${presentation.questionSelection?.selectedQuestion?.id || "overview"}`;
     if (round.phase === "review") return `listing:${round.id}:review:${round.review?.index ?? 0}`;
     if (["results", "distributed"].includes(round.phase)) {
       const resultView = round.resultView;
