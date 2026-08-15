@@ -1,4 +1,4 @@
-import { state, loadApplicationData, stateSnapshot, resumeRuntime } from "./store.js";
+import { state, loadApplicationData, stateSnapshot, resumeRuntime, saveState, setScoreHistoryGame } from "./store.js";
 import { initializeScoreboard, renderScoreboard, setScoreboard, updateScoreControls } from "./scoreboard.js";
 import { initializeHostControls } from "./host-controls.js?v=2";
 import * as setup from "./views/setup.js";
@@ -6,10 +6,10 @@ import * as intro from "./views/intro.js";
 import * as warmup from "./views/warmup.js";
 import * as hub from "./views/hub.js";
 import * as jeopardy from "./games/jeopardy.js";
-import * as ordering from "./games/ordering.js";
-import * as listing from "./games/listing.js";
-import * as sync from "./games/sync.js?v=2";
-import * as victory from "./views/victory.js?v=2";
+import * as ordering from "./games/ordering.js?v=2";
+import * as listing from "./games/listing.js?v=2";
+import * as sync from "./games/sync.js?v=3";
+import * as victory from "./views/victory.js?v=4";
 
 const app = document.querySelector("#app");
 const scoreboardElement = document.querySelector("#scoreboard");
@@ -76,6 +76,9 @@ async function renderRoute() {
     if (name !== "jeopardy") {
       state.activeValue = 0;
       updateScoreControls();
+    }
+    if (["jeopardy", "ordering", "listing", "sync"].includes(name) && setScoreHistoryGame(name)) {
+      saveState().catch(() => undefined);
     }
     setScoreboard(route.scoreboard);
     document.body.classList.toggle("app-active", name !== "setup");

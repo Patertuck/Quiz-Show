@@ -160,6 +160,6 @@ export function publishVictory(steps, revealedCount) {
 export function publishScoreHistory(scoreHistory) {
   return publishPresentation({
     ...base("score-history"),
-    scoreHistory: scoreHistory.map(({ scores }) => ({ scores: [...scores] }))
+    scoreHistory: scoreHistory.map(({ scores, game }) => ({ scores: [...scores], game }))
   });
 }

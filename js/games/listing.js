@@ -339,7 +339,7 @@ function renderResults(round) {
 
 async function distribute() {
   const award = await request("awards");
-  if (applyAward(award.awardId, award.awards)) renderScoreboard();
+  if (applyAward(award.awardId, award.awards, "listing")) renderScoreboard();
   await saveState();
   await request("confirm-distribution");
   await publishListing(questionSelection());

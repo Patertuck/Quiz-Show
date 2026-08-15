@@ -192,7 +192,7 @@ def validate_state(state: object) -> dict:
     """Validate the stable portion of the browser-to-server state contract."""
     if not isinstance(state, dict):
         raise ValueError("State must be a JSON object.")
-    if state.get("version") not in {1, 2, 3}:
+    if state.get("version") not in {1, 2, 3, 4}:
         raise ValueError("Unsupported state version.")
     if not isinstance(state.get("configFingerprint"), str) or not state["configFingerprint"]:
         raise ValueError("configFingerprint must be a non-empty string.")
@@ -248,6 +248,12 @@ def validate_state(state: object) -> dict:
         if (not isinstance(scores, list) or len(scores) != len(teams)
                 or any(not isinstance(score, int) or isinstance(score, bool) for score in scores)):
             raise ValueError("Each scoreHistory entry must contain one integer score per team.")
+        game = entry.get("game")
+        if state["version"] >= 4 and game not in {None, "jeopardy", "ordering", "listing", "sync"}:
+            raise ValueError("Each scoreHistory entry must contain a valid game.")
+    if state["version"] >= 4 and state.get("scoreHistoryGame") not in {
+            None, "jeopardy", "ordering", "listing", "sync"}:
+        raise ValueError("scoreHistoryGame must be a valid game or null.")
     if any(score != teams[index]["score"] for index, score in enumerate(history[-1]["scores"])):
         raise ValueError("The final scoreHistory entry must match the current team scores.")
     return state
@@ -1100,7 +1106,10 @@ def validate_presentation(payload: object) -> dict:
             if (not isinstance(scores, list) or len(scores) != len(clean_teams)
                     or any(not isinstance(score, int) or isinstance(score, bool) for score in scores)):
                 raise ValueError("Each score history step needs one integer score per team.")
-            clean_history.append({"scores": scores})
+            game = entry.get("game")
+            if game not in {None, "jeopardy", "ordering", "listing", "sync"}:
+                raise ValueError("Each score history step needs a valid game.")
+            clean_history.append({"scores": scores, "game": game})
         clean["scoreHistory"] = clean_history
     return clean
 

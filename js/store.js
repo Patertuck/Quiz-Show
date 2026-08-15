@@ -10,8 +10,11 @@ export const state = {
   saveChain: Promise.resolve(),
   revision: 0,
   appliedAwards: new Set(),
-  scoreHistory: []
+  scoreHistory: [],
+  scoreHistoryGame: null
 };
+
+const SCORE_HISTORY_GAMES = new Set(["jeopardy", "ordering", "listing", "sync"]);
 
 function requireString(value, path) {
   if (typeof value !== "string" || value.trim() === "") throw new Error(`${path} muss eine nicht leere Zeichenfolge sein.`);
@@ -190,7 +193,7 @@ async function fingerprint(config) {
 }
 
 function validateSavedState(saved) {
-  if (!saved || typeof saved !== "object" || ![1, 2, 3].includes(saved.version)) throw new Error("Das gespeicherte Spiel hat ein nicht unterstütztes Format.");
+  if (!saved || typeof saved !== "object" || ![1, 2, 3, 4].includes(saved.version)) throw new Error("Das gespeicherte Spiel hat ein nicht unterstütztes Format.");
   if (typeof saved.configFingerprint !== "string" || typeof saved.gameStarted !== "boolean") throw new Error("Im gespeicherten Spiel fehlen erforderliche Felder.");
   if (!Number.isInteger(saved.revision) || saved.revision < 1) throw new Error("Das gespeicherte Spiel hat eine ungültige Revision.");
   if (!Array.isArray(saved.teams) || !saved.teams.length) throw new Error("Das gespeicherte Spiel muss mindestens ein Team enthalten.");
@@ -221,11 +224,21 @@ function validateSavedState(saved) {
   if (saved.version === 2) saved = {
     ...saved, version: 3, scoreHistory: [{ scores: saved.teams.map(({ score }) => score) }]
   };
+  if (saved.version === 3) saved = {
+    ...saved,
+    version: 4,
+    scoreHistory: saved.scoreHistory.map(({ scores }) => ({ scores, game: null })),
+    scoreHistoryGame: null
+  };
   if (!Array.isArray(saved.scoreHistory) || !saved.scoreHistory.length
       || saved.scoreHistory.some((entry) => !entry || !Array.isArray(entry.scores)
         || entry.scores.length !== saved.teams.length
-        || entry.scores.some((score) => !Number.isInteger(score)))) {
+        || entry.scores.some((score) => !Number.isInteger(score))
+        || (entry.game !== null && !SCORE_HISTORY_GAMES.has(entry.game)))) {
     throw new Error("Das gespeicherte Spiel enthält einen ungültigen Punkteverlauf.");
+  }
+  if (saved.scoreHistoryGame !== null && !SCORE_HISTORY_GAMES.has(saved.scoreHistoryGame)) {
+    throw new Error("Das gespeicherte Spiel enthält einen ungültigen Spielkontext.");
   }
   if (!saved.scoreHistory.at(-1).scores.every((score, index) => score === saved.teams[index].score)) {
     throw new Error("Der letzte Punkteverlauf stimmt nicht mit dem aktuellen Punktestand überein.");
@@ -253,7 +266,7 @@ export async function loadApplicationData() {
 
 export function stateSnapshot() {
   return {
-    version: 3,
+    version: 4,
     configFingerprint: state.configFingerprint,
     updatedAt: new Date().toISOString(),
     revision: ++state.revision,
@@ -262,7 +275,8 @@ export function stateSnapshot() {
     usedTiles: Array.from(state.usedTiles).sort(),
     activeQuestion: state.activeQuestion ? { ...state.activeQuestion } : null,
     appliedAwards: Array.from(state.appliedAwards).sort(),
-    scoreHistory: state.scoreHistory.map(({ scores }) => ({ scores: [...scores] }))
+    scoreHistory: state.scoreHistory.map(({ scores, game }) => ({ scores: [...scores], game })),
+    scoreHistoryGame: state.scoreHistoryGame
   };
 }
 
@@ -299,7 +313,8 @@ export function startRuntime(teams) {
   state.gameStarted = true;
   state.revision = 0;
   state.appliedAwards = new Set();
-  state.scoreHistory = [{ scores: state.teams.map(({ score }) => score) }];
+  state.scoreHistory = [{ scores: state.teams.map(({ score }) => score), game: null }];
+  state.scoreHistoryGame = null;
 }
 
 export function resumeRuntime(teams) {
@@ -311,18 +326,26 @@ export function resumeRuntime(teams) {
   state.gameStarted = saved.gameStarted;
   state.revision = saved.revision;
   state.appliedAwards = new Set(saved.appliedAwards || []);
-  state.scoreHistory = saved.scoreHistory.map(({ scores }) => ({ scores: [...scores] }));
+  state.scoreHistory = saved.scoreHistory.map(({ scores, game }) => ({ scores: [...scores], game }));
+  state.scoreHistoryGame = saved.scoreHistoryGame;
 }
 
-export function recordScoreHistory() {
-  const scores = state.teams.map(({ score }) => score);
-  const previous = state.scoreHistory.at(-1)?.scores;
-  if (previous?.length === scores.length && previous.every((score, index) => score === scores[index])) return false;
-  state.scoreHistory.push({ scores });
+export function setScoreHistoryGame(game) {
+  if (!SCORE_HISTORY_GAMES.has(game)) return false;
+  if (state.scoreHistoryGame === game) return false;
+  state.scoreHistoryGame = game;
   return true;
 }
 
-export function applyAward(awardId, awards) {
+export function recordScoreHistory(game = state.scoreHistoryGame) {
+  const scores = state.teams.map(({ score }) => score);
+  const previous = state.scoreHistory.at(-1)?.scores;
+  if (previous?.length === scores.length && previous.every((score, index) => score === scores[index])) return false;
+  state.scoreHistory.push({ scores, game: SCORE_HISTORY_GAMES.has(game) ? game : null });
+  return true;
+}
+
+export function applyAward(awardId, awards, game = state.scoreHistoryGame) {
   if (state.appliedAwards.has(awardId)) return false;
   if (typeof awardId !== "string" || !awardId || !Array.isArray(awards)) throw new Error("Die Punktevergabe ist ungültig.");
   awards.forEach(({ teamIndex, points }) => {
@@ -331,7 +354,7 @@ export function applyAward(awardId, awards) {
     }
   });
   awards.forEach(({ teamIndex, points }) => { state.teams[teamIndex].score += points; });
-  recordScoreHistory();
+  recordScoreHistory(game);
   state.appliedAwards.add(awardId);
   return true;
 }

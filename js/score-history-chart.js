@@ -5,6 +5,14 @@ export const SCORE_HISTORY_COLORS = [
   "#45a3ff", "#f368e0", "#a3e635", "#ff6b35", "#55efc4", "#c7d2fe"
 ];
 
+const SCORE_HISTORY_GAME_LABELS = {
+  jeopardy: "Jeopardy",
+  ordering: "Order Up",
+  listing: "List It",
+  sync: "Sync Up",
+  legacy: "Frühere Punkte"
+};
+
 function svgElement(tag, attributes = {}) {
   const node = document.createElementNS(SVG_NS, tag);
   Object.entries(attributes).forEach(([name, value]) => node.setAttribute(name, String(value)));
@@ -30,12 +38,12 @@ export function createScoreHistoryChart(teams, history) {
   const title = svgElement("title", { id: "score-history-title" });
   title.textContent = "Punkteverlauf aller Teams";
   const description = svgElement("desc", { id: "score-history-description" });
-  description.textContent = "Jede Linie zeigt den Punktestand eines Teams nach jeder Punkteänderung.";
+  description.textContent = "Jede Linie zeigt den Punktestand eines Teams nach jeder Punkteänderung, gruppiert nach Spiel.";
   svg.append(title, description);
 
   const left = 105;
   const right = 1160;
-  const top = 35;
+  const top = 70;
   const bottom = 570;
   const scores = history.flatMap((entry) => entry.scores);
   const rawMin = Math.min(0, ...scores);
@@ -51,6 +59,32 @@ export function createScoreHistoryChart(teams, history) {
   const transitionCount = Math.max(0, history.length - 1);
   const stepDuration = transitionCount ? Math.min(850, Math.max(120, 12000 / transitionCount)) : 0;
   const startDuration = 320;
+
+  const gameRuns = [];
+  history.slice(1).forEach((entry, offset) => {
+    const index = offset + 1;
+    const game = entry.game || "legacy";
+    const previousRun = gameRuns.at(-1);
+    if (previousRun?.game === game) previousRun.end = index;
+    else gameRuns.push({ game, start: index, end: index });
+  });
+
+  gameRuns.forEach((run, runIndex) => {
+    if (runIndex > 0) {
+      const x = (xAt(run.start - 1) + xAt(run.start)) / 2;
+      svg.append(svgElement("line", {
+        class: "score-history-game-divider", x1: x, x2: x, y1: top - 28, y2: bottom
+      }));
+    }
+    const label = svgElement("text", {
+      class: "score-history-game-label",
+      x: (xAt(run.start) + xAt(run.end)) / 2,
+      y: top - 38,
+      "text-anchor": "middle"
+    });
+    label.textContent = SCORE_HISTORY_GAME_LABELS[run.game] || run.game;
+    svg.append(label);
+  });
 
   for (let value = yMin; value <= yMax + tickStep / 2; value += tickStep) {
     const y = yAt(value);
@@ -96,7 +130,8 @@ export function createScoreHistoryChart(teams, history) {
       point.style.setProperty("--score-history-delay", `${delay}ms`);
       if (index > 0) point.style.setProperty("--score-history-point-duration", `${Math.max(40, stepDuration * 0.18)}ms`);
       const pointTitle = svgElement("title");
-      pointTitle.textContent = `${team.name}: ${entry.scores[teamIndex].toLocaleString("de-CH")} Punkte`;
+      const gameLabel = index ? SCORE_HISTORY_GAME_LABELS[entry.game || "legacy"] : "Start";
+      pointTitle.textContent = `${team.name}: ${entry.scores[teamIndex].toLocaleString("de-CH")} Punkte · ${gameLabel}`;
       point.append(pointTitle);
       svg.append(point);
     });

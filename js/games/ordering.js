@@ -238,7 +238,7 @@ function renderResults(round) {
 
 async function distribute() {
   const award = await request("awards");
-  if (applyAward(award.awardId, award.awards)) {
+  if (applyAward(award.awardId, award.awards, "ordering")) {
     renderScoreboard();
   }
   await saveState();
