@@ -1410,7 +1410,7 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
                 "/player", "/player.html", "/styles/player.css", "/js/player.js",
                 "/buzzer", "/buzzer.html", "/styles/buzzer.css", "/js/buzzer.js",
                 "/display", "/display.html", "/styles/display.css", "/styles/sync.css", "/js/display.js", "/js/intro-heads.js",
-                "/js/display-score-animation.js", "/js/live-state.js", "/js/fit-text.js",
+                "/js/display-score-animation.js", "/js/display-sounds.js", "/js/live-state.js", "/js/fit-text.js",
             }
             if self.request_path not in allowed and not self.request_path.startswith("/assets/"):
                 self.send_error(403, "Von einem anderen Gerät sind nur die Spieler- und Publikumsansicht verfügbar.")
@@ -1433,7 +1433,7 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
             "/player", "/player.html", "/styles/player.css", "/js/player.js",
             "/buzzer", "/buzzer.html", "/styles/buzzer.css", "/js/buzzer.js",
             "/display", "/display.html", "/styles/display.css", "/styles/sync.css", "/js/display.js", "/js/intro-heads.js",
-            "/js/display-score-animation.js", "/js/live-state.js", "/js/fit-text.js",
+            "/js/display-score-animation.js", "/js/display-sounds.js", "/js/live-state.js", "/js/fit-text.js",
         }
         if not self.is_host and self.request_path not in allowed and not self.request_path.startswith("/assets/"):
             self.send_error(403, "Von einem anderen Gerät sind nur die Spieler- und Publikumsansicht verfügbar.")

@@ -1,3 +1,5 @@
+import { playPointSound } from "./display-sounds.js?v=6";
+
 function reducedMotion() {
   return matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
@@ -55,6 +57,7 @@ async function animateAward(root, origin, award) {
     ], { duration: 320, easing: "cubic-bezier(.35,.05,.7,.2)", fill: "forwards" }).finished.catch(() => undefined);
     badge.remove();
   }
+  playPointSound(award.points);
   const arrivalClass = deducted ? "points-deducted" : "points-arrived";
   card.classList.add(arrivalClass);
   await countScore(output, award.oldScore, award.newScore);

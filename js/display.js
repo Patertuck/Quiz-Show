@@ -1,8 +1,17 @@
-import { animateScoreDistribution } from "./display-score-animation.js";
+import { animateScoreDistribution } from "./display-score-animation.js?v=6";
 import qrcode from "../assets/vendor/qrcode.js";
 import { startLivePolling, usesQuickTunnelPolling } from "./live-state.js?v=1";
 import { scheduleTextFit } from "./fit-text.js";
 import { createIntroHeads } from "./intro-heads.js?v=10";
+import {
+  playBuzzerSound,
+  playWinnerCheer,
+  setDisplaySoundBlockedHandler,
+  startVictoryDrumroll,
+  stopVictoryDrumroll,
+  stopVictorySounds,
+  unlockDisplaySounds
+} from "./display-sounds.js?v=6";
 
 const root = document.querySelector("#display-root");
 const connection = document.querySelector("#display-connection");
@@ -11,8 +20,10 @@ const jeopardyAudio = new Audio();
 let jeopardyAudioSource = null;
 let lastJeopardyAudioCommandId = null;
 let pendingJeopardyAudioCommand = null;
+let displayAudioEnabled = false;
 let presentation = null;
 let buzzer = null;
+let buzzerInitialized = false;
 let orderingState = null;
 let listingState = null;
 let syncState = null;
@@ -494,16 +505,13 @@ async function executeJeopardyAudio(command) {
   } catch (error) {
     console.warn("Audio playback needs audience interaction:", error);
     pendingJeopardyAudioCommand = command;
-    audioUnlock.textContent = error.name === "NotAllowedError"
-      ? "🔊 Audio aktivieren"
-      : "⚠ Audiofehler – erneut versuchen";
     audioUnlock.hidden = false;
   }
 }
 
 jeopardyAudio.addEventListener("error", () => {
-  audioUnlock.textContent = "⚠ Audiofehler – erneut versuchen";
-  audioUnlock.hidden = false;
+  console.warn("Jeopardy audio could not be loaded.");
+  audioUnlock.hidden = true;
 });
 
 function handleJeopardyAudioCommand() {
@@ -513,9 +521,27 @@ function handleJeopardyAudioCommand() {
   executeJeopardyAudio(command);
 }
 
-audioUnlock.addEventListener("click", () => {
-  if (pendingJeopardyAudioCommand) executeJeopardyAudio(pendingJeopardyAudioCommand);
+setDisplaySoundBlockedHandler((error) => {
+  console.warn("Automatic display audio was blocked:", error);
+  displayAudioEnabled = false;
+  audioUnlock.hidden = false;
 });
+
+async function enableAudioFromInteraction() {
+  if (displayAudioEnabled) return;
+  displayAudioEnabled = true;
+  audioUnlock.hidden = true;
+  await unlockDisplaySounds();
+  if (pendingJeopardyAudioCommand) await executeJeopardyAudio(pendingJeopardyAudioCommand);
+  const winnerIndex = presentation?.screen === "victory"
+    ? presentation.steps?.findIndex((step) => step.kind === "podium" && step.rank === 1) ?? -1
+    : -1;
+  if (winnerIndex >= 0 && presentation.revealedCount <= winnerIndex) startVictoryDrumroll();
+}
+
+audioUnlock.addEventListener("click", enableAudioFromInteraction);
+document.addEventListener("pointerdown", enableAudioFromInteraction, { once: true, capture: true });
+document.addEventListener("keydown", enableAudioFromInteraction, { once: true, capture: true });
 
 function sync() {
   const screen = element("section", "display-screen display-sync");
@@ -607,6 +633,29 @@ function victory() {
   });
   screen.append(standings, podium);
   return screen;
+}
+
+function syncVictorySounds(previousPresentation, nextPresentation, initial = false) {
+  if (nextPresentation?.screen !== "victory") {
+    if (previousPresentation?.screen === "victory") stopVictorySounds();
+    return;
+  }
+  const winnerIndex = nextPresentation.steps?.findIndex(
+    (step) => step.kind === "podium" && step.rank === 1
+  ) ?? -1;
+  if (winnerIndex < 0) return;
+  const winnerRevealed = nextPresentation.revealedCount > winnerIndex;
+  const previousWinnerIndex = previousPresentation?.screen === "victory"
+    ? previousPresentation.steps?.findIndex((step) => step.kind === "podium" && step.rank === 1) ?? -1
+    : -1;
+  const winnerWasRevealed = previousWinnerIndex >= 0
+    && previousPresentation.revealedCount > previousWinnerIndex;
+
+  if (winnerRevealed) stopVictoryDrumroll();
+  else startVictoryDrumroll();
+  if (!initial && previousPresentation?.screen === "victory" && !winnerWasRevealed && winnerRevealed) {
+    playWinnerCheer();
+  }
 }
 
 function sceneKey() {
@@ -800,7 +849,9 @@ async function drainPresentationQueue() {
       if (presentation?.serverSessionId === nextPresentation.serverSessionId
           && presentation?.version !== undefined && nextPresentation.version <= presentation.version) continue;
       const plan = audienceAnimationPlan(nextPresentation);
+      const previousPresentation = presentation;
       presentation = nextPresentation;
+      syncVictorySounds(previousPresentation, nextPresentation, previousPresentation === null);
       syncGameEventSource();
       handleJeopardyAudioCommand();
       render();
@@ -827,6 +878,18 @@ function receivePresentation(nextPresentation) {
     presentation = nextPresentation;
     render();
   });
+}
+
+function receiveBuzzerState(nextBuzzer, initial = false) {
+  const previousRound = buzzer?.round;
+  const nextRound = nextBuzzer?.round;
+  const sameRound = previousRound?.questionId && previousRound.questionId === nextRound?.questionId;
+  const previousBuzzCount = sameRound ? (previousRound.buzzes?.length || 0) : 0;
+  const nextBuzzCount = nextRound?.buzzes?.length || 0;
+  buzzer = nextBuzzer;
+  if (!initial && buzzerInitialized && previousBuzzCount === 0 && nextBuzzCount > 0) playBuzzerSound();
+  buzzerInitialized = true;
+  updateBuzzerBanner();
 }
 
 function updateBuzzerBanner() {
@@ -868,12 +931,11 @@ function setDisplayConnection(connected) {
 
 function receiveLiveSnapshot(snapshot) {
   receivePresentation(snapshot.presentation);
-  buzzer = snapshot.buzzer;
+  receiveBuzzerState(snapshot.buzzer, !buzzerInitialized);
   orderingState = snapshot.ordering;
   listingState = snapshot.listing;
   syncState = snapshot.sync;
   receiveTeamLobbyState(snapshot.teamLobby);
-  updateBuzzerBanner();
   if (!displayScoreAnimationActive) render();
 }
 
@@ -895,8 +957,7 @@ function syncGameEventSource() {
   } else if (nextScreen === "jeopardy") {
     activeGameEventSource = new EventSource("/api/buzzer/events");
     activeGameEventSource.addEventListener("state", (event) => {
-      buzzer = JSON.parse(event.data);
-      updateBuzzerBanner();
+      receiveBuzzerState(JSON.parse(event.data));
     });
   } else if (nextScreen === "ordering") {
     activeGameEventSource = new EventSource("/api/ordering/events?role=public");
@@ -946,7 +1007,7 @@ if (!usePollingTransport) Promise.all([
 ])
   .then(([nextPresentation, nextBuzzer, nextOrdering, nextListing, nextSync]) => {
     receivePresentation(nextPresentation);
-    if (!buzzer || nextBuzzer.version >= buzzer.version) buzzer = nextBuzzer;
+    if (!buzzer || nextBuzzer.version >= buzzer.version) receiveBuzzerState(nextBuzzer, !buzzerInitialized);
     orderingState = nextOrdering;
     listingState = nextListing;
     syncState = nextSync;
