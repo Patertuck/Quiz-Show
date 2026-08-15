@@ -48,6 +48,9 @@ export function createScoreHistoryChart(teams, history) {
     ? left
     : left + (index / (history.length - 1)) * (right - left);
   const yAt = (score) => bottom - ((score - yMin) / (yMax - yMin)) * (bottom - top);
+  const transitionCount = Math.max(0, history.length - 1);
+  const stepDuration = transitionCount ? Math.min(850, Math.max(120, 12000 / transitionCount)) : 0;
+  const startDuration = 320;
 
   for (let value = yMin; value <= yMax + tickStep / 2; value += tickStep) {
     const y = yAt(value);
@@ -69,20 +72,34 @@ export function createScoreHistoryChart(teams, history) {
 
   teams.forEach((team, teamIndex) => {
     const color = SCORE_HISTORY_COLORS[teamIndex % SCORE_HISTORY_COLORS.length];
-    const points = history.map((entry, index) => `${xAt(index)},${yAt(entry.scores[teamIndex])}`);
-    const line = svgElement("polyline", { class: "score-history-line", points: points.join(" "), stroke: color });
-    svg.append(line);
-    if (history.length <= 80) {
-      history.forEach((entry, index) => {
-        const point = svgElement("circle", {
-          class: "score-history-point", cx: xAt(index), cy: yAt(entry.scores[teamIndex]), r: 5, fill: color
-        });
-        const pointTitle = svgElement("title");
-        pointTitle.textContent = `${team.name}: ${entry.scores[teamIndex].toLocaleString("de-CH")} Punkte`;
-        point.append(pointTitle);
-        svg.append(point);
+    history.slice(1).forEach((entry, offset) => {
+      const index = offset + 1;
+      const delay = startDuration + offset * stepDuration;
+      const segment = svgElement("line", {
+        class: "score-history-segment",
+        x1: xAt(index - 1), y1: yAt(history[index - 1].scores[teamIndex]),
+        x2: xAt(index), y2: yAt(entry.scores[teamIndex]),
+        stroke: color, pathLength: 1
       });
-    }
+      segment.style.setProperty("--score-history-delay", `${delay}ms`);
+      segment.style.setProperty("--score-history-duration", `${stepDuration}ms`);
+      svg.append(segment);
+    });
+    history.forEach((entry, index) => {
+      const delay = index === 0
+        ? 0
+        : startDuration + ((index - 1) * stepDuration) + (stepDuration * 0.82);
+      const point = svgElement("circle", {
+        class: `score-history-point${index === 0 ? " start" : ""}`,
+        cx: xAt(index), cy: yAt(entry.scores[teamIndex]), r: 5, fill: color
+      });
+      point.style.setProperty("--score-history-delay", `${delay}ms`);
+      if (index > 0) point.style.setProperty("--score-history-point-duration", `${Math.max(40, stepDuration * 0.18)}ms`);
+      const pointTitle = svgElement("title");
+      pointTitle.textContent = `${team.name}: ${entry.scores[teamIndex].toLocaleString("de-CH")} Punkte`;
+      point.append(pointTitle);
+      svg.append(point);
+    });
   });
 
   svg.append(

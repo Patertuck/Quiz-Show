@@ -7,7 +7,7 @@
 .score-history-grid.zero { stroke: rgb(255 255 255 / 45%); stroke-width: 3; }
 .score-history-axis, .score-history-tick { stroke: rgb(255 255 255 / 72%); stroke-width: 3; }
 .score-history-y-label, .score-history-x-label { fill: #fff; font-size: 22px; font-weight: 700; }
-.score-history-line { fill: none; stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 3px 3px rgb(0 0 0 / 50%)); }
+.score-history-segment { stroke-width: 7; stroke-linecap: round; filter: drop-shadow(0 3px 3px rgb(0 0 0 / 50%)); }
 .score-history-point { stroke: #10194f; stroke-width: 2; }
 .score-history-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.45rem 1.4rem; font-size: clamp(0.85rem, 1.6vw, 1.1rem); font-weight: 800; }
 .score-history-legend > div { display: flex; min-width: 0; align-items: center; gap: 0.45rem; }
