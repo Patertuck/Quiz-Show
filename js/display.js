@@ -1,4 +1,4 @@
-import { animateScoreDistribution } from "./display-score-animation.js?v=7";
+import { animateScoreDistribution } from "./display-score-animation.js?v=8";
 import qrcode from "../assets/vendor/qrcode.js";
 import { startLivePolling, usesQuickTunnelPolling } from "./live-state.js?v=1";
 import { scheduleTextFit } from "./fit-text.js";
@@ -15,12 +15,13 @@ import {
   stopVictorySounds,
   syncBackgroundMusic,
   unlockDisplaySounds
-} from "./display-sounds.js?v=9";
+} from "./display-sounds.js?v=10";
 
 const root = document.querySelector("#display-root");
 const connection = document.querySelector("#display-connection");
 const audioUnlock = document.querySelector("#display-audio-unlock");
 const jeopardyAudio = new Audio();
+jeopardyAudio.volume = 0.6;
 let jeopardyAudioSource = null;
 let lastJeopardyAudioCommandId = null;
 let pendingJeopardyAudioCommand = null;

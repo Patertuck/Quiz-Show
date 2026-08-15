@@ -8,7 +8,7 @@ const definitions = {
 
 const musicDefinitions = {
   ambient: ["assets/Sounds/gameshow-ambient.mp3?v=1", 0.12],
-  tension: ["assets/Sounds/Buzzer_music.mp3?v=1", 0.18]
+  tension: ["assets/Sounds/Buzzer_music.mp3?v=1", 0.24]
 };
 
 const sounds = Object.fromEntries(Object.entries(definitions).map(([name, [src, volume, loop]]) => {
