@@ -3,6 +3,7 @@ import { updateScoreControls } from "../scoreboard.js";
 import { connectToBuzzer, controlBuzzer } from "../buzzer-client.js";
 import { commandJeopardyAudio, publishJeopardy } from "../presentation-host.js";
 import { scheduleTextFit } from "../fit-text.js";
+import { hostFetch } from "../slot-api.js";
 
 export async function mount(root) {
   const boardView = root.querySelector("#jeopardy-board-view");
@@ -337,7 +338,7 @@ export async function mount(root) {
   return () => {
     if (state.activeQuestion) commandJeopardyAudio("stop").catch(() => undefined);
     if (currentRound()?.open) {
-      fetch("/api/buzzer/control", {
+      hostFetch("/api/buzzer/control", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "close" }),

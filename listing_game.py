@@ -52,6 +52,21 @@ class ListingState:
             self.round = None
             self.poll_connections = {}
 
+    def switch_storage(self, state_file: Path) -> None:
+        with self.condition:
+            self.state_file = state_file
+            self.temp_file = state_file.with_name(f".{state_file.name}.tmp")
+            self.config_fingerprint = ""
+            self.teams = []
+            self.teams_revision = ""
+            self.completed = []
+            self.round = None
+            self.connections = {}
+            self.poll_connections = {}
+            self._load()
+            self.version += 1
+            self.condition.notify_all()
+
     def _save_unlocked(self) -> None:
         data = {
             "version": 1,

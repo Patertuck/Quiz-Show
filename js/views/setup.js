@@ -2,9 +2,10 @@ import qrcode from "../../assets/vendor/qrcode.js";
 import { state, startRuntime, resumeRuntime, saveState, deleteSavedState } from "../store.js";
 import { renderScoreboard } from "../scoreboard.js";
 import { publishTeamLobby } from "../presentation-host.js";
+import { hostFetch, slotUrl } from "../slot-api.js";
 
 async function post(path, payload) {
-  const response = await fetch(path, {
+  const response = await hostFetch(path, {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
   });
   const result = await response.json().catch(() => ({}));
@@ -39,7 +40,7 @@ export async function mount(root, { navigate }) {
   });
   const editingActiveGame = state.gameStarted && lobby.phase === "locked";
 
-  const infoResponse = await fetch("/api/buzzer/info", { cache: "no-store" });
+  const infoResponse = await hostFetch("/api/buzzer/info", { cache: "no-store" });
   if (!infoResponse.ok) throw new Error(`HTTP ${infoResponse.status}`);
   const joinInfo = await infoResponse.json();
   const joinLink = root.querySelector("#setup-join-url");
@@ -169,7 +170,7 @@ export async function mount(root, { navigate }) {
     message.textContent = "Der alte Spielstand passt nicht mehr zur Quizkonfiguration; es kann nur ein neues Spiel gestartet werden.";
   }
   render();
-  events = new EventSource("/api/team-lobby/events");
+  events = new EventSource(slotUrl("/api/team-lobby/events"));
   events.addEventListener("state", (event) => { lobby = JSON.parse(event.data); render(); });
   return () => events?.close();
 }

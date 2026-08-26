@@ -2,7 +2,7 @@
 
 ## Fragen konfigurieren
 
-Die Quizshow lädt standardmässig `questions.json`. Allgemeine Angaben wie `title` und `teams` stehen auf der obersten Ebene; die verfügbaren Spiele werden unter `games` eingetragen. Nur Spiele, deren Schlüssel vorhanden sind, erscheinen in der Spielauswahl.
+Quizkonfigurationen liegen als JSON-Dateien im Ordner `quizzes`. Die Quiz-Auswahl erkennt die Dateien beim Laden automatisch. Allgemeine Angaben wie `title` und `teams` stehen auf der obersten Ebene; die verfügbaren Spiele werden unter `games` eingetragen. Nur Spiele, deren Schlüssel vorhanden sind, erscheinen in der Spielauswahl.
 
 ```json
 {
@@ -18,7 +18,9 @@ Die Quizshow lädt standardmässig `questions.json`. Allgemeine Angaben wie `tit
 }
 ```
 
-Unterstützte Schlüssel sind `jeopardy`, `ordering`, `listing` und `sync`. Ein vorhandenes Spiel muss vollständig konfiguriert sein und mindestens eine Frage enthalten. Das vollständige Format zeigt `questions.example.json`. Medienfelder wie `questionAudio` oder `answerAudio` sind optional; fehlen sie, werden keine Audiosteuerungen angezeigt.
+Unterstützte Schlüssel sind `jeopardy`, `ordering`, `listing` und `sync`. Ein vorhandenes Spiel muss vollständig konfiguriert sein und mindestens eine Frage enthalten. Das vollständige Format zeigt `questions.example.json`; kopiert diese Datei als Ausgangspunkt unter einem beliebigen Namen nach `quizzes`. Medienfelder wie `questionAudio` oder `answerAudio` sind optional; fehlen sie, werden keine Audiosteuerungen angezeigt.
+
+Die Quiz-Auswahl verwaltet benannte Spielstände. Jeder Spielstand gehört fest zu einer Quizkonfiguration und wird automatisch im ignorierten Ordner `.quiz-saves` gespeichert. Beim nächsten Programmstart wird das zuletzt ausgewählte Quiz wieder auf dem Intro geöffnet.
 
 ## Im lokalen Netzwerk
 

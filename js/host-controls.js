@@ -1,12 +1,14 @@
 import { saveState } from "./store.js";
 import qrcode from "../assets/vendor/qrcode.js";
 import { getDisplayAudioSettings, setDisplayAudioSettings, setJoinOverlay } from "./presentation-host.js";
+import { hostFetch } from "./slot-api.js";
 
 export function initializeHostControls({ navigate, requestEndGame }) {
   const controls = document.querySelector("#host-controls");
   const optionsButton = document.querySelector("#host-options-button");
   const optionItems = document.querySelector(".host-option-items");
   const setupButton = document.querySelector("#team-setup-button");
+  const masterButton = document.querySelector("#master-page-button");
   const audienceButton = document.querySelector("#audience-display-button");
   const playerButton = document.querySelector("#buzzer-join-button");
   const playerDialog = document.querySelector("#buzzer-dialog");
@@ -80,12 +82,23 @@ export function initializeHostControls({ navigate, requestEndGame }) {
   });
 
   endGameButton.addEventListener("click", requestEndGame);
+  masterButton.addEventListener("click", async () => {
+    masterButton.disabled = true;
+    try {
+      await saveState();
+      navigate("master");
+    } catch (error) {
+      window.alert(`Das aktuelle Spiel konnte nicht gespeichert werden: ${error.message}`);
+    } finally {
+      masterButton.disabled = false;
+    }
+  });
 
   playerButton.addEventListener("click", async () => {
     playerDialog.showModal();
     qrContainer.textContent = "QR-Code wird erstellt…";
     try {
-      const response = await fetch("/api/buzzer/info", { cache: "no-store" });
+      const response = await hostFetch("/api/buzzer/info", { cache: "no-store" });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const { mode, joinUrl, displayUrl: remoteDisplayUrl, localUrl, lanAvailable } = await response.json();
       playerUrl.href = joinUrl;

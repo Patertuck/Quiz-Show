@@ -1,0 +1,20 @@
+<section id="master-view" class="master-screen">
+  <header>
+    <p class="master-eyebrow">Quizshow</p>
+    <h1>Quiz-Auswahl</h1>
+    <p>Startet ein neues Quiz oder setzt einen gespeicherten Spielstand fort.</p>
+  </header>
+  <section class="master-new panel" aria-labelledby="master-new-title">
+    <h2 id="master-new-title">Neues Spiel</h2>
+    <form id="master-new-form">
+      <label>Spielstandname <input id="master-slot-name" maxlength="60" required autocomplete="off"></label>
+      <label>Quiz <select id="master-config" required></select></label>
+      <button class="primary-button" type="submit">Spiel erstellen</button>
+    </form>
+    <p id="master-new-error" class="error-message" role="alert"></p>
+  </section>
+  <section class="master-saves" aria-labelledby="master-saves-title">
+    <h2 id="master-saves-title">Gespeicherte Spiele</h2>
+    <div id="master-save-groups"></div>
+  </section>
+</section>

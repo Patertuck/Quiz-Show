@@ -1,4 +1,5 @@
 import { SCORE_HISTORY_COLORS } from "./score-history-chart.js";
+import { hostFetch } from "./slot-api.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const WIDTH = 1920;
@@ -236,7 +237,7 @@ export async function exportFinalResults(teams, scoreHistory) {
     svgToPngBase64(createPodiumSvg(teams)),
     svgToPngBase64(createHistorySvg(teams, scoreHistory))
   ]);
-  const response = await fetch("/api/final-export", {
+  const response = await hostFetch("/api/final-export", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ podiumPng, scoreHistoryPng })

@@ -1,12 +1,14 @@
+import { hostFetch, slotUrl } from "./slot-api.js";
+
 async function request(path, options = {}) {
-  const response = await fetch(path, options);
+  const response = await hostFetch(path, options);
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
   return payload;
 }
 
 export function connectToBuzzer(onState, onConnectionChange = () => {}) {
-  const events = new EventSource("/api/buzzer/events");
+  const events = new EventSource(slotUrl("/api/buzzer/events"));
   events.addEventListener("state", (event) => {
     onConnectionChange(true);
     onState(JSON.parse(event.data));

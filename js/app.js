@@ -1,7 +1,8 @@
-import { state, loadApplicationData, stateSnapshot, resumeRuntime, saveState, setScoreHistoryGame } from "./store.js";
+import { state, loadApplicationData, loadQuizLibrary, stateSnapshot, resumeRuntime, saveState, setScoreHistoryGame } from "./store.js";
 import { initializeScoreboard, renderScoreboard, setScoreboard, updateScoreControls } from "./scoreboard.js";
 import { initializeHostControls } from "./host-controls.js";
 import * as setup from "./views/setup.js";
+import * as master from "./views/master.js";
 import * as start from "./views/start.js";
 import * as hub from "./views/hub.js";
 import * as jeopardy from "./games/jeopardy.js";
@@ -10,6 +11,7 @@ import * as listing from "./games/listing.js";
 import * as sync from "./games/sync.js";
 import * as victory from "./views/victory.js";
 import { GAME_CATALOG, hasConfiguredGame } from "./game-catalog.js";
+import { hostFetch, setActiveSlotId } from "./slot-api.js";
 
 const app = document.querySelector("#app");
 const scoreboardElement = document.querySelector("#scoreboard");
@@ -27,6 +29,7 @@ const gameRoutes = Object.fromEntries(GAME_CATALOG.map((game) => [game.id, {
 }]));
 
 const routes = {
+  master: { template: "views/master.html", controller: master, scoreboard: "hidden", requiresGame: false, requiresConfig: false, hostControls: "hidden" },
   start: { template: "views/start.html", controller: start, scoreboard: "hidden", requiresGame: false, hostControls: "hidden" },
   setup: { template: "views/setup.html", controller: setup, scoreboard: "hidden", requiresGame: false, hostControls: "hidden" },
   hub: { template: "views/hub.html", controller: hub, scoreboard: "standings", requiresGame: true },
@@ -38,15 +41,27 @@ const templateCache = new Map();
 let cleanup;
 let navigationId = 0;
 
+function routeLocation() {
+  const parts = location.hash.replace(/^#\/?/, "").split("/").filter(Boolean);
+  if (parts[0] === "master") return { name: "master", legacySlotId: null, canonical: true };
+  if (parts[0] === "save" && parts[1]) {
+    return { name: parts[2] || "intro", legacySlotId: decodeURIComponent(parts[1]), canonical: false };
+  }
+  const name = parts[0] || "intro";
+  return { name, legacySlotId: null, canonical: Boolean(parts[0]) && !["start", "warmup"].includes(name) };
+}
+
 function routeName() {
-  const requested = location.hash.replace(/^#\/?/, "").split("/")[0] || "start";
+  const requested = routeLocation().name;
   if (requested === "intro") return "start";
   if (requested === "warmup") return state.gameStarted || state.savedState?.gameStarted ? "hub" : "start";
   return requested;
 }
 
 export function navigate(name) {
-  const hash = `#/${name}`;
+  const visibleName = name === "start" ? "intro" : name;
+  const hasRouteAccess = Boolean(state.library?.activeSlotId) || visibleName === "master";
+  const hash = hasRouteAccess ? `#/${visibleName}` : "#/master";
   if (location.hash === hash) renderRoute();
   else location.hash = hash;
 }
@@ -76,6 +91,10 @@ async function renderRoute() {
   const thisNavigation = ++navigationId;
   let name = routeName();
   let route = routes[name];
+  if (route?.requiresConfig !== false && !state.config) {
+    navigate("master");
+    return;
+  }
   if (!route || (route.requiresGame && !state.gameStarted)) {
     navigate(state.gameStarted ? "hub" : "setup");
     return;
@@ -97,7 +116,7 @@ async function renderRoute() {
       saveState().catch(() => undefined);
     }
     setScoreboard(route.scoreboard);
-    document.body.classList.toggle("app-active", name !== "setup");
+    document.body.classList.toggle("app-active", !["setup", "master"].includes(name));
     hostControls.hidden = route.hostControls === "hidden";
     hostControls.classList.toggle("audio-only", route.hostControls === "audio");
     hostControls.classList.toggle("on-victory", name === "victory");
@@ -125,7 +144,7 @@ window.addEventListener("keydown", (event) => {
 });
 window.addEventListener("pagehide", () => {
   if (!state.gameStarted) return;
-  fetch("/api/state", {
+  hostFetch("/api/state", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(stateSnapshot()),
@@ -134,17 +153,50 @@ window.addEventListener("pagehide", () => {
 });
 
 try {
-  await loadApplicationData();
+  let library = await loadQuizLibrary();
+  const requestedLocation = routeLocation();
   const requestedRoute = routeName();
-  const saved = state.savedState;
-  const compatibleSave = saved && !saved.invalid && saved.configFingerprint === state.configFingerprint;
-  if (!["setup", "start"].includes(requestedRoute) && compatibleSave) {
-    resumeRuntime(saved.teams);
-    renderScoreboard();
+  if (requestedLocation.legacySlotId) {
+    if (requestedLocation.legacySlotId !== library.activeSlotId) {
+      throw new Error("Dieser Link gehört nicht zum aktuell ausgewählten Spielstand.");
+    }
+    const visibleName = requestedLocation.name === "start" ? "intro" : requestedLocation.name;
+    window.history.replaceState(null, "", `/#/${visibleName}`);
   }
-  if (!location.hash) navigate("start");
-  else await renderRoute();
+  setActiveSlotId(library.activeSlotId);
+  if (requestedRoute === "master" || !library.activeSlotId || !library.activeConfigUrl) {
+    state.config = null;
+    if (requestedRoute !== "master") navigate("master");
+    else await renderRoute();
+  } else {
+    let loaded = true;
+    try {
+      await loadApplicationData(library.activeConfigUrl);
+    } catch (error) {
+      console.error(error);
+      state.config = null;
+      state.library.configError = error.message;
+      loaded = false;
+      navigate("master");
+    }
+    if (loaded) {
+      const saved = state.savedState;
+      const compatibleSave = saved && !saved.invalid && saved.configFingerprint === state.configFingerprint;
+      if (!["setup", "start"].includes(requestedRoute) && compatibleSave) {
+        resumeRuntime(saved.teams);
+        renderScoreboard();
+      }
+      if (!requestedLocation.canonical && !requestedLocation.legacySlotId) navigate(requestedRoute);
+      else await renderRoute();
+    }
+  }
 } catch (error) {
   console.error(error);
-  renderError(error);
+  if (routeLocation().legacySlotId && state.library) {
+    state.config = null;
+    state.library.configError = error.message;
+    setActiveSlotId(state.library.activeSlotId);
+    if (location.hash !== "#/master") location.hash = "#/master";
+    else await renderRoute();
+  } else renderError(error);
 }

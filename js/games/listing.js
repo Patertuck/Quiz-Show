@@ -2,6 +2,7 @@ import { publishListing } from "../presentation-host.js";
 import { state, applyAward, saveState } from "../store.js";
 import { renderScoreboard } from "../scoreboard.js";
 import { scheduleTextFit } from "../fit-text.js";
+import { hostFetch, slotUrl } from "../slot-api.js";
 
 let root;
 let content;
@@ -39,7 +40,7 @@ function publishQuestionSelection(highlightedQuestionId) {
 }
 
 async function request(action, extra = {}) {
-  const response = await fetch("/api/listing/control", {
+  const response = await hostFetch("/api/listing/control", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action, ...extra })
@@ -345,10 +346,10 @@ export async function mount(element) {
     questionIds: state.config.games.listing.questions.map((question) => question.id)
   });
   selectedQuestion = null;
-  listingState = await fetch("/api/listing/state", { cache: "no-store" }).then((response) => response.json());
+  listingState = await hostFetch("/api/listing/state", { cache: "no-store" }).then((response) => response.json());
   await publishListing(questionSelection(null));
   render(listingState);
-  events = new EventSource("/api/listing/events");
+  events = new EventSource(slotUrl("/api/listing/events"));
   events.addEventListener("state", (event) => {
     const snapshot = JSON.parse(event.data);
     render(snapshot);

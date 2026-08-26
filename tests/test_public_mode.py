@@ -81,6 +81,29 @@ class HostAuthorizationTests(unittest.TestCase):
     def test_public_hostname_is_not_host_even_without_proxy_header(self):
         self.assertFalse(request_handler("quiet-river.trycloudflare.com").is_host)
 
+    @patch.object(main.QUIZ_LIBRARY, "active_slot_id", return_value="current_save")
+    def test_matching_query_slot_is_accepted(self, _active_slot):
+        handler = request_handler("127.0.0.1:8000")
+        handler.path = "/api/state?slot=current_save"
+
+        self.assertTrue(handler.require_active_slot())
+
+    @patch.object(main.QUIZ_LIBRARY, "active_slot_id", return_value="current_save")
+    def test_stale_query_slot_is_rejected(self, _active_slot):
+        handler = request_handler("127.0.0.1:8000")
+        handler.path = "/api/state?slot=old_save"
+        with patch.object(handler, "send_json") as send_json:
+            self.assertFalse(handler.require_active_slot())
+        send_json.assert_called_once_with(409, {"error": "Der aktive Spielstand wurde gewechselt."})
+
+    @patch.object(main.QUIZ_LIBRARY, "active_slot_id", return_value="current_save")
+    def test_missing_query_slot_is_rejected_for_host_mutations(self, _active_slot):
+        handler = request_handler("127.0.0.1:8000")
+        handler.path = "/api/state"
+        with patch.object(handler, "send_json") as send_json:
+            self.assertFalse(handler.require_active_slot())
+        self.assertEqual(409, send_json.call_args.args[0])
+
 
 class PresentationSessionTests(unittest.TestCase):
     def test_session_id_is_stable_for_one_server_and_changes_after_restart(self):
@@ -136,6 +159,33 @@ class PublicStaticFileTests(unittest.TestCase):
             server.shutdown()
             server.server_close()
             thread.join(timeout=2)
+
+
+class QuizLibraryAuthorizationTests(unittest.TestCase):
+    def request(self, host):
+        server = main.LocalQuizServer(("127.0.0.1", 0), main.QuizRequestHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            connection = http.client.HTTPConnection("127.0.0.1", server.server_port, timeout=2)
+            connection.request("GET", "/api/quiz-library", headers={"Host": host})
+            response = connection.getresponse()
+            body = response.read()
+            connection.close()
+            return response.status, body
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
+    def test_host_can_read_quiz_library(self):
+        status, body = self.request("127.0.0.1:8000")
+        self.assertEqual(200, status)
+        self.assertIn(b"configurations", body)
+
+    def test_lan_client_cannot_read_quiz_library(self):
+        status, _ = self.request("192.168.1.248:8000")
+        self.assertEqual(403, status)
 
     def test_lan_display_can_load_text_fitting_module(self):
         server = main.LocalQuizServer(("127.0.0.1", 0), main.QuizRequestHandler)

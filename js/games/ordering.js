@@ -1,6 +1,7 @@
 import { publishOrdering } from "../presentation-host.js";
 import { state, applyAward, saveState } from "../store.js";
 import { renderScoreboard } from "../scoreboard.js";
+import { hostFetch, slotUrl } from "../slot-api.js";
 
 let root;
 let content;
@@ -13,7 +14,7 @@ let selectedPreviewItems = [];
 let visibleMapItem = null;
 
 async function request(action, extra = {}) {
-  const response = await fetch("/api/ordering/control", {
+  const response = await hostFetch("/api/ordering/control", {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action, ...extra })
   });
@@ -277,13 +278,13 @@ export async function mount(element) {
     teams: state.teams.map((team) => team.name),
     questionIds: state.config.games.ordering.questions.map((question) => question.id)
   });
-  orderingState = await fetch("/api/ordering/state", { cache: "no-store" }).then((response) => response.json());
+  orderingState = await hostFetch("/api/ordering/state", { cache: "no-store" }).then((response) => response.json());
   selectedQuestion = null;
   selectedPreviewItems = [];
   visibleMapItem = null;
   await publishOrdering(questionSelection(null));
   render(orderingState);
-  events = new EventSource("/api/ordering/events");
+  events = new EventSource(slotUrl("/api/ordering/events"));
   events.addEventListener("state", (event) => {
     const snapshot = JSON.parse(event.data);
     render(snapshot);

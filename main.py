@@ -29,6 +29,7 @@ import struct
 from urllib.parse import parse_qs, urlsplit
 
 from listing_game import ListingState
+from quiz_library import QuizLibrary
 from sync_game import SyncState
 
 
@@ -42,6 +43,9 @@ ORDERING_FILE = PROJECT_DIRECTORY / "ordering-state.json"
 ORDERING_TEMP_FILE = PROJECT_DIRECTORY / ".ordering-state.tmp"
 LISTING_FILE = PROJECT_DIRECTORY / "listing-state.json"
 SYNC_FILE = PROJECT_DIRECTORY / "sync-state.json"
+QUIZ_DIRECTORY = PROJECT_DIRECTORY / "quizzes"
+QUIZ_SAVE_DIRECTORY = PROJECT_DIRECTORY / ".quiz-saves"
+QUIZ_LIBRARY = QuizLibrary(QUIZ_DIRECTORY, QUIZ_SAVE_DIRECTORY)
 MAX_STATE_BYTES = 1_000_000
 STATE_LOCK = threading.Lock()
 TILE_ID_PATTERN = re.compile(r"^\d+:\d+$")
@@ -491,6 +495,14 @@ class TeamLobbyState:
         self.version += 1
         self.condition.notify_all()
 
+    def reset(self) -> None:
+        with self.condition:
+            self.config_fingerprint = ""
+            self.phase = "uninitialized"
+            self.teams = []
+            self.memberships = {}
+            self._changed()
+
     def _team(self, team_id: object) -> dict:
         if not isinstance(team_id, str):
             raise ValueError("Eine gültige teamId ist erforderlich.")
@@ -620,7 +632,9 @@ TEAM_LOBBY = TeamLobbyState()
 class OrderingState:
     """Persistent, server-authoritative state for collaborative ordering rounds."""
 
-    def __init__(self) -> None:
+    def __init__(self, state_file: Path) -> None:
+        self.state_file = state_file
+        self.temp_file = state_file.with_name(f".{state_file.name}.tmp")
         self.condition = threading.Condition()
         self.version = 0
         self.config_fingerprint = ""
@@ -633,10 +647,10 @@ class OrderingState:
         self._load()
 
     def _load(self) -> None:
-        if not ORDERING_FILE.exists():
+        if not self.state_file.exists():
             return
         try:
-            data = json.loads(ORDERING_FILE.read_text(encoding="utf-8"))
+            data = json.loads(self.state_file.read_text(encoding="utf-8"))
             if not isinstance(data, dict) or data.get("version") != 1:
                 return
             self.config_fingerprint = data.get("configFingerprint", "")
@@ -653,11 +667,11 @@ class OrderingState:
             "teams": self.teams, "completedQuestionIds": self.completed, "round": self.round,
         }
         encoded = (json.dumps(data, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
-        with ORDERING_TEMP_FILE.open("wb") as handle:
+        with self.temp_file.open("wb") as handle:
             handle.write(encoded)
             handle.flush()
             os.fsync(handle.fileno())
-        os.replace(ORDERING_TEMP_FILE, ORDERING_FILE)
+        os.replace(self.temp_file, self.state_file)
 
     def _changed_unlocked(self, persist: bool = True) -> None:
         if persist:
@@ -678,9 +692,24 @@ class OrderingState:
             self.completed = []
             self.round = None
             self.poll_connections = {}
-            ORDERING_FILE.unlink(missing_ok=True)
-            ORDERING_TEMP_FILE.unlink(missing_ok=True)
+            self.state_file.unlink(missing_ok=True)
+            self.temp_file.unlink(missing_ok=True)
             self._changed_unlocked(False)
+
+    def switch_storage(self, state_file: Path) -> None:
+        with self.condition:
+            self.state_file = state_file
+            self.temp_file = state_file.with_name(f".{state_file.name}.tmp")
+            self.config_fingerprint = ""
+            self.teams = []
+            self.teams_revision = ""
+            self.completed = []
+            self.round = None
+            self.connections = {}
+            self.poll_connections = {}
+            self._load()
+            self.version += 1
+            self.condition.notify_all()
 
     def configure(self, fingerprint: str, teams: list[str], question_ids: list[str]) -> None:
         if not fingerprint or not teams or not question_ids:
@@ -907,9 +936,10 @@ class OrderingState:
                 self._changed_unlocked(False)
 
 
-ORDERING = OrderingState()
-LISTING = ListingState(LISTING_FILE)
-SYNC = SyncState(SYNC_FILE)
+INACTIVE_SAVE_DIRECTORY = QUIZ_SAVE_DIRECTORY / ".inactive"
+ORDERING = OrderingState(QUIZ_LIBRARY.active_state_path("ordering-state.json") or INACTIVE_SAVE_DIRECTORY / "ordering-state.json")
+LISTING = ListingState(QUIZ_LIBRARY.active_state_path("listing-state.json") or INACTIVE_SAVE_DIRECTORY / "listing-state.json")
+SYNC = SyncState(QUIZ_LIBRARY.active_state_path("sync-state.json") or INACTIVE_SAVE_DIRECTORY / "sync-state.json")
 
 
 def validate_presentation_image(image: object, field: str) -> dict | None:
@@ -1253,13 +1283,38 @@ def live_state_snapshot(team_index: int | None = None, device_id: str | None = N
 
 
 def load_current_state() -> dict | None:
+    state_file = QUIZ_LIBRARY.active_state_path("game-state.json")
+    if state_file is None:
+        return None
     with STATE_LOCK:
-        if not STATE_FILE.exists():
+        if not state_file.exists():
             return None
         try:
-            return validate_state(json.loads(STATE_FILE.read_text(encoding="utf-8")))
+            return validate_state(json.loads(state_file.read_text(encoding="utf-8")))
         except (OSError, UnicodeError, json.JSONDecodeError, ValueError):
             return None
+
+
+def active_state_files() -> tuple[Path, Path]:
+    state_file = QUIZ_LIBRARY.active_state_path("game-state.json")
+    if state_file is None:
+        raise ValueError("Es ist kein Spielstand ausgewählt.")
+    return state_file, state_file.with_name(".game-state.tmp")
+
+
+def bind_active_slot() -> None:
+    directory = QUIZ_LIBRARY.active_directory()
+    if directory is None:
+        ORDERING.switch_storage(INACTIVE_SAVE_DIRECTORY / "ordering-state.json")
+        LISTING.switch_storage(INACTIVE_SAVE_DIRECTORY / "listing-state.json")
+        SYNC.switch_storage(INACTIVE_SAVE_DIRECTORY / "sync-state.json")
+    else:
+        ORDERING.switch_storage(directory / "ordering-state.json")
+        LISTING.switch_storage(directory / "listing-state.json")
+        SYNC.switch_storage(directory / "sync-state.json")
+    TEAM_LOBBY.reset()
+    BUZZER.sync_teams(load_current_state())
+    PRESENTATION.update({"screen": "standby", "title": "Quizshow", "teams": []})
 
 
 class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
@@ -1314,6 +1369,16 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.send_json(403, {"error": "Dieser Endpunkt ist nur auf dem Quiz-Host verfügbar."})
         return False
 
+    def require_active_slot(self) -> bool:
+        """Reject a host request made by a tab for a different save slot."""
+        requested = parse_qs(urlsplit(self.path).query).get("slot", [None])[0]
+        if requested is not None and requested == QUIZ_LIBRARY.active_slot_id():
+            return True
+        if getattr(self, "command", None) in {"POST", "PUT", "PATCH"}:
+            self.close_connection = True
+        self.send_json(409, {"error": "Der aktive Spielstand wurde gewechselt."})
+        return False
+
     def send_json(self, status: int, payload: object | None = None) -> None:
         body = b"" if payload is None else json.dumps(payload).encode("utf-8")
         self.send_response(status)
@@ -1332,6 +1397,18 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self) -> None:  # noqa: N802 - required by BaseHTTPRequestHandler
+        slot_scoped_host_paths = {
+            "/api/team-lobby/state", "/api/team-lobby/events",
+            "/api/sync/state", "/api/sync/events",
+            "/api/listing/state", "/api/listing/events",
+            "/api/ordering/state", "/api/ordering/events",
+            "/api/presentation/state", "/api/presentation/events",
+            "/api/buzzer/info", "/api/buzzer/state", "/api/buzzer/events",
+        }
+        if self.is_host and self.request_path in slot_scoped_host_paths:
+            requested_slot = parse_qs(urlsplit(self.path).query).get("slot", [None])[0]
+            if requested_slot is not None and not self.require_active_slot():
+                return
         if self.request_path == "/api/live-state":
             query = parse_qs(urlsplit(self.path).query)
             device_id = query.get("deviceId", [None])[0]
@@ -1519,6 +1596,13 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
         if self.request_path == "/api/buzzer/info":
             self.send_json(200, current_join_info())
             return
+        if self.request_path == "/api/quiz-library":
+            if not self.require_host():
+                return
+            snapshot = QUIZ_LIBRARY.snapshot()
+            snapshot["activeConfigUrl"] = QUIZ_LIBRARY.active_config_url()
+            self.send_json(200, snapshot)
+            return
         if self.request_path == "/api/buzzer/state":
             self.send_json(200, BUZZER.snapshot())
             return
@@ -1545,12 +1629,19 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
         if self.request_path == "/api/state":
             if not self.require_host():
                 return
+            if not self.require_active_slot():
+                return
+            try:
+                state_file, _ = active_state_files()
+            except ValueError as error:
+                self.send_json(409, {"error": str(error)})
+                return
             with STATE_LOCK:
-                if not STATE_FILE.exists():
+                if not state_file.exists():
                     self.send_json(404, {"error": "Es ist kein gespeichertes Spiel vorhanden."})
                     return
                 try:
-                    state = validate_state(json.loads(STATE_FILE.read_text(encoding="utf-8")))
+                    state = validate_state(json.loads(state_file.read_text(encoding="utf-8")))
                 except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as error:
                     self.send_json(500, {"error": f"Der gespeicherte Spielstand ist ungültig: {error}"})
                     return
@@ -1561,6 +1652,9 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
             "/listing-state.json", "/.listing-state.json.tmp", "/sync-state.json",
             "/.sync-state.json.tmp", "/server-questions.json",
         }:
+            self.send_error(404)
+            return
+        if self.request_path == "/.quiz-saves" or self.request_path.startswith("/.quiz-saves/"):
             self.send_error(404)
             return
         if not self.is_host:
@@ -1588,6 +1682,9 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_HEAD(self) -> None:  # noqa: N802 - required by BaseHTTPRequestHandler
+        if self.request_path == "/.quiz-saves" or self.request_path.startswith("/.quiz-saves/"):
+            self.send_error(404)
+            return
         allowed = {
             "/player", "/player.html", "/styles/player.css", "/js/player.js",
             "/buzzer", "/buzzer.html", "/styles/buzzer.css", "/js/buzzer.js",
@@ -1612,8 +1709,37 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
         super().do_HEAD()
 
     def do_POST(self) -> None:  # noqa: N802 - required by BaseHTTPRequestHandler
+        if self.request_path == "/api/quiz-library/control":
+            if not self.require_host():
+                return
+            try:
+                payload = self.read_json(MAX_PRESENTATION_BODY_BYTES)
+                action = payload.get("action")
+                if action == "create":
+                    QUIZ_LIBRARY.create(payload.get("name"), payload.get("configId"))
+                    bind_active_slot()
+                elif action == "activate":
+                    QUIZ_LIBRARY.activate(payload.get("slotId"))
+                    bind_active_slot()
+                elif action == "rename":
+                    QUIZ_LIBRARY.rename(payload.get("slotId"), payload.get("name"))
+                elif action == "delete":
+                    was_active = QUIZ_LIBRARY.delete(payload.get("slotId"))
+                    if was_active:
+                        bind_active_slot()
+                else:
+                    raise ValueError("Unbekannte Spielstand-Aktion.")
+            except (UnicodeError, json.JSONDecodeError, ValueError, OSError) as error:
+                self.send_json(400, {"error": str(error)})
+                return
+            snapshot = QUIZ_LIBRARY.snapshot()
+            snapshot["activeConfigUrl"] = QUIZ_LIBRARY.active_config_url()
+            self.send_json(200, snapshot)
+            return
         if self.request_path == "/api/final-export":
             if not self.require_host():
+                return
+            if not self.require_active_slot():
                 return
             try:
                 payload = self.read_json(MAX_FINAL_EXPORT_BODY_BYTES)
@@ -1641,6 +1767,8 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
         if self.request_path in {"/api/team-lobby/initialize", "/api/team-lobby/control"}:
             if not self.require_host():
+                return
+            if not self.require_active_slot():
                 return
             try:
                 payload = self.read_json(MAX_PRESENTATION_BODY_BYTES)
@@ -1677,6 +1805,8 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
         if self.request_path == "/api/sync/control":
             if not self.require_host():
                 return
+            if not self.require_active_slot():
+                return
             try:
                 payload = self.read_json(MAX_PRESENTATION_BODY_BYTES)
                 response = (SYNC.awards()
@@ -1697,6 +1827,8 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
         if self.request_path == "/api/listing/control":
             if not self.require_host():
                 return
+            if not self.require_active_slot():
+                return
             try:
                 payload = self.read_json(MAX_PRESENTATION_BODY_BYTES)
                 response = LISTING.awards() if payload.get("action") == "awards" else LISTING.control(payload)
@@ -1715,6 +1847,8 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
         if self.request_path == "/api/ordering/control":
             if not self.require_host():
+                return
+            if not self.require_active_slot():
                 return
             try:
                 payload = self.read_json(MAX_PRESENTATION_BODY_BYTES)
@@ -1735,6 +1869,8 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
         if self.request_path == "/api/buzzer/control":
             if not self.require_host():
                 return
+            if not self.require_active_slot():
+                return
             try:
                 payload = self.read_json()
                 response = BUZZER.control(payload.get("action"), payload.get("questionId"), payload.get("teamIndex"))
@@ -1749,6 +1885,8 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
         if self.request_path == "/api/presentation/state":
             if not self.require_host():
                 return
+            if not self.require_active_slot():
+                return
             try:
                 response = PRESENTATION.update(self.read_json(MAX_PRESENTATION_BODY_BYTES))
             except (UnicodeError, json.JSONDecodeError, ValueError) as error:
@@ -1761,6 +1899,8 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
         if not self.require_host():
             return
+        if not self.require_active_slot():
+            return
         try:
             content_length = int(self.headers.get("Content-Length", "0"))
         except ValueError:
@@ -1771,23 +1911,25 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         try:
-            state = validate_state(json.loads(self.rfile.read(content_length).decode("utf-8")))
+            state_file, state_temp_file = active_state_files()
+            payload = json.loads(self.rfile.read(content_length).decode("utf-8"))
+            state = validate_state(payload)
             encoded = (json.dumps(state, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
             with STATE_LOCK:
-                if STATE_FILE.exists():
+                if state_file.exists():
                     try:
-                        current = validate_state(json.loads(STATE_FILE.read_text(encoding="utf-8")))
+                        current = validate_state(json.loads(state_file.read_text(encoding="utf-8")))
                     except (OSError, UnicodeError, json.JSONDecodeError, ValueError):
                         current = None
                     if (current is not None and current["configFingerprint"] == state["configFingerprint"]
                             and current["revision"] > state["revision"]):
                         self.send_json(409, {"error": "Eine neuere Revision des Spielstands ist bereits gespeichert."})
                         return
-                with STATE_TEMP_FILE.open("wb") as state_file:
-                    state_file.write(encoded)
-                    state_file.flush()
-                    os.fsync(state_file.fileno())
-                os.replace(STATE_TEMP_FILE, STATE_FILE)
+                with state_temp_file.open("wb") as state_handle:
+                    state_handle.write(encoded)
+                    state_handle.flush()
+                    os.fsync(state_handle.fileno())
+                os.replace(state_temp_file, state_file)
         except (UnicodeError, json.JSONDecodeError, ValueError) as error:
             self.send_json(400, {"error": str(error)})
             return
@@ -1803,11 +1945,14 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
         if not self.require_host():
             return
+        if not self.require_active_slot():
+            return
         try:
+            state_file, state_temp_file = active_state_files()
             with STATE_LOCK:
-                STATE_FILE.unlink(missing_ok=True)
-                STATE_TEMP_FILE.unlink(missing_ok=True)
-        except OSError as error:
+                state_file.unlink(missing_ok=True)
+                state_temp_file.unlink(missing_ok=True)
+        except (OSError, ValueError) as error:
             self.send_json(500, {"error": f"Der Spielstand konnte nicht gelöscht werden: {error}"})
             return
         BUZZER.sync_teams(None)

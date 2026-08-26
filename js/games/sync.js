@@ -1,6 +1,7 @@
 import { publishSync } from "../presentation-host.js";
 import { state, applyAward, saveState } from "../store.js";
 import { renderScoreboard } from "../scoreboard.js";
+import { hostFetch, slotUrl } from "../slot-api.js";
 
 let root;
 let content;
@@ -10,7 +11,7 @@ let events;
 let ticker;
 
 async function request(action, extra = {}) {
-  const response = await fetch("/api/sync/control", {
+  const response = await hostFetch("/api/sync/control", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action, ...extra })
@@ -216,8 +217,8 @@ export async function mount(element) {
     questionIds: state.config.games.sync.questions.map((question) => question.id)
   });
   await publishSync();
-  render(await fetch("/api/sync/state", { cache: "no-store" }).then((response) => response.json()));
-  events = new EventSource("/api/sync/events");
+  render(await hostFetch("/api/sync/state", { cache: "no-store" }).then((response) => response.json()));
+  events = new EventSource(slotUrl("/api/sync/events"));
   events.addEventListener("state", (event) => {
     render(JSON.parse(event.data));
     publishSync().catch(() => undefined);

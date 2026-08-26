@@ -1,7 +1,9 @@
 import { GAME_CATALOG, hasConfiguredGame } from "./game-catalog.js";
+import { hostFetch } from "./slot-api.js";
 
 export const state = {
   config: null,
+  library: null,
   configFingerprint: "",
   teams: [],
   usedTiles: new Set(),
@@ -269,7 +271,7 @@ function validateSavedState(saved) {
 }
 
 async function loadSavedState() {
-  const response = await fetch("/api/state", { cache: "no-store" });
+  const response = await hostFetch("/api/state", { cache: "no-store" });
   if (response.status === 404) return null;
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) return { invalid: true, configFingerprint: "", error: payload.error || `HTTP ${response.status}` };
@@ -281,6 +283,14 @@ export async function loadQuizConfig(configUrl = "questions.json") {
   const response = await fetch(configUrl, { cache: "no-store" });
   if (!response.ok) throw new Error(`${configUrl} konnte nicht geladen werden (HTTP ${response.status}).`);
   return validateConfig(await response.json());
+}
+
+export async function loadQuizLibrary() {
+  const response = await fetch("/api/quiz-library", { cache: "no-store" });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+  state.library = payload;
+  return payload;
 }
 
 export async function loadApplicationData(configUrl = "questions.json") {
@@ -310,7 +320,7 @@ export function saveState() {
   if (!state.gameStarted) return state.saveChain;
   const snapshot = stateSnapshot();
   state.saveChain = state.saveChain.catch(() => undefined).then(async () => {
-    const response = await fetch("/api/state", {
+    const response = await hostFetch("/api/state", {
       method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(snapshot)
     });
     if (!response.ok) {
@@ -323,7 +333,7 @@ export function saveState() {
 }
 
 export async function deleteSavedState() {
-  const response = await fetch("/api/state", { method: "DELETE" });
+  const response = await hostFetch("/api/state", { method: "DELETE" });
   if (!response.ok) {
     const detail = await response.json().catch(() => ({}));
     throw new Error(detail.error || `HTTP ${response.status}`);

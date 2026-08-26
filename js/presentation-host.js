@@ -1,5 +1,6 @@
 import { state } from "./store.js";
 import { configuredGameIds } from "./game-catalog.js";
+import { hostFetch } from "./slot-api.js";
 
 let publishChain = Promise.resolve();
 let latestPresentation = null;
@@ -51,7 +52,7 @@ export function publishPresentation(snapshot) {
   const nextPresentation = { ...snapshot, audioSettings };
   latestPresentation = nextPresentation;
   publishChain = publishChain.catch(() => undefined).then(async () => {
-    const response = await fetch("/api/presentation/state", {
+    const response = await hostFetch("/api/presentation/state", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(nextPresentation)
@@ -80,7 +81,7 @@ export async function setDisplayAudioSettings(nextSettings) {
   try { localStorage.setItem(AUDIO_SETTINGS_STORAGE_KEY, JSON.stringify(audioSettings)); }
   catch (error) { console.warn("Could not persist display audio settings:", error); }
   if (latestPresentation) return publishPresentation({ ...latestPresentation, audioSettings });
-  const response = await fetch("/api/presentation/state", { cache: "no-store" });
+  const response = await hostFetch("/api/presentation/state", { cache: "no-store" });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const { version: _version, ...current } = await response.json();
   return publishPresentation({ ...current, audioSettings });
@@ -139,7 +140,7 @@ export function publishSync() {
 
 export async function setJoinOverlay(joinUrl = null) {
   joinOverlay = typeof joinUrl === "string" && joinUrl ? { joinUrl } : null;
-  const response = await fetch("/api/presentation/state", { cache: "no-store" });
+  const response = await hostFetch("/api/presentation/state", { cache: "no-store" });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const { version: _version, ...current } = await response.json();
   return publishPresentation({ ...current, joinOverlay });
