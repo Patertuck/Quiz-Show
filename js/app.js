@@ -2,8 +2,7 @@ import { state, loadApplicationData, stateSnapshot, resumeRuntime, saveState, se
 import { initializeScoreboard, renderScoreboard, setScoreboard, updateScoreControls } from "./scoreboard.js";
 import { initializeHostControls } from "./host-controls.js";
 import * as setup from "./views/setup.js";
-import * as intro from "./views/intro.js";
-import * as warmup from "./views/warmup.js";
+import * as start from "./views/start.js";
 import * as hub from "./views/hub.js";
 import * as jeopardy from "./games/jeopardy.js";
 import * as ordering from "./games/ordering.js";
@@ -18,9 +17,8 @@ initializeScoreboard(scoreboardElement);
 initializeHostControls({ navigate, requestEndGame });
 
 const routes = {
+  start: { template: "views/start.html", controller: start, scoreboard: "hidden", requiresGame: false, hostControls: "hidden" },
   setup: { template: "views/setup.html", controller: setup, scoreboard: "hidden", requiresGame: false, hostControls: "hidden" },
-  intro: { template: "views/intro.html", controller: intro, scoreboard: "hidden", requiresGame: false, hostControls: "audio" },
-  warmup: { template: "views/warmup.html", controller: warmup, scoreboard: "hidden", requiresGame: true, hostControls: "audio" },
   hub: { template: "views/hub.html", controller: hub, scoreboard: "standings", requiresGame: true },
   jeopardy: { template: "views/jeopardy.html", controller: jeopardy, scoreboard: "game", requiresGame: true },
   ordering: { template: "views/ordering.html", controller: ordering, scoreboard: "standings", requiresGame: true },
@@ -34,7 +32,10 @@ let cleanup;
 let navigationId = 0;
 
 function routeName() {
-  return location.hash.replace(/^#\/?/, "").split("/")[0] || "setup";
+  const requested = location.hash.replace(/^#\/?/, "").split("/")[0] || "start";
+  if (requested === "intro") return "start";
+  if (requested === "warmup") return state.gameStarted || state.savedState?.gameStarted ? "hub" : "start";
+  return requested;
 }
 
 export function navigate(name) {
@@ -126,11 +127,11 @@ try {
   const requestedRoute = routeName();
   const saved = state.savedState;
   const compatibleSave = saved && !saved.invalid && saved.configFingerprint === state.configFingerprint;
-  if (!["setup", "intro"].includes(requestedRoute) && compatibleSave) {
+  if (!["setup", "start"].includes(requestedRoute) && compatibleSave) {
     resumeRuntime(saved.teams);
     renderScoreboard();
   }
-  if (!location.hash) navigate("intro");
+  if (!location.hash) navigate("start");
   else await renderRoute();
 } catch (error) {
   console.error(error);

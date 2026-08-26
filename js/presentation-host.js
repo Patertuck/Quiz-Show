@@ -70,10 +70,6 @@ export function publishStandby() {
   return publishPresentation(base("standby"));
 }
 
-export function publishIntro(headsVisible = false) {
-  return publishPresentation({ ...base("intro"), headsVisible });
-}
-
 export function getDisplayAudioSettings() {
   return { ...audioSettings };
 }
@@ -91,12 +87,6 @@ export async function setDisplayAudioSettings(nextSettings) {
 
 export function publishTeamLobby(joinUrl) {
   return publishPresentation({ ...base("team-lobby"), joinUrl });
-}
-
-export function publishWarmupQuestion(questionIndex, questionCount, questionText, concealedImageCount = 0) {
-  return publishPresentation({
-    ...base("warmup-question"), questionIndex, questionCount, questionText, concealedImageCount
-  });
 }
 
 export function publishHub(highlightedGame = null) {

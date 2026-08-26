@@ -51,7 +51,7 @@ MAX_FINAL_EXPORT_BODY_BYTES = 25_000_000
 MAX_FINAL_EXPORT_PNG_BYTES = 8_000_000
 FINAL_EXPORT_DIRECTORY = PROJECT_DIRECTORY / "output"
 FINAL_EXPORT_LOCK = threading.Lock()
-PRESENTATION_SCREENS = {"standby", "intro", "team-lobby", "warmup-question", "hub", "jeopardy-board", "jeopardy-question", "ordering", "listing", "sync", "victory", "score-history"}
+PRESENTATION_SCREENS = {"standby", "team-lobby", "hub", "jeopardy-board", "jeopardy-question", "ordering", "listing", "sync", "victory", "score-history"}
 HUB_GAME_IDS = {"jeopardy", "ordering", "listing", "sync"}
 QUICK_TUNNEL_PATTERN = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com", re.IGNORECASE)
 PUBLIC_URL_LOCK = threading.Lock()
@@ -979,34 +979,11 @@ def validate_presentation(payload: object) -> dict:
         if highlighted_game is not None and highlighted_game not in HUB_GAME_IDS:
             raise ValueError("Highlighted hub game is invalid.")
         clean["highlightedGame"] = highlighted_game
-    elif payload["screen"] == "intro":
-        heads_visible = payload.get("headsVisible")
-        if not isinstance(heads_visible, bool):
-            raise ValueError("Intro headsVisible must be a boolean.")
-        clean["headsVisible"] = heads_visible
     elif payload["screen"] == "team-lobby":
         join_url = payload.get("joinUrl")
         if not isinstance(join_url, str) or not re.fullmatch(r"https?://[^/\s]+/player", join_url):
             raise ValueError("Team lobby join URL is invalid.")
         clean["joinUrl"] = join_url
-    elif payload["screen"] == "warmup-question":
-        question_index = payload.get("questionIndex")
-        question_count = payload.get("questionCount")
-        question_text = payload.get("questionText")
-        concealed_image_count = payload.get("concealedImageCount")
-        if (not isinstance(question_index, int) or isinstance(question_index, bool)
-                or not isinstance(question_count, int) or isinstance(question_count, bool)
-                or question_count <= 0 or question_index < 0 or question_index >= question_count):
-            raise ValueError("Warm-up question position is invalid.")
-        if not isinstance(question_text, str) or not question_text.strip() or len(question_text) > 500:
-            raise ValueError("Warm-up question text is invalid.")
-        if (not isinstance(concealed_image_count, int) or isinstance(concealed_image_count, bool)
-                or concealed_image_count < 0 or concealed_image_count > 3):
-            raise ValueError("Concealed image count is invalid.")
-        clean.update({
-            "questionIndex": question_index, "questionCount": question_count,
-            "questionText": question_text, "concealedImageCount": concealed_image_count,
-        })
     elif payload["screen"] == "jeopardy-board":
         board = payload.get("board")
         if not isinstance(board, dict):
@@ -1584,7 +1561,7 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
             allowed = {
                 "/player", "/player.html", "/styles/player.css", "/js/player.js",
                 "/buzzer", "/buzzer.html", "/styles/buzzer.css", "/js/buzzer.js",
-                "/display", "/display.html", "/styles/display.css", "/styles/sync.css", "/js/display.js", "/js/intro-heads.js",
+                "/display", "/display.html", "/styles/display.css", "/styles/sync.css", "/js/display.js",
                 "/js/display-score-animation.js", "/js/display-sounds.js", "/js/score-history-chart.js", "/js/live-state.js", "/js/fit-text.js",
             }
             if self.request_path not in allowed and not self.request_path.startswith("/assets/"):
@@ -1607,7 +1584,7 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
         allowed = {
             "/player", "/player.html", "/styles/player.css", "/js/player.js",
             "/buzzer", "/buzzer.html", "/styles/buzzer.css", "/js/buzzer.js",
-            "/display", "/display.html", "/styles/display.css", "/styles/sync.css", "/js/display.js", "/js/intro-heads.js",
+            "/display", "/display.html", "/styles/display.css", "/styles/sync.css", "/js/display.js",
             "/js/display-score-animation.js", "/js/display-sounds.js", "/js/score-history-chart.js", "/js/live-state.js", "/js/fit-text.js",
         }
         if not self.is_host and self.request_path not in allowed and not self.request_path.startswith("/assets/"):

@@ -2,7 +2,6 @@ import { animateScoreDistribution } from "./display-score-animation.js";
 import qrcode from "../assets/vendor/qrcode.js";
 import { startLivePolling, usesQuickTunnelPolling } from "./live-state.js";
 import { scheduleTextFit } from "./fit-text.js";
-import { createIntroHeads } from "./intro-heads.js";
 import { createScoreHistoryChart } from "./score-history-chart.js";
 import {
   playBuzzerSound,
@@ -37,7 +36,6 @@ let syncState = null;
 let teamLobbyState = null;
 let highlightedLobbyTeamIds = new Set();
 let orderingTicker;
-let stopIntroHeads = null;
 let listingTicker;
 let syncTicker;
 let activeGameEventSource = null;
@@ -113,32 +111,8 @@ function scoreboard(teams) {
 function standby() {
   const screen = element("section", "display-screen display-standby");
   const content = element("div", "display-standby-content");
-  content.append(
-    logoImage("display-standby-logo"),
-    element("h1", "", presentation.title),
-    element("p", "", "Warten auf das nächste Spiel")
-  );
+  content.append(logoImage("display-standby-logo"));
   screen.append(content);
-  return screen;
-}
-
-function intro() {
-  const screen = element("section", "display-screen display-intro");
-  const background = element("video", "display-intro-background");
-  background.src = "assets/Logos/background animation loop.mp4";
-  background.autoplay = true;
-  background.muted = true;
-  background.loop = true;
-  background.playsInline = true;
-  background.setAttribute("aria-hidden", "true");
-  const logo = element("video", "display-intro-logo");
-  logo.src = "assets/Logos/Logo_animated_alpha.webm";
-  logo.autoplay = true;
-  logo.muted = true;
-  logo.loop = true;
-  logo.playsInline = true;
-  logo.setAttribute("aria-hidden", "true");
-  screen.append(background, logo);
   return screen;
 }
 
@@ -171,27 +145,6 @@ function teamLobby() {
     roster.append(element("p", "display-team-lobby-empty", "Noch keine Teams vorhanden"));
   }
   screen.append(heading, join, roster);
-  return screen;
-}
-
-function warmupQuestion() {
-  const screen = element("section", "display-screen display-warmup");
-  screen.append(element("h1", "display-warmup-question", presentation.questionText));
-  if (presentation.concealedImageCount) {
-    const images = element("div", "display-warmup-concealed-images");
-    for (let index = 0; index < presentation.concealedImageCount; index += 1) {
-      const placeholder = element("div", "display-warmup-concealed-image");
-      placeholder.setAttribute("role", "img");
-      placeholder.setAttribute("aria-label", `Verdecktes Bild ${index + 1}`);
-      placeholder.append(
-        element("strong", "", "?"),
-        element("span", "", `Bild ${index + 1} verdeckt`)
-      );
-      images.append(placeholder);
-    }
-    screen.append(images);
-  }
-  scheduleTextFit(screen, ".display-warmup-question");
   return screen;
 }
 
@@ -797,15 +750,11 @@ function sceneKey() {
 
 function renderImmediately() {
   if (!presentation) return;
-  stopIntroHeads?.();
-  stopIntroHeads = null;
   document.title = `${presentation.title} — Publikumsansicht`;
   document.body.classList.toggle("with-scoreboard", ["hub", "jeopardy-board", "jeopardy-question", "ordering", "listing", "sync"].includes(presentation.screen));
   const renderers = {
     standby,
-    intro,
     "team-lobby": teamLobby,
-    "warmup-question": warmupQuestion,
     hub,
     "jeopardy-board": jeopardyBoard,
     "jeopardy-question": jeopardyQuestion,
@@ -816,9 +765,6 @@ function renderImmediately() {
     "score-history": scoreHistory
   };
   root.replaceChildren(renderers[presentation.screen]());
-  if (presentation.screen === "intro" && presentation.headsVisible) {
-    stopIntroHeads = createIntroHeads(root.querySelector(".display-intro"));
-  }
   if (document.body.classList.contains("with-scoreboard")) root.append(scoreboard(presentation.teams));
   if (presentation.joinOverlay?.joinUrl) {
     const overlay = element("aside", "display-join-overlay");
@@ -1147,7 +1093,6 @@ syncTicker = setInterval(() => {
 window.addEventListener("resize", () => {
   const board = root.querySelector(".display-board");
   if (board && presentation?.board) fitBoard(board, presentation.board.categories.length, presentation.board.values.length);
-  scheduleTextFit(root.querySelector(".display-warmup"), ".display-warmup-question");
   root.querySelectorAll(".display-listing-item").forEach((card) => {
     scheduleTextFit(card, ".display-listing-item-text");
   });
