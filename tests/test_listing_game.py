@@ -1,11 +1,9 @@
 import tempfile
 import time
 import unittest
-from io import BytesIO
 from pathlib import Path
-from unittest.mock import patch
 
-from listing_game import GroqClassifier, ListingState
+from listing_game import ListingState
 
 
 QUESTION = {
@@ -30,10 +28,10 @@ def wait_until(state, phase):
 
 
 class ListingStateTests(unittest.TestCase):
-    def make_state(self, classifier):
+    def make_state(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
-        state = ListingState(Path(temporary.name) / "listing-state.json", classifier)
+        state = ListingState(Path(temporary.name) / "listing-state.json")
         state.configure("fingerprint", ["Rot", "Blau"], ["pets"])
         return state
 
@@ -48,20 +46,8 @@ class ListingStateTests(unittest.TestCase):
             "submit": submit,
         })
 
-    def test_classification_review_ranking_and_awards(self):
-        def classifier(_question, entries):
-            verdicts = {
-                "Hund": ("correct", "hund", "Sicher ein Haustier."),
-                "Katze": ("uncertain", "katze", "Kontextabhängig."),
-                "Tiger": ("wrong", "tiger", "Wildtier."),
-            }
-            return [
-                {"id": entry["id"], "verdict": verdicts[entry["text"]][0],
-                 "canonical": verdicts[entry["text"]][1], "reason": verdicts[entry["text"]][2]}
-                for entry in entries
-            ], None
-
-        state = self.make_state(classifier)
+    def test_manual_review_ranking_and_awards(self):
+        state = self.make_state()
         state.start(QUESTION)
         self.submit(state, 0, ["Hund", "Katze", "Tiger", "hund"])
         self.submit(state, 1, ["Hund"], True)
@@ -69,18 +55,19 @@ class ListingStateTests(unittest.TestCase):
         snapshot = wait_until(state, "review")
         self.assertEqual(["Hund", "Katze", "Tiger"], snapshot["round"]["drafts"][0])
         self.assertNotIn("drafts", state.snapshot("public")["round"])
-        self.assertNotIn("reason", state.snapshot("public")["round"]["review"])
+        self.assertNotIn("reason", state.snapshot("host")["round"]["review"])
 
         queue_items = []
         while state.snapshot("host")["round"]["phase"] == "review":
             review = state.snapshot("host")["round"]["review"]
             queue_items.append(review["text"])
-            state.control({"action": "decide", "itemId": review["itemId"], "accepted": review["text"] == "Katze"})
+            state.control({"action": "decide", "itemId": review["itemId"],
+                           "accepted": review["text"] in {"Hund", "Katze"}})
             current = state.snapshot("host")["round"]
             if current["review"]["decidedCount"] == current["review"]["total"]:
                 state.control({"action": "finish-review"})
 
-        self.assertEqual(["Katze", "Tiger"], queue_items)
+        self.assertEqual(["Hund", "Katze", "Tiger", "Hund"], queue_items)
         results = state.snapshot("host")["round"]["results"]
         self.assertEqual(
             [(0, 2, 1, 300), (1, 1, 2, 200)],
@@ -105,47 +92,25 @@ class ListingStateTests(unittest.TestCase):
         self.assertEqual("listing:", awards["awardId"][:8])
         self.assertEqual([300, 200], [item["points"] for item in awards["awards"]])
 
-    def test_provider_failure_sends_every_item_to_review(self):
-        attempts = 0
-
-        def classifier(_question, entries):
-            nonlocal attempts
-            attempts += 1
-            if attempts == 1:
-                raise RuntimeError("offline")
-            return [
-                {"id": entry["id"], "verdict": "correct", "canonical": entry["text"].casefold(), "reason": "ok"}
-                for entry in entries
-            ], None
-
-        state = self.make_state(classifier)
+    def test_every_item_is_sent_to_manual_review(self):
+        state = self.make_state()
         state.start(QUESTION)
         self.submit(state, 0, ["Hund", "Katze"])
         state.control({"action": "lock"})
         snapshot = wait_until(state, "review")
         self.assertEqual(2, snapshot["round"]["review"]["total"])
-        self.assertIn("manuell geprüft", snapshot["round"]["warning"])
-        self.assertNotIn("offline", snapshot["round"]["warning"])
+        self.assertNotIn("warning", snapshot["round"])
         self.assertNotIn("warning", state.snapshot("public")["round"])
-        state.control({"action": "retry-ai"})
-        recovered = wait_until(state, "results")
-        self.assertEqual([2, 0], [item["acceptedCount"] for item in recovered["round"]["results"]])
 
     def test_empty_teams_receive_no_placement_points(self):
-        state = self.make_state(lambda _question, _entries: ([], None))
+        state = self.make_state()
         state.start(QUESTION)
         state.control({"action": "lock"})
         snapshot = wait_until(state, "results")
         self.assertEqual([0, 0], [item["points"] for item in snapshot["round"]["results"]])
 
     def test_review_decision_can_be_revisited(self):
-        def classifier(_question, entries):
-            return [
-                {"id": entry["id"], "verdict": "uncertain", "canonical": entry["text"].casefold(), "reason": "Unsicher"}
-                for entry in entries
-            ], None
-
-        state = self.make_state(classifier)
+        state = self.make_state()
         state.start(QUESTION)
         self.submit(state, 0, ["Katze", "Hund"])
         state.control({"action": "lock"})
@@ -161,20 +126,13 @@ class ListingStateTests(unittest.TestCase):
         self.assertEqual(2, state.snapshot("host")["round"]["results"][0]["acceptedCount"])
 
     def test_wrong_answer_can_count_as_minus_one_or_zero(self):
-        def classifier(_question, entries):
-            verdicts = {"Hund": "correct", "Stein": "wrong", "Holz": "wrong"}
-            return [
-                {"id": entry["id"], "verdict": verdicts[entry["text"]],
-                 "canonical": entry["text"].casefold(), "reason": "Test"}
-                for entry in entries
-            ], None
-
-        state = self.make_state(classifier)
+        state = self.make_state()
         state.start(QUESTION)
         self.submit(state, 0, ["Hund", "Stein"])
         self.submit(state, 1, ["Holz"])
         state.control({"action": "lock"})
         wait_until(state, "review")
+        state.control({"action": "decide", "itemId": "t0-i0", "countImpact": 1})
         state.control({"action": "decide", "itemId": "t0-i1", "countImpact": -1})
         state.control({"action": "decide", "itemId": "t1-i0", "countImpact": 0})
         state.control({"action": "finish-review"})
@@ -186,36 +144,27 @@ class ListingStateTests(unittest.TestCase):
         self.assertEqual("penalized", by_team[0]["items"][1]["status"])
         self.assertEqual("rejected", by_team[1]["items"][0]["status"])
 
-    def test_accepted_synonyms_are_visible_but_only_count_once(self):
-        def classifier(_question, entries):
-            return [
-                {"id": entry["id"], "verdict": "correct", "canonical": "hund", "reason": "ok"}
-                for entry in entries
-            ], None
-
-        state = self.make_state(classifier)
+    def test_duplicate_spelling_is_removed_before_review(self):
+        state = self.make_state()
         state.start(QUESTION)
-        self.submit(state, 0, ["Hund", "Köter"])
+        self.submit(state, 0, ["Hund", "hund"])
         state.control({"action": "lock"})
-        snapshot = wait_until(state, "results")
+        snapshot = wait_until(state, "review")
+        self.assertEqual(1, snapshot["round"]["review"]["total"])
+        state.control({"action": "decide", "itemId": "t0-i0", "countImpact": 1})
+        state.control({"action": "finish-review"})
+        snapshot = state.snapshot("host")
         result = snapshot["round"]["results"][0]
         self.assertEqual(1, result["acceptedCount"])
-        self.assertEqual(["counted", "duplicate"], [item["status"] for item in result["items"]])
+        self.assertEqual(["counted"], [item["status"] for item in result["items"]])
 
     def test_result_items_can_toggle_between_correct_and_wrong(self):
-        def classifier(_question, entries):
-            verdicts = {"Hund": "correct", "Stein": "wrong"}
-            return [
-                {"id": entry["id"], "verdict": verdicts[entry["text"]],
-                 "canonical": entry["text"].casefold(), "reason": "Test"}
-                for entry in entries
-            ], None
-
-        state = self.make_state(classifier)
+        state = self.make_state()
         state.start(QUESTION)
         self.submit(state, 0, ["Hund", "Stein"])
         state.control({"action": "lock"})
         wait_until(state, "review")
+        state.control({"action": "decide", "itemId": "t0-i0", "countImpact": 1})
         state.control({"action": "decide", "itemId": "t0-i1", "countImpact": 0})
         state.control({"action": "finish-review"})
 
@@ -230,21 +179,20 @@ class ListingStateTests(unittest.TestCase):
         self.assertEqual("counted", result["items"][1]["status"])
 
     def test_result_items_cannot_change_after_distribution(self):
-        state = self.make_state(lambda _question, entries: ([
-            {"id": entry["id"], "verdict": "correct", "canonical": entry["text"].casefold(), "reason": "ok"}
-            for entry in entries
-        ], None))
+        state = self.make_state()
         state.start(QUESTION)
         self.submit(state, 0, ["Hund"])
         state.control({"action": "lock"})
-        wait_until(state, "results")
+        wait_until(state, "review")
+        state.control({"action": "decide", "itemId": "t0-i0", "countImpact": 1})
+        state.control({"action": "finish-review"})
         state.control({"action": "confirm-distribution"})
 
         with self.assertRaisesRegex(ValueError, "Punkteverteilung"):
             state.control({"action": "toggle-result-item", "itemId": "t0-i0"})
 
     def test_result_navigation_rejects_invalid_positions(self):
-        state = self.make_state(lambda _question, _entries: ([], None))
+        state = self.make_state()
         state.start(QUESTION)
         state.control({"action": "lock"})
         wait_until(state, "results")
@@ -252,50 +200,12 @@ class ListingStateTests(unittest.TestCase):
             state.control({"action": "result-navigate", "teamPosition": 2})
 
     def test_completed_question_can_be_reopened(self):
-        state = self.make_state(lambda _question, _entries: ([], None))
+        state = self.make_state()
         state.completed.append("pets")
         state.control({"action": "reopen-question", "questionId": "pets"})
         self.assertNotIn("pets", state.snapshot("host")["completedQuestionIds"])
         state.start(QUESTION)
         self.assertEqual("active", state.snapshot("host")["round"]["phase"])
-
-
-class GroqClassifierTests(unittest.TestCase):
-    def test_request_uses_application_user_agent(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            config = Path(temporary) / "server-questions.json"
-            config.write_text('{"groqApiKey":"secret","groqModel":"openai/gpt-oss-20b"}', encoding="utf-8")
-            response_body = (
-                b'{"choices":[{"message":{"content":"'
-                b'{\\"items\\":{\\"a\\":{\\"verdict\\":\\"correct\\",'
-                b'\\"canonical\\":\\"hund\\",\\"reason\\":\\"ok\\"}}}"}}]}'
-            )
-
-            class Response:
-                def __enter__(self):
-                    return self
-
-                def __exit__(self, *_args):
-                    return False
-
-                def read(self):
-                    return BytesIO(response_body).read()
-
-            captured = {}
-
-            def fake_urlopen(request, timeout):
-                captured["user_agent"] = request.get_header("User-agent")
-                captured["timeout"] = timeout
-                return Response()
-
-            with patch("urllib.request.urlopen", fake_urlopen):
-                result, warning = GroqClassifier(config)(
-                    {"prompt": "Haustiere", "validationRule": "Übliche Haustiere"},
-                    [{"id": "a", "teamIndex": 0, "text": "Hund"}],
-                )
-            self.assertEqual("Quizshow/1.0 (+local-game)", captured["user_agent"])
-            self.assertEqual("correct", result[0]["verdict"])
-            self.assertIsNone(warning)
 
 
 if __name__ == "__main__":

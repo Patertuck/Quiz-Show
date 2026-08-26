@@ -8,9 +8,9 @@
 .listing-question-card { min-height: clamp(5rem, 16vh, 9rem); padding: clamp(.7rem, 2vh, 1.35rem); border: 2px solid #ffffff55; border-radius: 1rem; background: #ffffff17; color: #fff; font-size: clamp(1rem, 2.4vh, 1.4rem); font-weight: 800; }
 .listing-question-card:disabled { opacity: .45; }
 .listing-question-card.completed { cursor: context-menu; opacity: .45; }
-.listing-preview, .listing-live, .listing-classifying, .listing-review, .listing-result-panel { width: min(52rem, 100%); max-height: 100%; min-height: 0; padding: clamp(.75rem, 2vh, 1.5rem); overflow: hidden; border: 2px solid #ffffff38; border-radius: 1rem; background: #061d2ccc; box-shadow: 0 1rem 2rem #0005; text-align: center; }
-.listing-preview h2, .listing-live h2, .listing-classifying h2, .listing-result-panel h2 { margin: 0 0 clamp(.3rem, 1vh, .7rem); font-size: clamp(1.15rem, 3vh, 1.8rem); }
-.listing-preview p, .listing-classifying p { margin: clamp(.25rem, 1vh, .7rem) 0; }
+.listing-preview, .listing-live, .listing-review, .listing-result-panel { width: min(52rem, 100%); max-height: 100%; min-height: 0; padding: clamp(.75rem, 2vh, 1.5rem); overflow: hidden; border: 2px solid #ffffff38; border-radius: 1rem; background: #061d2ccc; box-shadow: 0 1rem 2rem #0005; text-align: center; }
+.listing-preview h2, .listing-live h2, .listing-result-panel h2 { margin: 0 0 clamp(.3rem, 1vh, .7rem); font-size: clamp(1.15rem, 3vh, 1.8rem); }
+.listing-preview p { margin: clamp(.25rem, 1vh, .7rem) 0; }
 .listing-preview-prompt { font-size: clamp(1rem, 2.4vh, 1.35rem); }
 .listing-preview details { margin: clamp(.4rem, 1vh, .8rem) 0; padding: clamp(.45rem, 1.2vh, .7rem); border-radius: .6rem; background: #ffffff12; text-align: left; }
 .listing-preview details p { max-height: 4.2em; overflow: hidden; font-size: clamp(.72rem, 1.6vh, .95rem); }
@@ -21,16 +21,11 @@
 .listing-team-statuses { display: grid; min-height: 0; grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); gap: clamp(.25rem, .7vh, .45rem); align-content: center; text-align: left; }
 .listing-team-statuses > div { min-width: 0; padding: clamp(.35rem, 1vh, .6rem) .7rem; overflow: hidden; border-radius: .5rem; background: #ffffff12; font-size: clamp(.68rem, 1.6vh, .9rem); text-overflow: ellipsis; white-space: nowrap; }
 .listing-team-statuses > .submitted { background: #1f9d6644; color: #baffdb; }
-.listing-classifying { display: grid; place-content: center; }
-.listing-spinner { width: clamp(2.8rem, 9vh, 4rem); aspect-ratio: 1; margin: 0 auto clamp(.5rem, 1.5vh, 1rem); border: clamp(.3rem, .8vh, .45rem) solid #ffffff35; border-top-color: var(--yellow); border-radius: 50%; animation: listing-spin .8s linear infinite; }
-@keyframes listing-spin { to { transform: rotate(360deg); } }
-.listing-review { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto auto auto; align-items: center; }
+.listing-review { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto auto; align-items: center; }
 .listing-review { overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; }
 .listing-review-progress { margin: 0; color: #b8dbe0; font-size: clamp(.72rem, 1.7vh, 1rem); font-weight: bold; }
 .listing-review-team { display: inline-block; justify-self: center; margin: clamp(.2rem, .7vh, .45rem); padding: .4rem 1rem; border: 2px solid #74d8d2; border-radius: 999px; background: #1b7480; box-shadow: 0 .25rem .7rem #0005; color: #fff; font-size: clamp(1rem, 2.3vh, 1.3rem); font-weight: 900; }
 .listing-review h2 { margin: clamp(.3rem, 1vh, .75rem) 0; padding-bottom: .12em; font-size: clamp(1.5rem, 5.5vh, 3.4rem); line-height: 1.2; overflow-wrap: anywhere; }
-.listing-ai-note { max-height: 3.3em; padding: clamp(.45rem, 1.2vh, .75rem); overflow: hidden; border-radius: .6rem; background: #ca8b1d33; color: #ffe5ad; font-size: clamp(.68rem, 1.6vh, .95rem); }
-.listing-ai-note.wrong { background: #b4283633; color: #ffc3c9; }
 .listing-accept { background: #168750; color: #fff; }
 .listing-reject { background: #ac2b38; color: #fff; }
 .listing-reject-neutral { background: #6d5960; color: #fff; }

@@ -123,7 +123,7 @@ function renderPreview() {
   details.textContent = `${question.timeLimitSeconds} Sekunden · maximal ${question.maxItems} Einträge · Platzierungspunkte ${question.placementPoints.join(" / ")}`;
   const rule = document.createElement("details");
   const summary = document.createElement("summary");
-  summary.textContent = "Private AI-Prüfregel";
+  summary.textContent = "Private Prüfregel";
   const ruleText = document.createElement("p");
   ruleText.textContent = question.validationRule;
   rule.append(summary, ruleText);
@@ -170,25 +170,9 @@ function renderActive(round) {
   content.replaceChildren(panel);
 }
 
-function renderClassifying(round) {
-  setStatus("Groq prüft die eingereichten Antworten.");
-  const panel = document.createElement("section");
-  panel.className = "listing-classifying";
-  const spinner = document.createElement("div");
-  spinner.className = "listing-spinner";
-  const title = document.createElement("h2");
-  title.textContent = "Antworten werden geprüft …";
-  const detail = document.createElement("p");
-  detail.textContent = "Sichere Antworten werden automatisch akzeptiert. Alles andere folgt in der manuellen Prüfung.";
-  panel.append(spinner, title, detail);
-  content.replaceChildren(panel);
-}
-
 function renderReview(round) {
   const review = round.review;
-  setStatus(round.warning
-    ? "AI-Prüfung nicht verfügbar. Alle Einträge werden manuell geprüft."
-    : `${review.decidedCount} von ${review.total} Entscheidungen getroffen.`);
+  setStatus(`${review.decidedCount} von ${review.total} Entscheidungen getroffen.`);
   const panel = document.createElement("section");
   panel.className = "listing-review";
   const progress = document.createElement("p");
@@ -199,9 +183,6 @@ function renderReview(round) {
   team.textContent = listingState.teams[review.teamIndex];
   const answer = document.createElement("h2");
   answer.textContent = review.text;
-  const ai = document.createElement("div");
-  ai.className = `listing-ai-note ${review.verdict}`;
-  ai.textContent = `AI: ${review.verdict === "wrong" ? "wahrscheinlich falsch" : "unsicher"} · ${review.reason}`;
   const decisions = document.createElement("div");
   decisions.className = "listing-decision-actions";
   decisions.append(
@@ -214,15 +195,12 @@ function renderReview(round) {
   );
   const navigation = document.createElement("div");
   navigation.className = "listing-actions";
-  if (round.warning) {
-    navigation.append(button("AI erneut versuchen", "secondary-button", () => request("retry-ai")));
-  }
   navigation.append(
     button("← Zurück", "secondary-button", () => request("navigate", { index: review.index - 1 }), review.index === 0),
     button("Weiter →", "secondary-button", () => request("navigate", { index: review.index + 1 }), review.index + 1 >= review.total),
     button("Prüfung abschliessen", "primary-button", () => request("finish-review"), review.decidedCount < review.total)
   );
-  panel.append(progress, team, answer, ai, decisions, navigation);
+  panel.append(progress, team, answer, decisions, navigation);
   content.replaceChildren(panel);
 }
 
@@ -315,7 +293,7 @@ function renderTeamResult(round) {
 }
 
 function renderRanking(round) {
-  setStatus(round.warning || (round.phase === "distributed" ? "Punkte wurden verteilt." : "Ergebnisse bereit."));
+  setStatus(round.phase === "distributed" ? "Punkte wurden verteilt." : "Ergebnisse bereit.");
   const panel = document.createElement("section");
   panel.className = "listing-result-panel";
   const title = document.createElement("h2");
@@ -353,7 +331,6 @@ function render(snapshot) {
   if (!round && selectedQuestion) renderPreview();
   else if (!round) renderOverview();
   else if (round.phase === "active") renderActive(round);
-  else if (round.phase === "classifying") renderClassifying(round);
   else if (round.phase === "review") renderReview(round);
   else renderResults(round);
 }

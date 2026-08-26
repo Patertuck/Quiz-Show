@@ -22,7 +22,7 @@ import webbrowser
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
-from listing_game import GroqClassifier, ListingState
+from listing_game import ListingState
 from sync_game import SyncState
 
 
@@ -36,7 +36,6 @@ ORDERING_FILE = PROJECT_DIRECTORY / "ordering-state.json"
 ORDERING_TEMP_FILE = PROJECT_DIRECTORY / ".ordering-state.tmp"
 LISTING_FILE = PROJECT_DIRECTORY / "listing-state.json"
 SYNC_FILE = PROJECT_DIRECTORY / "sync-state.json"
-SERVER_CONFIG_FILE = PROJECT_DIRECTORY / "server-config.json"
 MAX_STATE_BYTES = 1_000_000
 STATE_LOCK = threading.Lock()
 TILE_ID_PATTERN = re.compile(r"^\d+:\d+$")
@@ -819,7 +818,7 @@ class OrderingState:
 
 
 ORDERING = OrderingState()
-LISTING = ListingState(LISTING_FILE, GroqClassifier(SERVER_CONFIG_FILE))
+LISTING = ListingState(LISTING_FILE)
 SYNC = SyncState(SYNC_FILE)
 
 
