@@ -27,7 +27,7 @@ function reloadAt(path) {
 
 export async function mount(root) {
   if (state.gameStarted) await saveState();
-  await publishStandby();
+  if (state.library?.activeSlotId) await publishStandby();
   const groups = root.querySelector("#master-save-groups");
   const form = root.querySelector("#master-new-form");
   const nameInput = root.querySelector("#master-slot-name");
