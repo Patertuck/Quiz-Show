@@ -4,14 +4,18 @@ from __future__ import annotations
 
 import contextlib
 import argparse
+import base64
+import csv
 import hashlib
 import http.server
+import io
 import ipaddress
 import json
 import os
 import re
 import random
 import secrets
+import shutil
 import socket
 import socketserver
 import subprocess
@@ -19,7 +23,9 @@ import sys
 import threading
 import time
 import webbrowser
+from datetime import datetime
 from pathlib import Path
+import struct
 from urllib.parse import parse_qs, urlsplit
 
 from listing_game import ListingState
@@ -41,11 +47,94 @@ STATE_LOCK = threading.Lock()
 TILE_ID_PATTERN = re.compile(r"^\d+:\d+$")
 MAX_BUZZER_BODY_BYTES = 16_384
 MAX_PRESENTATION_BODY_BYTES = 262_144
+MAX_FINAL_EXPORT_BODY_BYTES = 25_000_000
+MAX_FINAL_EXPORT_PNG_BYTES = 8_000_000
+FINAL_EXPORT_DIRECTORY = PROJECT_DIRECTORY / "output"
+FINAL_EXPORT_LOCK = threading.Lock()
 PRESENTATION_SCREENS = {"standby", "intro", "team-lobby", "warmup-question", "hub", "jeopardy-board", "jeopardy-question", "ordering", "listing", "sync", "victory", "score-history"}
 HUB_GAME_IDS = {"jeopardy", "ordering", "listing", "sync"}
 QUICK_TUNNEL_PATTERN = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com", re.IGNORECASE)
 PUBLIC_URL_LOCK = threading.Lock()
 PUBLIC_BASE_URL: str | None = None
+
+FINAL_EXPORT_GAME_LABELS = {
+    "jeopardy": "Jeopardy",
+    "ordering": "Order Up",
+    "listing": "List It",
+    "sync": "Sync Up",
+}
+
+
+def _decode_export_png(value: object, field: str) -> bytes:
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"{field} fehlt.")
+    try:
+        image = base64.b64decode(value, validate=True)
+    except (ValueError, base64.binascii.Error) as error:
+        raise ValueError(f"{field} ist kein gültiges Base64-PNG.") from error
+    if len(image) > MAX_FINAL_EXPORT_PNG_BYTES:
+        raise ValueError(f"{field} ist zu gross.")
+    if len(image) < 24 or image[:8] != b"\x89PNG\r\n\x1a\n":
+        raise ValueError(f"{field} ist keine PNG-Datei.")
+    width, height = struct.unpack(">II", image[16:24])
+    if (width, height) != (1920, 1080):
+        raise ValueError(f"{field} muss 1920 × 1080 Pixel gross sein.")
+    return image
+
+
+def final_export_key(state: dict) -> str:
+    identity = {
+        "configFingerprint": state["configFingerprint"],
+        "teams": state["teams"],
+        "scoreHistory": state["scoreHistory"],
+    }
+    encoded = json.dumps(identity, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()[:12]
+
+
+def final_export_csv(state: dict) -> bytes:
+    teams = state["teams"]
+    output = io.StringIO(newline="")
+    writer = csv.writer(output, delimiter=";", lineterminator="\n")
+    header = ["Schritt", "Spiel"]
+    for team in teams:
+        header.extend([f"{team['name']} – Punktestand", f"{team['name']} – Veränderung"])
+    writer.writerow(header)
+    previous = None
+    for index, entry in enumerate(state["scoreHistory"]):
+        game = "Start" if index == 0 else FINAL_EXPORT_GAME_LABELS.get(entry.get("game"), "Frühere Punkte")
+        row: list[object] = [index, game]
+        for team_index, score in enumerate(entry["scores"]):
+            change = 0 if previous is None else score - previous[team_index]
+            row.extend([score, change])
+        writer.writerow(row)
+        previous = entry["scores"]
+    return output.getvalue().encode("utf-8-sig")
+
+
+def save_final_export(payload: dict, state: dict, directory: Path = FINAL_EXPORT_DIRECTORY) -> tuple[Path, bool]:
+    podium = _decode_export_png(payload.get("podiumPng"), "podiumPng")
+    score_history = _decode_export_png(payload.get("scoreHistoryPng"), "scoreHistoryPng")
+    export_key = final_export_key(state)
+    csv_bytes = final_export_csv(state)
+    with FINAL_EXPORT_LOCK:
+        directory.mkdir(parents=True, exist_ok=True)
+        existing = next(directory.glob(f"quizshow-*_{export_key}"), None)
+        if existing is not None and existing.is_dir():
+            return existing, False
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        target = directory / f"quizshow-{timestamp}_{export_key}"
+        temporary = directory / f".export-{secrets.token_hex(8)}"
+        try:
+            temporary.mkdir()
+            (temporary / "podest.png").write_bytes(podium)
+            (temporary / "punkteverlauf.png").write_bytes(score_history)
+            (temporary / "punkteverlauf.csv").write_bytes(csv_bytes)
+            os.replace(temporary, target)
+        except Exception:
+            shutil.rmtree(temporary, ignore_errors=True)
+            raise
+    return target, True
 
 
 def set_public_base_url(url: str | None) -> None:
@@ -1537,6 +1626,25 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
         super().do_HEAD()
 
     def do_POST(self) -> None:  # noqa: N802 - required by BaseHTTPRequestHandler
+        if self.request_path == "/api/final-export":
+            if not self.require_host():
+                return
+            try:
+                payload = self.read_json(MAX_FINAL_EXPORT_BODY_BYTES)
+                state = load_current_state()
+                if state is None:
+                    self.send_json(409, {"error": "Es ist kein gültiger Spielstand für den Export gespeichert."})
+                    return
+                target, created = save_final_export(payload, state)
+            except (UnicodeError, json.JSONDecodeError, ValueError) as error:
+                self.send_json(400, {"error": str(error)})
+                return
+            except OSError as error:
+                self.send_json(500, {"error": f"Der Endspiel-Export konnte nicht gespeichert werden: {error}"})
+                return
+            relative = target.relative_to(PROJECT_DIRECTORY)
+            self.send_json(200, {"saved": True, "created": created, "directory": str(relative)})
+            return
         if self.request_path == "/api/team-lobby/player":
             try:
                 status, response = TEAM_LOBBY.player_control(self.read_json(MAX_PRESENTATION_BODY_BYTES))

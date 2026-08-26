@@ -10,3 +10,4 @@ server-config.json
 questions.json
 __pycache__/
 /assets/reverse-songs/
+output/

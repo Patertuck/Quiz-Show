@@ -1,6 +1,7 @@
 import { state, saveState } from "../store.js";
 import { publishScoreHistory, publishVictory } from "../presentation-host.js";
 import { createScoreHistoryChart } from "../score-history-chart.js";
+import { exportFinalResults } from "../final-export.js";
 
 export async function mount(root) {
   await saveState().catch((error) => console.error("Could not save before final standings:", error));
@@ -8,6 +9,9 @@ export async function mount(root) {
   const reveals = root.querySelector("#standing-reveals");
   const podium = root.querySelector("#podium");
   const confetti = root.querySelector("#confetti");
+  const exportStatus = root.querySelector("#final-export-status");
+  const exportStatusText = exportStatus.querySelector("span");
+  const exportRetry = exportStatus.querySelector("button");
   const sorted = [...state.teams]
     .map((team, originalIndex) => ({ ...team, originalIndex }))
     .sort((a, b) => b.score - a.score || a.originalIndex - b.originalIndex);
@@ -67,6 +71,31 @@ export async function mount(root) {
 
   let stepIndex = 0;
   let graphShown = false;
+  let exportRunning = false;
+  let statusTimer;
+  async function runFinalExport() {
+    if (exportRunning) return;
+    exportRunning = true;
+    clearTimeout(statusTimer);
+    exportStatus.hidden = false;
+    exportRetry.hidden = true;
+    exportStatusText.textContent = "Endspiel-Export wird gespeichert …";
+    try {
+      const result = await exportFinalResults(state.teams, state.scoreHistory);
+      exportStatusText.textContent = `${result.created ? "Export gespeichert" : "Export bereits vorhanden"}: ${result.directory}`;
+      statusTimer = setTimeout(() => { exportStatus.hidden = true; }, 9000);
+    } catch (error) {
+      console.error("Could not export final results:", error);
+      exportStatusText.textContent = `Export fehlgeschlagen: ${error.message}`;
+      exportRetry.hidden = false;
+    } finally {
+      exportRunning = false;
+    }
+  }
+  exportRetry.addEventListener("click", (event) => {
+    event.stopPropagation();
+    runFinalExport();
+  });
   function createConfetti() {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     confetti.replaceChildren(...Array.from({ length: 100 }, (_, index) => {
@@ -83,7 +112,7 @@ export async function mount(root) {
     }));
   }
   function advance(event) {
-    if (event.target.closest(".back-to-hub")) return;
+    if (event.target.closest(".back-to-hub, #final-export-status")) return;
     const step = steps[stepIndex];
     if (!step) {
       if (graphShown || stepIndex < steps.length) return;
@@ -100,9 +129,15 @@ export async function mount(root) {
     step.classList.add("is-revealed");
     stepIndex += 1;
     publishVictory(presentationSteps, stepIndex).catch(() => undefined);
-    if (step.dataset.rank === "1") createConfetti();
+    if (step.dataset.rank === "1") {
+      createConfetti();
+      runFinalExport();
+    }
   }
   publishVictory(presentationSteps, 0).catch(() => undefined);
   view.addEventListener("click", advance);
-  return () => view.removeEventListener("click", advance);
+  return () => {
+    clearTimeout(statusTimer);
+    view.removeEventListener("click", advance);
+  };
 }
