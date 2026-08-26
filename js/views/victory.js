@@ -8,7 +8,6 @@ export async function mount(root) {
   const view = root.querySelector("#victory-view");
   const reveals = root.querySelector("#standing-reveals");
   const podium = root.querySelector("#podium");
-  const confetti = root.querySelector("#confetti");
   const exportStatus = root.querySelector("#final-export-status");
   const exportStatusText = exportStatus.querySelector("span");
   const exportRetry = exportStatus.querySelector("button");
@@ -96,21 +95,6 @@ export async function mount(root) {
     event.stopPropagation();
     runFinalExport();
   });
-  function createConfetti() {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    confetti.replaceChildren(...Array.from({ length: 100 }, (_, index) => {
-      const piece = document.createElement("i");
-      const duration = 2400 + Math.random() * 1800;
-      piece.className = "confetti-piece";
-      piece.style.setProperty("--confetti-left", `${Math.random() * 100}%`);
-      piece.style.setProperty("--confetti-size", `${6 + Math.random() * 8}px`);
-      piece.style.setProperty("--confetti-hue", String((index * 43) % 360));
-      piece.style.setProperty("--confetti-drift", `${-18 + Math.random() * 36}vw`);
-      piece.style.setProperty("--confetti-delay", `${Math.random() * duration}ms`);
-      piece.style.setProperty("--confetti-duration", `${duration}ms`);
-      return piece;
-    }));
-  }
   function advance(event) {
     if (event.target.closest(".back-to-hub, #final-export-status")) return;
     const step = steps[stepIndex];
@@ -120,7 +104,6 @@ export async function mount(root) {
       view.classList.add("score-history-mode");
       reveals.hidden = true;
       podium.hidden = true;
-      confetti.replaceChildren();
       view.querySelector(":scope > h1").hidden = true;
       view.append(createScoreHistoryChart(state.teams, state.scoreHistory));
       publishScoreHistory(state.scoreHistory).catch(() => undefined);
@@ -130,7 +113,6 @@ export async function mount(root) {
     stepIndex += 1;
     publishVictory(presentationSteps, stepIndex).catch(() => undefined);
     if (step.dataset.rank === "1") {
-      createConfetti();
       runFinalExport();
     }
   }

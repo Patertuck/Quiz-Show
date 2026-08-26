@@ -84,6 +84,7 @@ def _decode_export_png(value: object, field: str) -> bytes:
 
 def final_export_key(state: dict) -> str:
     identity = {
+        "formatVersion": 2,
         "configFingerprint": state["configFingerprint"],
         "teams": state["teams"],
         "scoreHistory": state["scoreHistory"],

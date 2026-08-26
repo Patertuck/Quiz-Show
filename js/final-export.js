@@ -78,44 +78,46 @@ function createPodiumSvg(teams) {
     groups.get(team.rank).push(team);
   });
   const lowerRanks = [...groups.entries()].filter(([rank]) => rank > 3).sort(([a], [b]) => a - b);
-  const columns = Math.min(3, Math.max(1, lowerRanks.length));
-  const rows = Math.ceil(lowerRanks.length / columns);
-  const cardWidth = columns === 1 ? 900 : columns === 2 ? 760 : 560;
-  const cardHeight = Math.min(64, 230 / Math.max(1, rows));
+  const standingWidth = 1040;
+  const standingHeight = Math.min(58, 245 / Math.max(1, lowerRanks.length));
+  const standingGap = 10;
+  const standingsHeight = lowerRanks.length * standingHeight + Math.max(0, lowerRanks.length - 1) * standingGap;
+  const standingsTop = 135 + Math.max(0, (245 - standingsHeight) / 2);
   lowerRanks.forEach(([rank, members], index) => {
-    const row = Math.floor(index / columns);
-    const column = index % columns;
-    const rowColumns = Math.min(columns, lowerRanks.length - row * columns);
-    const totalWidth = rowColumns * cardWidth + (rowColumns - 1) * 24;
-    const x = (WIDTH - totalWidth) / 2 + column * (cardWidth + 24);
-    const y = 130 + row * (cardHeight + 12);
-    svg.append(svgNode("rect", { x, y, width: cardWidth, height: cardHeight, rx: 16, fill: "#080f35", "fill-opacity": 0.78, stroke: "#ffffff", "stroke-opacity": 0.28, "stroke-width": 2 }));
-    svg.append(svgNode("text", { x: x + 22, y: y + cardHeight * 0.64, fill: "#ffffff", "font-family": "Arial, sans-serif", "font-size": Math.min(28, cardHeight * 0.43), "font-weight": 700 }, `Platz ${rank}: ${members.map(({ name }) => name).join(" & ")}`));
-    svg.append(svgNode("text", { x: x + cardWidth - 22, y: y + cardHeight * 0.64, fill: "#fff45c", "font-family": "Arial, sans-serif", "font-size": Math.min(27, cardHeight * 0.42), "font-weight": 800, "text-anchor": "end" }, `${members[0].score.toLocaleString("de-CH")} Punkte`));
+    const x = (WIDTH - standingWidth) / 2;
+    const y = standingsTop + index * (standingHeight + standingGap);
+    const fontSize = Math.min(25, standingHeight * 0.42);
+    svg.append(svgNode("rect", { x, y, width: standingWidth, height: standingHeight, rx: 11, fill: "#080f35", "fill-opacity": 0.72, stroke: "#ffffff", "stroke-opacity": 0.3, "stroke-width": 2 }));
+    svg.append(svgNode("text", { x: x + 18, y: y + standingHeight * 0.64, fill: "#ffffff", "font-family": "Arial, sans-serif", "font-size": fontSize, "font-weight": 700 }, `Platz ${rank}: ${members.map(({ name }) => name).join(" & ")}`));
+    svg.append(svgNode("text", { x: x + standingWidth - 18, y: y + standingHeight * 0.64, fill: "#fff45c", "font-family": "Arial, sans-serif", "font-size": fontSize, "font-weight": 800, "text-anchor": "end" }, `${members[0].score.toLocaleString("de-CH")} Punkte`));
   });
 
-  const podiumTop = lowerRanks.length ? 420 : 230;
-  const bottom = 1030;
+  const bottom = 1016;
+  const podiumWidth = 1536;
+  const placeWidth = 475;
+  const placeGap = 30;
   const places = [
-    { rank: 2, x: 250, width: 460, height: 400, colors: ["#ffffff", "#aeb9ca"] },
-    { rank: 1, x: 730, width: 460, height: 550, colors: ["#fff6a5", "#e5ad26"] },
-    { rank: 3, x: 1210, width: 460, height: 320, colors: ["#e8b785", "#a95e31"] }
+    { rank: 2, height: 408, colors: ["#ffffff", "#aeb9ca"] },
+    { rank: 1, height: 552, colors: ["#fff6a5", "#e5ad26"] },
+    { rank: 3, height: 288, colors: ["#e8b785", "#a95e31"] }
   ];
+  const visiblePlaces = places.filter(({ rank }) => groups.has(rank));
+  const visibleWidth = visiblePlaces.length * placeWidth + Math.max(0, visiblePlaces.length - 1) * placeGap;
+  let placeX = (WIDTH - Math.min(podiumWidth, visibleWidth)) / 2;
   const defs = svg.querySelector("defs");
-  places.forEach(({ rank, x, width, height, colors }) => {
+  visiblePlaces.forEach(({ rank, height, colors }) => {
     const members = groups.get(rank);
-    if (!members) return;
-    const adjustedHeight = Math.min(height, bottom - podiumTop);
     const gradient = svgNode("linearGradient", { id: `rank-${rank}`, x1: 0, y1: 0, x2: 1, y2: 1 });
     gradient.append(svgNode("stop", { offset: "0%", "stop-color": colors[0] }), svgNode("stop", { offset: "100%", "stop-color": colors[1] }));
     defs.append(gradient);
-    const y = bottom - adjustedHeight;
-    svg.append(svgNode("rect", { x, y, width, height: adjustedHeight, rx: 24, fill: `url(#rank-${rank})` }));
-    svg.append(svgNode("text", { x: x + width / 2, y: y + 100, fill: "#10194f", "font-family": "Arial, sans-serif", "font-size": 92, "font-weight": 900, "text-anchor": "middle" }, rank));
-    appendWrappedText(svg, members.map(({ name }) => name).join(" & "), x + width / 2, y + 175, 24, {
-      fill: "#10194f", "font-family": "Arial, sans-serif", "font-size": 38, "font-weight": 900, "text-anchor": "middle"
+    const y = bottom - height;
+    svg.append(svgNode("rect", { x: placeX, y, width: placeWidth, height, rx: 18, fill: `url(#rank-${rank})` }));
+    svg.append(svgNode("text", { x: placeX + placeWidth / 2, y: y + 112, fill: "#10194f", "font-family": "Arial, sans-serif", "font-size": 92, "font-weight": 900, "text-anchor": "middle" }, rank));
+    appendWrappedText(svg, members.map(({ name }) => name).join(" & "), placeX + placeWidth / 2, y + 176, 27, {
+      fill: "#10194f", "font-family": "Arial, sans-serif", "font-size": 32, "font-weight": 900, "text-anchor": "middle"
     });
-    svg.append(svgNode("text", { x: x + width / 2, y: bottom - 38, fill: "#593800", "font-family": "Arial, sans-serif", "font-size": 31, "font-weight": 800, "text-anchor": "middle" }, `${members[0].score.toLocaleString("de-CH")} Punkte`));
+    svg.append(svgNode("text", { x: placeX + placeWidth / 2, y: bottom - 34, fill: "#593800", "font-family": "Arial, sans-serif", "font-size": 27, "font-weight": 800, "text-anchor": "middle" }, `${members[0].score.toLocaleString("de-CH")} Punkte`));
+    placeX += placeWidth + placeGap;
   });
   return svg;
 }

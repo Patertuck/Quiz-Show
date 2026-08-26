@@ -696,6 +696,23 @@ function sync() {
 
 function victory() {
   const screen = element("section", "display-screen display-victory");
+  const winnerIndex = presentation.steps.findIndex((step) => step.kind === "podium" && step.rank === 1);
+  if (winnerIndex >= 0 && presentation.revealedCount > winnerIndex) {
+    const confetti = element("div", "display-confetti");
+    confetti.setAttribute("aria-hidden", "true");
+    confetti.append(...Array.from({ length: 100 }, (_, index) => {
+      const piece = element("i", "display-confetti-piece");
+      const duration = 2400 + Math.random() * 1800;
+      piece.style.setProperty("--confetti-left", `${Math.random() * 100}%`);
+      piece.style.setProperty("--confetti-size", `${6 + Math.random() * 8}px`);
+      piece.style.setProperty("--confetti-hue", String((index * 43) % 360));
+      piece.style.setProperty("--confetti-drift", `${-18 + Math.random() * 36}vw`);
+      piece.style.setProperty("--confetti-delay", `${Math.random() * duration}ms`);
+      piece.style.setProperty("--confetti-duration", `${duration}ms`);
+      return piece;
+    }));
+    screen.append(confetti);
+  }
   screen.append(element("h1", "", "Endstand"));
   const standings = element("div", "display-standing-reveals");
   const podium = element("div", "display-podium");

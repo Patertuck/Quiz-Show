@@ -28,13 +28,9 @@
 .podium-rank { font-size: clamp(2rem, 6vw, 4.5rem); font-weight: 900; line-height: 1; }
 .podium-names { overflow-wrap: anywhere; font-size: clamp(0.85rem, 2.2vw, 1.4rem); font-weight: 900; }
 .podium-score { color: #593800; font-size: clamp(0.8rem, 1.8vw, 1.2rem); font-weight: bold; }
-#confetti { position: absolute; inset: 0; pointer-events: none; }
 #final-export-status { position: fixed; z-index: 20; right: 1.25rem; bottom: 1.25rem; max-width: min(38rem, calc(100vw - 2.5rem)); padding: 0.8rem 1rem; border: 2px solid rgb(255 255 255 / 35%); border-radius: 0.75rem; background: rgb(8 15 53 / 94%); color: #fff; box-shadow: 0 0.6rem 1.8rem rgb(0 0 0 / 35%); font-weight: 700; text-align: left; }
 #final-export-status button { margin-left: 0.75rem; padding: 0.45rem 0.7rem; background: var(--yellow); color: #10194f; }
-.confetti-piece { position: absolute; top: -8vh; left: var(--confetti-left); width: var(--confetti-size); height: calc(var(--confetti-size) * 1.7); background: hsl(var(--confetti-hue) 90% 62%); animation: confetti-fall var(--confetti-duration) linear var(--confetti-delay) infinite; }
 @keyframes victory-reveal { to { opacity: 1; transform: translateY(0) scale(1); } }
-@keyframes confetti-fall { to { transform: translate(var(--confetti-drift), 115vh) rotate(720deg); } }
 @media (prefers-reduced-motion: reduce) {
   .standing-reveal.is-revealed, .podium-place.is-revealed { animation: none; opacity: 1; transform: none; }
-  .confetti-piece { display: none; }
 }
