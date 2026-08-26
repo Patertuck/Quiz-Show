@@ -132,7 +132,7 @@ export async function mount(root) {
   }
 
   function renderBoard() {
-    const { categories, values } = state.config;
+    const { categories, values } = state.config.games.jeopardy;
     board.replaceChildren();
     board.style.gridTemplateColumns = `repeat(${categories.length}, minmax(0, 1fr))`;
     board.style.gridTemplateRows = `minmax(0, 1.1fr) repeat(${values.length}, minmax(0, 1fr))`;
@@ -179,8 +179,8 @@ export async function mount(root) {
     const width = board.clientWidth;
     const height = board.clientHeight;
     if (!width || !height) return;
-    const columnWidth = width / state.config.categories.length;
-    const rowHeight = height / (state.config.values.length + 1.1);
+    const columnWidth = width / state.config.games.jeopardy.categories.length;
+    const rowHeight = height / (state.config.games.jeopardy.values.length + 1.1);
     board.style.setProperty("--category-font-size", `${Math.max(6, Math.min(21, columnWidth * 0.15, rowHeight * 0.32))}px`);
     board.style.setProperty("--tile-font-size", `${Math.max(8, Math.min(35, columnWidth * 0.27, rowHeight * 0.48))}px`);
     board.style.setProperty("--board-gap", `${Math.max(1, Math.min(5, columnWidth * 0.02, rowHeight * 0.04))}px`);
@@ -270,9 +270,9 @@ export async function mount(root) {
 
   function displayQuestion() {
     const { categoryIndex, rowIndex, answerRevealed } = state.activeQuestion;
-    const category = state.config.categories[categoryIndex];
+    const category = state.config.games.jeopardy.categories[categoryIndex];
     const item = category.questions[rowIndex];
-    questionValue.textContent = `±${state.config.values[rowIndex].toLocaleString("de-CH")} Punkte`;
+    questionValue.textContent = `±${state.config.games.jeopardy.values[rowIndex].toLocaleString("de-CH")} Punkte`;
     renderMedia(questionContent, item.question, item.questionImage);
     renderMedia(answerContent, item.answer, item.answerImage);
     renderAudioControls(item, answerRevealed);
@@ -287,7 +287,7 @@ export async function mount(root) {
   }
 
   function openQuestion(tile, categoryIndex, rowIndex) {
-    state.activeValue = state.config.values[rowIndex];
+    state.activeValue = state.config.games.jeopardy.values[rowIndex];
     state.activeQuestion = { categoryIndex, rowIndex, answerRevealed: false };
     state.usedTiles.add(`${categoryIndex}:${rowIndex}`);
     setTileUsed(tile, true);
@@ -298,7 +298,7 @@ export async function mount(root) {
   }
 
   revealButton.addEventListener("click", () => {
-    const category = state.config.categories[state.activeQuestion.categoryIndex];
+    const category = state.config.games.jeopardy.categories[state.activeQuestion.categoryIndex];
     state.activeQuestion.answerRevealed = state.activeQuestion.answerRevealed
       ? !category.reviewQuestionAfterAnswer
       : true;
@@ -326,7 +326,7 @@ export async function mount(root) {
   const questionObserver = new ResizeObserver(fitQuestionText);
   questionObserver.observe(root.querySelector("#card-content"));
   if (state.activeQuestion) {
-    state.activeValue = state.config.values[state.activeQuestion.rowIndex];
+    state.activeValue = state.config.games.jeopardy.values[state.activeQuestion.rowIndex];
     updateScoreControls();
     displayQuestion();
   } else {

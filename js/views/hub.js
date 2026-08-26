@@ -1,6 +1,23 @@
 import { publishHub } from "../presentation-host.js";
+import { configuredGames } from "../game-catalog.js";
+import { state } from "../store.js";
 
 export function mount(root) {
+  const gameContainer = root.querySelector(".game-cards");
+  const games = configuredGames(state.config);
+  gameContainer.style.setProperty("--game-count", games.length);
+  gameContainer.style.setProperty("--game-width", `${games.length * 100}cqh`);
+  gameContainer.style.setProperty("--game-max-width", `${games.length * 24}rem`);
+  games.forEach((game) => {
+    const card = document.createElement("a");
+    card.className = "game-card";
+    card.href = `#/${game.id}`;
+    const image = document.createElement("img");
+    image.src = game.logo;
+    image.alt = game.label;
+    card.append(image);
+    gameContainer.append(card);
+  });
   const cards = [...root.querySelectorAll(".game-card")];
   let highlightedGame = null;
 

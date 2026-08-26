@@ -84,13 +84,13 @@ function renderOverview() {
   layout.className = "sync-overview";
   const prompts = document.createElement("div");
   prompts.className = "sync-question-grid";
-  state.config.syncUp.questions.forEach((question) => {
+  state.config.games.sync.questions.forEach((question) => {
     const complete = syncState.completedQuestionIds.includes(question.id);
     prompts.append(button(question.prompt, `sync-question-card${complete ? " completed" : ""}`, () => request("prepare", {
       question: {
         ...question,
-        timeLimitSeconds: state.config.syncUp.timeLimitSeconds,
-        pointsPerSync: state.config.syncUp.pointsPerSync
+        timeLimitSeconds: state.config.games.sync.timeLimitSeconds,
+        pointsPerSync: state.config.games.sync.pointsPerSync
       }
     }), complete));
   });
@@ -213,7 +213,7 @@ export async function mount(element) {
   await request("configure", {
     configFingerprint: state.configFingerprint,
     teams: state.teams.map((team) => team.name),
-    questionIds: state.config.syncUp.questions.map((question) => question.id)
+    questionIds: state.config.games.sync.questions.map((question) => question.id)
   });
   await publishSync();
   render(await fetch("/api/sync/state", { cache: "no-store" }).then((response) => response.json()));

@@ -4,6 +4,8 @@
     { "name": "Team 1", "startingScore": 0 },
     { "name": "Team 2", "startingScore": 0 }
   ],
+  "games": {
+  "jeopardy": {
   "values": [100, 200, 300, 400, 500],
   "categories": [
     {
@@ -56,7 +58,8 @@
         { "question": "What are the irises?", "answer": "These structures define eye color and control how much light enters the eye." }
       ]
     }
-  ],
+  ]
+  },
   "ordering": {
     "pointsPerCorrect": 100,
     "questions": [
@@ -103,7 +106,7 @@
       }
     ]
   },
-  "syncUp": {
+  "sync": {
     "timeLimitSeconds": 8,
     "pointsPerSync": 200,
     "questions": [
@@ -120,5 +123,6 @@
         "prompt": "Wer verliert am ehesten das Handy?"
       }
     ]
+  }
   }
 }

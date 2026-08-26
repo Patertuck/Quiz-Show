@@ -975,9 +975,15 @@ def validate_presentation(payload: object) -> dict:
             raise ValueError("Presentation join URL is invalid.")
         clean["joinOverlay"] = {"joinUrl": join_url}
     if payload["screen"] == "hub":
+        games = payload.get("games")
+        if (not isinstance(games, list) or not games
+                or any(not isinstance(game, str) or game not in HUB_GAME_IDS for game in games)
+                or len(games) != len(set(games))):
+            raise ValueError("Available hub games are invalid.")
         highlighted_game = payload.get("highlightedGame")
-        if highlighted_game is not None and highlighted_game not in HUB_GAME_IDS:
+        if highlighted_game is not None and highlighted_game not in games:
             raise ValueError("Highlighted hub game is invalid.")
+        clean["games"] = games
         clean["highlightedGame"] = highlighted_game
     elif payload["screen"] == "team-lobby":
         join_url = payload.get("joinUrl")
@@ -1563,6 +1569,7 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
                 "/buzzer", "/buzzer.html", "/styles/buzzer.css", "/js/buzzer.js",
                 "/display", "/display.html", "/styles/display.css", "/styles/sync.css", "/js/display.js",
                 "/js/display-score-animation.js", "/js/display-sounds.js", "/js/score-history-chart.js", "/js/live-state.js", "/js/fit-text.js",
+                "/js/game-catalog.js",
             }
             if self.request_path not in allowed and not self.request_path.startswith("/assets/"):
                 self.send_error(403, "Von einem anderen Gerät sind nur die Spieler- und Publikumsansicht verfügbar.")
@@ -1586,6 +1593,7 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
             "/buzzer", "/buzzer.html", "/styles/buzzer.css", "/js/buzzer.js",
             "/display", "/display.html", "/styles/display.css", "/styles/sync.css", "/js/display.js",
             "/js/display-score-animation.js", "/js/display-sounds.js", "/js/score-history-chart.js", "/js/live-state.js", "/js/fit-text.js",
+            "/js/game-catalog.js",
         }
         if not self.is_host and self.request_path not in allowed and not self.request_path.startswith("/assets/"):
             self.send_error(403, "Von einem anderen Gerät sind nur die Spieler- und Publikumsansicht verfügbar.")

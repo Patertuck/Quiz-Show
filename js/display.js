@@ -1,4 +1,5 @@
 import { animateScoreDistribution } from "./display-score-animation.js";
+import { gameDefinition } from "./game-catalog.js";
 import qrcode from "../assets/vendor/qrcode.js";
 import { startLivePolling, usesQuickTunnelPolling } from "./live-state.js";
 import { scheduleTextFit } from "./fit-text.js";
@@ -160,24 +161,21 @@ function receiveTeamLobbyState(nextState) {
   teamLobbyState = nextState;
 }
 
-const hubGames = [
-  { id: "jeopardy", src: "assets/Logos/Logo_Jeopardy.png", alt: "Jeopardy" },
-  { id: "ordering", src: "assets/Logos/Logo_Order_Up.png", alt: "Order Up" },
-  { id: "listing", src: "assets/Logos/Logo_List_It.png", alt: "List It" },
-  { id: "sync", src: "assets/Logos/Logo_Sync_Up.png", alt: "Sync Up" }
-];
-
 function hub() {
   const screen = element("section", "display-screen display-hub");
   screen.append(element("h1", "", presentation.title));
   const area = element("div", "display-hub-game-area");
   const games = element("div", "display-hub-games");
-  hubGames.forEach((game) => {
+  const availableGames = presentation.games.map(gameDefinition);
+  games.style.setProperty("--game-count", availableGames.length);
+  games.style.setProperty("--game-width", `${availableGames.length * 100}cqh`);
+  games.style.setProperty("--game-max-width", `${availableGames.length * 24}rem`);
+  availableGames.forEach((game) => {
     const card = element("div", `display-hub-game${presentation.highlightedGame === game.id ? " highlighted" : ""}`);
     card.dataset.game = game.id;
     const image = element("img");
-    image.src = game.src;
-    image.alt = game.alt;
+    image.src = game.logo;
+    image.alt = game.label;
     card.append(image);
     games.append(card);
   });

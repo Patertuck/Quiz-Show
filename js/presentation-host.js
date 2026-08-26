@@ -1,4 +1,5 @@
 import { state } from "./store.js";
+import { configuredGameIds } from "./game-catalog.js";
 
 let publishChain = Promise.resolve();
 let latestPresentation = null;
@@ -90,7 +91,7 @@ export function publishTeamLobby(joinUrl) {
 }
 
 export function publishHub(highlightedGame = null) {
-  return publishPresentation({ ...base("hub"), highlightedGame });
+  return publishPresentation({ ...base("hub"), games: configuredGameIds(state.config), highlightedGame });
 }
 
 export function publishJeopardy(highlightedTile = null) {
@@ -98,20 +99,20 @@ export function publishJeopardy(highlightedTile = null) {
     return publishPresentation({
       ...base("jeopardy-board"),
       board: {
-        categories: state.config.categories.map(({ name }) => name),
-        values: [...state.config.values],
+        categories: state.config.games.jeopardy.categories.map(({ name }) => name),
+        values: [...state.config.games.jeopardy.values],
         usedTiles: Array.from(state.usedTiles).sort(),
         highlightedTile
       }
     });
   }
   const { categoryIndex, rowIndex, answerRevealed } = state.activeQuestion;
-  const item = state.config.categories[categoryIndex].questions[rowIndex];
+  const item = state.config.games.jeopardy.categories[categoryIndex].questions[rowIndex];
   return publishPresentation({
     ...base("jeopardy-question"),
     question: {
       id: `${categoryIndex}:${rowIndex}`,
-      value: state.config.values[rowIndex],
+      value: state.config.games.jeopardy.values[rowIndex],
       question: typeof item.question === "string" ? item.question : null,
       questionImage: media(item.questionImage),
       questionAudio: audio(item.questionAudio),

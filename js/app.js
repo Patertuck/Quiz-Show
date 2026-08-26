@@ -9,6 +9,7 @@ import * as ordering from "./games/ordering.js";
 import * as listing from "./games/listing.js";
 import * as sync from "./games/sync.js";
 import * as victory from "./views/victory.js";
+import { GAME_CATALOG, hasConfiguredGame } from "./game-catalog.js";
 
 const app = document.querySelector("#app");
 const scoreboardElement = document.querySelector("#scoreboard");
@@ -16,14 +17,20 @@ const hostControls = document.querySelector("#host-controls");
 initializeScoreboard(scoreboardElement);
 initializeHostControls({ navigate, requestEndGame });
 
+const gameControllers = { jeopardy, ordering, listing, sync };
+const gameRoutes = Object.fromEntries(GAME_CATALOG.map((game) => [game.id, {
+  template: game.template,
+  controller: gameControllers[game.id],
+  scoreboard: game.scoreboard,
+  requiresGame: true,
+  gameId: game.id
+}]));
+
 const routes = {
   start: { template: "views/start.html", controller: start, scoreboard: "hidden", requiresGame: false, hostControls: "hidden" },
   setup: { template: "views/setup.html", controller: setup, scoreboard: "hidden", requiresGame: false, hostControls: "hidden" },
   hub: { template: "views/hub.html", controller: hub, scoreboard: "standings", requiresGame: true },
-  jeopardy: { template: "views/jeopardy.html", controller: jeopardy, scoreboard: "game", requiresGame: true },
-  ordering: { template: "views/ordering.html", controller: ordering, scoreboard: "standings", requiresGame: true },
-  listing: { template: "views/listing.html", controller: listing, scoreboard: "standings", requiresGame: true },
-  sync: { template: "views/sync.html", controller: sync, scoreboard: "standings", requiresGame: true },
+  ...gameRoutes,
   victory: { template: "views/victory.html", controller: victory, scoreboard: "hidden", requiresGame: true }
 };
 
@@ -73,6 +80,10 @@ async function renderRoute() {
     navigate(state.gameStarted ? "hub" : "setup");
     return;
   }
+  if (route.gameId && !hasConfiguredGame(state.config, route.gameId)) {
+    navigate("hub");
+    return;
+  }
   try {
     if (cleanup) {
       cleanup();
@@ -82,7 +93,7 @@ async function renderRoute() {
       state.activeValue = 0;
       updateScoreControls();
     }
-    if (["jeopardy", "ordering", "listing", "sync"].includes(name) && setScoreHistoryGame(name)) {
+    if (route.gameId && setScoreHistoryGame(route.gameId)) {
       saveState().catch(() => undefined);
     }
     setScoreboard(route.scoreboard);

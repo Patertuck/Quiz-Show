@@ -59,7 +59,7 @@ function shuffled(items) {
 
 function questionSelection(highlightedQuestionId = selectedQuestion?.id || null) {
   return {
-    questions: state.config.ordering.questions.map(({ id, title }) => ({
+    questions: state.config.games.ordering.questions.map(({ id, title }) => ({
       id,
       title,
       completed: orderingState.completedQuestionIds.includes(id)
@@ -79,7 +79,7 @@ function publishQuestionSelection(highlightedQuestionId) {
 }
 
 function orderingMap() {
-  const question = selectedQuestion || state.config.ordering.questions.find((item) => item.id === orderingState?.round?.questionId);
+  const question = selectedQuestion || state.config.games.ordering.questions.find((item) => item.id === orderingState?.round?.questionId);
   const image = visibleMapItem && question?.itemMaps?.[visibleMapItem];
   return image ? { label: visibleMapItem, image } : null;
 }
@@ -94,7 +94,7 @@ function renderOverview() {
   setStatus("Wählt eine Frage aus.");
   const grid = document.createElement("div");
   grid.className = "ordering-question-grid";
-  state.config.ordering.questions.forEach((question) => {
+  state.config.games.ordering.questions.forEach((question) => {
     const complete = orderingState.completedQuestionIds.includes(question.id);
     const card = button(question.title, "ordering-question-card", async () => {
       selectedQuestion = question;
@@ -121,13 +121,13 @@ function renderPreview() {
   const preview = document.createElement("section"); preview.className = "ordering-preview";
   const title = document.createElement("h2"); title.textContent = question.title;
   const prompt = document.createElement("p"); prompt.textContent = question.prompt;
-  const details = document.createElement("p"); details.textContent = `${question.items.length} Elemente · ${question.timeLimitSeconds} Sekunden · ${state.config.ordering.pointsPerCorrect} Punkte pro richtiger Position`;
+  const details = document.createElement("p"); details.textContent = `${question.items.length} Elemente · ${question.timeLimitSeconds} Sekunden · ${state.config.games.ordering.pointsPerCorrect} Punkte pro richtiger Position`;
   const list = document.createElement("ol");
   question.items.forEach((text) => { const item = document.createElement("li"); item.textContent = text; list.append(item); });
   preview.append(title, prompt, details, list);
   const actions = document.createElement("div"); actions.className = "ordering-actions";
   actions.append(
-    button("Starten", "primary-button", () => request("start", { question: { ...question, pointsPerCorrect: state.config.ordering.pointsPerCorrect } })),
+    button("Starten", "primary-button", () => request("start", { question: { ...question, pointsPerCorrect: state.config.games.ordering.pointsPerCorrect } })),
     button("Zurück", "secondary-button", async () => {
       selectedQuestion = null;
       selectedPreviewItems = [];
@@ -208,7 +208,7 @@ function renderResults(round) {
       () => request("reveal", { slot }), revealed || round.phase === "distributed"));
   });
   board.append(left, solution, right);
-  const mapQuestion = selectedQuestion || state.config.ordering.questions.find((item) => item.id === round.questionId);
+  const mapQuestion = selectedQuestion || state.config.games.ordering.questions.find((item) => item.id === round.questionId);
   const mapItems = mapQuestion?.itemMaps
     ? round.correctItems.filter((item) => mapQuestion.itemMaps[item.text])
     : [];
@@ -275,7 +275,7 @@ export async function mount(element) {
   await request("configure", {
     configFingerprint: state.configFingerprint,
     teams: state.teams.map((team) => team.name),
-    questionIds: state.config.ordering.questions.map((question) => question.id)
+    questionIds: state.config.games.ordering.questions.map((question) => question.id)
   });
   orderingState = await fetch("/api/ordering/state", { cache: "no-store" }).then((response) => response.json());
   selectedQuestion = null;

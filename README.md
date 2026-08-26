@@ -1,5 +1,25 @@
 # Quizshow starten
 
+## Fragen konfigurieren
+
+Die Quizshow lädt standardmässig `questions.json`. Allgemeine Angaben wie `title` und `teams` stehen auf der obersten Ebene; die verfügbaren Spiele werden unter `games` eingetragen. Nur Spiele, deren Schlüssel vorhanden sind, erscheinen in der Spielauswahl.
+
+```json
+{
+  "title": "Quizshow",
+  "teams": [{ "name": "Team 1", "startingScore": 0 }],
+  "games": {
+    "sync": {
+      "timeLimitSeconds": 8,
+      "pointsPerSync": 100,
+      "questions": [{ "id": "beispiel", "prompt": "Wer würde eher spontan verreisen?" }]
+    }
+  }
+}
+```
+
+Unterstützte Schlüssel sind `jeopardy`, `ordering`, `listing` und `sync`. Ein vorhandenes Spiel muss vollständig konfiguriert sein und mindestens eine Frage enthalten. Das vollständige Format zeigt `questions.example.json`. Medienfelder wie `questionAudio` oder `answerAudio` sind optional; fehlen sie, werden keine Audiosteuerungen angezeigt.
+
 ## Im lokalen Netzwerk
 
 Der normale Start bleibt unverändert:

@@ -119,6 +119,24 @@ class ServerDisconnectTests(unittest.TestCase):
 
 
 class PublicStaticFileTests(unittest.TestCase):
+    def test_lan_display_can_load_game_catalog(self):
+        server = main.LocalQuizServer(("127.0.0.1", 0), main.QuizRequestHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            connection = http.client.HTTPConnection("127.0.0.1", server.server_port, timeout=2)
+            connection.request("GET", "/js/game-catalog.js", headers={"Host": "192.168.1.248:8000"})
+            response = connection.getresponse()
+            body = response.read()
+            connection.close()
+
+            self.assertEqual(200, response.status)
+            self.assertIn(b"GAME_CATALOG", body)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
     def test_lan_display_can_load_text_fitting_module(self):
         server = main.LocalQuizServer(("127.0.0.1", 0), main.QuizRequestHandler)
         thread = threading.Thread(target=server.serve_forever, daemon=True)

@@ -20,7 +20,7 @@ function fitResultItems(scope = content) {
 
 function questionSelection(highlightedQuestionId = selectedQuestion?.id || null) {
   return {
-    questions: state.config.listing.questions.map(({ id, displayCategory }) => ({
+    questions: state.config.games.listing.questions.map(({ id, displayCategory }) => ({
       id,
       displayCategory,
       completed: listingState?.completedQuestionIds.includes(id) || false
@@ -75,7 +75,7 @@ function renderOverview() {
   setStatus("Wählt eine Aufgabe aus.");
   const grid = document.createElement("div");
   grid.className = "listing-question-grid";
-  state.config.listing.questions.forEach((question) => {
+  state.config.games.listing.questions.forEach((question) => {
     const complete = listingState.completedQuestionIds.includes(question.id);
     const card = button(question.displayCategory, `listing-question-card${complete ? " completed" : ""}`, async () => {
       if (complete) return;
@@ -342,7 +342,7 @@ export async function mount(element) {
   await request("configure", {
     configFingerprint: state.configFingerprint,
     teams: state.teams.map((team) => team.name),
-    questionIds: state.config.listing.questions.map((question) => question.id)
+    questionIds: state.config.games.listing.questions.map((question) => question.id)
   });
   selectedQuestion = null;
   listingState = await fetch("/api/listing/state", { cache: "no-store" }).then((response) => response.json());

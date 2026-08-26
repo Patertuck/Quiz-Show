@@ -1,3 +1,5 @@
+import { GAME_CATALOG, hasConfiguredGame } from "./game-catalog.js";
+
 export const state = {
   config: null,
   configFingerprint: "",
@@ -60,39 +62,53 @@ export function validateConfig(config) {
     requireString(team?.name, `teams[${index}].name`);
     if (!Number.isInteger(team.startingScore)) throw new Error(`teams[${index}].startingScore muss eine Ganzzahl sein.`);
   });
-  if (!Array.isArray(config.values) || !config.values.length) throw new Error("values muss mindestens einen Punktewert enthalten.");
-  config.values.forEach((value, index) => {
-    if (!Number.isInteger(value) || value <= 0) throw new Error(`values[${index}] muss eine positive Ganzzahl sein.`);
-  });
-  if (!Array.isArray(config.categories) || !config.categories.length) throw new Error("categories muss mindestens eine Kategorie enthalten.");
-  config.categories.forEach((category, categoryIndex) => {
-    const path = `categories[${categoryIndex}]`;
-    requireString(category?.name, `${path}.name`);
-    if (category.reviewQuestionAfterAnswer !== undefined && typeof category.reviewQuestionAfterAnswer !== "boolean") {
-      throw new Error(`${path}.reviewQuestionAfterAnswer muss ein Wahrheitswert sein.`);
-    }
-    if (!Array.isArray(category.questions) || category.questions.length !== config.values.length) {
-      throw new Error(`${path}.questions muss genau ${config.values.length} Einträge enthalten.`);
-    }
-    category.questions.forEach((item, rowIndex) => {
-      const itemPath = `${path}.questions[${rowIndex}]`;
-      if (!item || typeof item !== "object" || Array.isArray(item)) throw new Error(`${itemPath} muss ein Objekt sein.`);
-      validateSide(item, "question", "questionImage", "questionAudio", itemPath);
-      validateSide(item, "answer", "answerImage", "answerAudio", itemPath);
+  if (!config.games || typeof config.games !== "object" || Array.isArray(config.games)) {
+    throw new Error("games muss ein Objekt sein.");
+  }
+  const supportedGameIds = new Set(GAME_CATALOG.map(({ id }) => id));
+  const gameIds = Object.keys(config.games);
+  if (!gameIds.length) throw new Error("games muss mindestens ein Spiel enthalten.");
+  const unknownGame = gameIds.find((id) => !supportedGameIds.has(id));
+  if (unknownGame) throw new Error(`games enthält ein unbekanntes Spiel: ${unknownGame}.`);
+
+  if (hasConfiguredGame(config, "jeopardy")) {
+    const jeopardy = config.games.jeopardy;
+    if (!jeopardy || typeof jeopardy !== "object" || Array.isArray(jeopardy)) throw new Error("games.jeopardy muss ein Objekt sein.");
+    if (!Array.isArray(jeopardy.values) || !jeopardy.values.length) throw new Error("games.jeopardy.values muss mindestens einen Punktewert enthalten.");
+    jeopardy.values.forEach((value, index) => {
+      if (!Number.isInteger(value) || value <= 0) throw new Error(`games.jeopardy.values[${index}] muss eine positive Ganzzahl sein.`);
     });
-  });
-  if (!config.ordering || typeof config.ordering !== "object" || Array.isArray(config.ordering)) {
-    throw new Error("ordering muss ein Objekt sein.");
+    if (!Array.isArray(jeopardy.categories) || !jeopardy.categories.length) throw new Error("games.jeopardy.categories muss mindestens eine Kategorie enthalten.");
+    jeopardy.categories.forEach((category, categoryIndex) => {
+      const path = `games.jeopardy.categories[${categoryIndex}]`;
+      requireString(category?.name, `${path}.name`);
+      if (category.reviewQuestionAfterAnswer !== undefined && typeof category.reviewQuestionAfterAnswer !== "boolean") {
+        throw new Error(`${path}.reviewQuestionAfterAnswer muss ein Wahrheitswert sein.`);
+      }
+      if (!Array.isArray(category.questions) || category.questions.length !== jeopardy.values.length) {
+        throw new Error(`${path}.questions muss genau ${jeopardy.values.length} Einträge enthalten.`);
+      }
+      category.questions.forEach((item, rowIndex) => {
+        const itemPath = `${path}.questions[${rowIndex}]`;
+        if (!item || typeof item !== "object" || Array.isArray(item)) throw new Error(`${itemPath} muss ein Objekt sein.`);
+        validateSide(item, "question", "questionImage", "questionAudio", itemPath);
+        validateSide(item, "answer", "answerImage", "answerAudio", itemPath);
+      });
+    });
   }
-  if (!Number.isInteger(config.ordering.pointsPerCorrect) || config.ordering.pointsPerCorrect <= 0) {
-    throw new Error("ordering.pointsPerCorrect muss eine positive Ganzzahl sein.");
-  }
-  if (!Array.isArray(config.ordering.questions) || !config.ordering.questions.length) {
-    throw new Error("ordering.questions muss mindestens eine Frage enthalten.");
-  }
+
+  if (hasConfiguredGame(config, "ordering")) {
+    const ordering = config.games.ordering;
+    if (!ordering || typeof ordering !== "object" || Array.isArray(ordering)) throw new Error("games.ordering muss ein Objekt sein.");
+    if (!Number.isInteger(ordering.pointsPerCorrect) || ordering.pointsPerCorrect <= 0) {
+      throw new Error("games.ordering.pointsPerCorrect muss eine positive Ganzzahl sein.");
+    }
+    if (!Array.isArray(ordering.questions) || !ordering.questions.length) {
+      throw new Error("games.ordering.questions muss mindestens eine Frage enthalten.");
+    }
   const orderingIds = new Set();
-  config.ordering.questions.forEach((question, index) => {
-    const path = `ordering.questions[${index}]`;
+    ordering.questions.forEach((question, index) => {
+    const path = `games.ordering.questions[${index}]`;
     requireString(question?.id, `${path}.id`);
     requireString(question?.title, `${path}.title`);
     requireString(question?.prompt, `${path}.prompt`);
@@ -122,16 +138,18 @@ export function validateConfig(config) {
         validateImage(image, `${path}.itemMaps[${JSON.stringify(item)}]`);
       });
     }
-  });
-  if (!config.listing || typeof config.listing !== "object" || Array.isArray(config.listing)) {
-    throw new Error("listing muss ein Objekt sein.");
+    });
   }
-  if (!Array.isArray(config.listing.questions) || !config.listing.questions.length) {
-    throw new Error("listing.questions muss mindestens eine Frage enthalten.");
-  }
+
+  if (hasConfiguredGame(config, "listing")) {
+    const listing = config.games.listing;
+    if (!listing || typeof listing !== "object" || Array.isArray(listing)) throw new Error("games.listing muss ein Objekt sein.");
+    if (!Array.isArray(listing.questions) || !listing.questions.length) {
+      throw new Error("games.listing.questions muss mindestens eine Frage enthalten.");
+    }
   const listingIds = new Set();
-  config.listing.questions.forEach((question, index) => {
-    const path = `listing.questions[${index}]`;
+    listing.questions.forEach((question, index) => {
+    const path = `games.listing.questions[${index}]`;
     requireString(question?.id, `${path}.id`);
     requireString(question?.title, `${path}.title`);
     requireString(question?.displayCategory, `${path}.displayCategory`);
@@ -151,30 +169,32 @@ export function validateConfig(config) {
         || question.placementPoints.some((points) => !Number.isInteger(points) || points < 0)) {
       throw new Error(`${path}.placementPoints muss nicht-negative Ganzzahlen enthalten.`);
     }
-  });
-  if (!config.syncUp || typeof config.syncUp !== "object" || Array.isArray(config.syncUp)) {
-    throw new Error("syncUp muss ein Objekt sein.");
+    });
   }
-  if (!Number.isInteger(config.syncUp.timeLimitSeconds)
-      || config.syncUp.timeLimitSeconds < 1 || config.syncUp.timeLimitSeconds > 60) {
-    throw new Error("syncUp.timeLimitSeconds muss eine Ganzzahl von 1 bis 60 sein.");
-  }
-  if (!Number.isInteger(config.syncUp.pointsPerSync) || config.syncUp.pointsPerSync <= 0) {
-    throw new Error("syncUp.pointsPerSync muss eine positive Ganzzahl sein.");
-  }
-  if (!Array.isArray(config.syncUp.questions) || !config.syncUp.questions.length) {
-    throw new Error("syncUp.questions muss mindestens einen Prompt enthalten.");
-  }
+
+  if (hasConfiguredGame(config, "sync")) {
+    const sync = config.games.sync;
+    if (!sync || typeof sync !== "object" || Array.isArray(sync)) throw new Error("games.sync muss ein Objekt sein.");
+    if (!Number.isInteger(sync.timeLimitSeconds) || sync.timeLimitSeconds < 1 || sync.timeLimitSeconds > 60) {
+      throw new Error("games.sync.timeLimitSeconds muss eine Ganzzahl von 1 bis 60 sein.");
+    }
+    if (!Number.isInteger(sync.pointsPerSync) || sync.pointsPerSync <= 0) {
+      throw new Error("games.sync.pointsPerSync muss eine positive Ganzzahl sein.");
+    }
+    if (!Array.isArray(sync.questions) || !sync.questions.length) {
+      throw new Error("games.sync.questions muss mindestens einen Prompt enthalten.");
+    }
   const syncIds = new Set();
-  config.syncUp.questions.forEach((question, index) => {
-    const path = `syncUp.questions[${index}]`;
+    sync.questions.forEach((question, index) => {
+    const path = `games.sync.questions[${index}]`;
     requireString(question?.id, `${path}.id`);
     requireString(question?.prompt, `${path}.prompt`);
     if (!/^[a-z0-9][a-z0-9-]*$/i.test(question.id) || syncIds.has(question.id)) {
       throw new Error(`${path}.id muss eindeutig sein und darf nur Buchstaben, Zahlen und Bindestriche enthalten.`);
     }
     syncIds.add(question.id);
-  });
+    });
+  }
   return config;
 }
 
@@ -201,10 +221,11 @@ function validateSavedState(saved) {
     if (!team || typeof team.name !== "string" || !Number.isInteger(team.score)) throw new Error("Das gespeicherte Spiel enthält ein ungültiges Team.");
   });
   if (!Array.isArray(saved.usedTiles)) throw new Error("Das gespeicherte Spiel enthält ungültige verwendete Fragen.");
+  const jeopardy = state.config.games.jeopardy;
   saved.usedTiles.forEach((tileId) => {
     if (typeof tileId !== "string" || !/^\d+:\d+$/.test(tileId)) throw new Error("Das gespeicherte Spiel enthält eine ungültige Frage-ID.");
     const [categoryIndex, rowIndex] = tileId.split(":").map(Number);
-    if (categoryIndex >= state.config.categories.length || rowIndex >= state.config.values.length) {
+    if (!jeopardy || categoryIndex >= jeopardy.categories.length || rowIndex >= jeopardy.values.length) {
       throw new Error("Das gespeicherte Spiel verweist auf eine Frage, die nicht mehr existiert.");
     }
   });
@@ -212,8 +233,8 @@ function validateSavedState(saved) {
     const active = saved.activeQuestion;
     if (!active || !Number.isInteger(active.categoryIndex) || !Number.isInteger(active.rowIndex)
         || typeof active.answerRevealed !== "boolean"
-        || active.categoryIndex < 0 || active.categoryIndex >= state.config.categories.length
-        || active.rowIndex < 0 || active.rowIndex >= state.config.values.length) {
+        || !jeopardy || active.categoryIndex < 0 || active.categoryIndex >= jeopardy.categories.length
+        || active.rowIndex < 0 || active.rowIndex >= jeopardy.values.length) {
       throw new Error("Das gespeicherte Spiel enthält eine ungültige aktive Frage.");
     }
   }
@@ -234,10 +255,11 @@ function validateSavedState(saved) {
       || saved.scoreHistory.some((entry) => !entry || !Array.isArray(entry.scores)
         || entry.scores.length !== saved.teams.length
         || entry.scores.some((score) => !Number.isInteger(score))
-        || (entry.game !== null && !SCORE_HISTORY_GAMES.has(entry.game)))) {
+        || (entry.game !== null && (!SCORE_HISTORY_GAMES.has(entry.game) || !hasConfiguredGame(state.config, entry.game))))) {
     throw new Error("Das gespeicherte Spiel enthält einen ungültigen Punkteverlauf.");
   }
-  if (saved.scoreHistoryGame !== null && !SCORE_HISTORY_GAMES.has(saved.scoreHistoryGame)) {
+  if (saved.scoreHistoryGame !== null
+      && (!SCORE_HISTORY_GAMES.has(saved.scoreHistoryGame) || !hasConfiguredGame(state.config, saved.scoreHistoryGame))) {
     throw new Error("Das gespeicherte Spiel enthält einen ungültigen Spielkontext.");
   }
   if (!saved.scoreHistory.at(-1).scores.every((score, index) => score === saved.teams[index].score)) {
@@ -255,10 +277,14 @@ async function loadSavedState() {
   catch (error) { return { invalid: true, configFingerprint: "", error: error.message }; }
 }
 
-export async function loadApplicationData() {
-  const response = await fetch("questions.json", { cache: "no-store" });
-  if (!response.ok) throw new Error(`questions.json konnte nicht geladen werden (HTTP ${response.status}).`);
-  state.config = validateConfig(await response.json());
+export async function loadQuizConfig(configUrl = "questions.json") {
+  const response = await fetch(configUrl, { cache: "no-store" });
+  if (!response.ok) throw new Error(`${configUrl} konnte nicht geladen werden (HTTP ${response.status}).`);
+  return validateConfig(await response.json());
+}
+
+export async function loadApplicationData(configUrl = "questions.json") {
+  state.config = await loadQuizConfig(configUrl);
   state.configFingerprint = await fingerprint(state.config);
   state.savedState = await loadSavedState();
   document.title = state.config.title;
@@ -331,7 +357,7 @@ export function resumeRuntime(teams) {
 }
 
 export function setScoreHistoryGame(game) {
-  if (!SCORE_HISTORY_GAMES.has(game)) return false;
+  if (!SCORE_HISTORY_GAMES.has(game) || !hasConfiguredGame(state.config, game)) return false;
   if (state.scoreHistoryGame === game) return false;
   state.scoreHistoryGame = game;
   return true;
