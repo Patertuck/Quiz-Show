@@ -15,7 +15,7 @@ const app = document.querySelector("#app");
 const scoreboardElement = document.querySelector("#scoreboard");
 const hostControls = document.querySelector("#host-controls");
 initializeScoreboard(scoreboardElement);
-initializeHostControls({ navigate });
+initializeHostControls({ navigate, requestEndGame });
 
 const routes = {
   setup: { template: "views/setup.html", controller: setup, scoreboard: "hidden", requiresGame: false, hostControls: "hidden" },
@@ -41,6 +41,10 @@ export function navigate(name) {
   const hash = `#/${name}`;
   if (location.hash === hash) renderRoute();
   else location.hash = hash;
+}
+
+function requestEndGame() {
+  if (window.confirm("Spiel wirklich beenden und den Endstand anzeigen?")) navigate("victory");
 }
 
 async function templateFor(path) {
@@ -84,6 +88,7 @@ async function renderRoute() {
     document.body.classList.toggle("app-active", name !== "setup");
     hostControls.hidden = route.hostControls === "hidden";
     hostControls.classList.toggle("audio-only", route.hostControls === "audio");
+    hostControls.classList.toggle("on-victory", name === "victory");
     const template = await templateFor(route.template);
     if (thisNavigation !== navigationId) return;
     app.innerHTML = template;
@@ -104,7 +109,7 @@ window.addEventListener("keydown", (event) => {
   if (!event.ctrlKey || !event.shiftKey || event.key.toLowerCase() !== "v"
       || !state.gameStarted || ["setup", "victory"].includes(routeName())) return;
   event.preventDefault();
-  navigate("victory");
+  requestEndGame();
 });
 window.addEventListener("pagehide", () => {
   if (!state.gameStarted) return;

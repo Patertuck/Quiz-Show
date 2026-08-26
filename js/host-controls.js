@@ -2,7 +2,7 @@ import { saveState } from "./store.js";
 import qrcode from "../assets/vendor/qrcode.js";
 import { getDisplayAudioSettings, setDisplayAudioSettings, setJoinOverlay } from "./presentation-host.js";
 
-export function initializeHostControls({ navigate }) {
+export function initializeHostControls({ navigate, requestEndGame }) {
   const setupButton = document.querySelector("#team-setup-button");
   const audienceButton = document.querySelector("#audience-display-button");
   const playerButton = document.querySelector("#buzzer-join-button");
@@ -15,6 +15,7 @@ export function initializeHostControls({ navigate }) {
   const instructions = document.querySelector("#buzzer-dialog-instructions");
   const note = document.querySelector("#buzzer-dialog-note");
   const audioButton = document.querySelector("#audio-settings-button");
+  const endGameButton = document.querySelector("#end-game-button");
   const audioDialog = document.querySelector("#audio-settings-dialog");
   const audioStatus = document.querySelector("#audio-settings-status");
   const audioInputs = {
@@ -58,6 +59,8 @@ export function initializeHostControls({ navigate }) {
     const display = window.open("/display", "quiz-audience-display");
     if (!display) window.alert("Der Browser hat das Fenster der Publikumsansicht blockiert. Erlaubt Pop-ups und versucht es erneut.");
   });
+
+  endGameButton.addEventListener("click", requestEndGame);
 
   playerButton.addEventListener("click", async () => {
     playerDialog.showModal();
