@@ -1,26 +1,19 @@
 #hub-view { position: relative; display: grid; grid-template-rows: auto 1fr; gap: clamp(1rem, 3vh, 2rem); padding: clamp(1rem, 4vw, 3rem); background: radial-gradient(circle at 50% 0%, #394dc1 0%, #17277f 42%, #080f35 100%); }
 #hub-view > h1 { margin: 0; color: var(--yellow); font-size: clamp(2rem, 5vw, 4rem); text-align: center; text-shadow: 0 0.18rem 0 #10194f, 0 0 1rem rgb(255 244 92 / 28%); }
-#host-controls { position: fixed; z-index: 12; top: clamp(0.8rem, 2.5vw, 1.5rem); right: clamp(0.8rem, 2.5vw, 1.5rem); display: flex; gap: clamp(0.35rem, 1vw, 0.65rem); }
-#host-controls > button { position: static; }
-#host-controls.audio-only > button:not(#audio-settings-button) { display: none; }
-#audience-display-button { position: absolute; z-index: 1; top: clamp(0.8rem, 2.5vw, 1.5rem); right: clamp(7.4rem, 13.5vw, 9.5rem); display: grid; width: clamp(2.7rem, 5vw, 3.5rem); aspect-ratio: 1; place-items: center; padding: 0.65rem; border: 2px solid rgb(255 255 255 / 38%); border-radius: 50%; background: rgb(8 15 53 / 58%); color: #fff; box-shadow: 0 0.4rem 1rem rgb(0 0 0 / 22%); transition: border-color 180ms ease, background 180ms ease, transform 180ms ease; }
-#audience-display-button:hover, #audience-display-button:focus-visible { border-color: var(--yellow); background: rgb(25 41 126 / 90%); transform: translateY(-0.15rem); }
-#audience-display-button svg { width: 100%; height: 100%; fill: currentColor; }
-#buzzer-join-button { position: absolute; z-index: 1; top: clamp(0.8rem, 2.5vw, 1.5rem); right: clamp(4.1rem, 8vw, 5.5rem); display: grid; width: clamp(2.7rem, 5vw, 3.5rem); aspect-ratio: 1; place-items: center; padding: 0.65rem; border: 2px solid rgb(255 255 255 / 38%); border-radius: 50%; background: rgb(8 15 53 / 58%); color: #fff; box-shadow: 0 0.4rem 1rem rgb(0 0 0 / 22%); transition: border-color 180ms ease, background 180ms ease, transform 180ms ease; }
-#buzzer-join-button:hover, #buzzer-join-button:focus-visible { border-color: var(--yellow); background: rgb(25 41 126 / 90%); transform: translateY(-0.15rem); }
-#buzzer-join-button svg { width: 100%; height: 100%; fill: currentColor; }
-#audio-settings-button { display: grid; width: clamp(2.7rem, 5vw, 3.5rem); aspect-ratio: 1; place-items: center; padding: 0.65rem; border: 2px solid rgb(255 255 255 / 38%); border-radius: 50%; background: rgb(8 15 53 / 58%); color: #fff; box-shadow: 0 0.4rem 1rem rgb(0 0 0 / 22%); transition: border-color 180ms ease, background 180ms ease, transform 180ms ease; }
-#audio-settings-button:hover, #audio-settings-button:focus-visible { border-color: var(--yellow); background: rgb(25 41 126 / 90%); transform: translateY(-0.15rem); }
+#host-controls { position: fixed; z-index: 12; top: 0.75rem; right: 1.25rem; display: flex; flex-direction: row-reverse; gap: 0.3rem; align-items: center; }
+#host-options-button, .host-option-items > button { display: grid; width: 2.3rem; aspect-ratio: 1; flex: 0 0 auto; place-items: center; padding: 0.5rem; border: 1px solid rgb(255 255 255 / 32%); border-radius: 50%; background: rgb(8 15 53 / 68%); color: #fff; box-shadow: 0 0.3rem 0.8rem rgb(0 0 0 / 20%); transition: opacity 160ms ease, border-color 160ms ease, background 160ms ease, transform 160ms ease; }
+#host-options-button { opacity: 0.48; }
+#host-options-button:hover, #host-options-button:focus-visible, #host-controls.is-open #host-options-button { border-color: var(--yellow); opacity: 1; background: rgb(25 41 126 / 92%); }
+#host-options-button svg, .host-option-items svg { width: 100%; height: 100%; fill: currentColor; }
+.host-option-items { display: flex; gap: 0.3rem; padding: 0.22rem; border-radius: 999px; visibility: hidden; opacity: 0; background: rgb(8 15 53 / 54%); box-shadow: 0 0.35rem 1rem rgb(0 0 0 / 20%); transform: translateX(0.5rem) scale(0.96); transform-origin: right center; pointer-events: none; transition: visibility 0s linear 180ms, opacity 180ms ease, transform 180ms ease; }
+#host-controls:hover .host-option-items, #host-controls:focus-within .host-option-items, #host-controls.is-open .host-option-items { visibility: visible; opacity: 1; transform: none; pointer-events: auto; transition-delay: 0s; }
+.host-option-items > button:hover, .host-option-items > button:focus-visible { border-color: var(--yellow); background: rgb(25 41 126 / 94%); transform: translateY(-0.1rem); }
+#host-controls.audio-only .host-option-items > button:not(#audio-settings-button) { display: none; }
 #audio-settings-button.partially-muted { border-color: var(--yellow); color: var(--yellow); }
-#audio-settings-button svg { width: 100%; height: 100%; fill: currentColor; }
-#end-game-button { display: grid; width: clamp(2.7rem, 5vw, 3.5rem); aspect-ratio: 1; place-items: center; padding: 0.65rem; border: 2px solid rgb(255 255 255 / 38%); border-radius: 50%; background: rgb(117 22 37 / 72%); color: #fff; box-shadow: 0 0.4rem 1rem rgb(0 0 0 / 22%); transition: border-color 180ms ease, background 180ms ease, transform 180ms ease; }
-#end-game-button:hover, #end-game-button:focus-visible { border-color: #ffb8c2; background: rgb(164 31 52 / 95%); transform: translateY(-0.15rem); }
-#end-game-button svg { width: 100%; height: 100%; fill: currentColor; }
+#end-game-button { background: rgb(117 22 37 / 78%); }
+#end-game-button:hover, #end-game-button:focus-visible { border-color: #ffb8c2; background: rgb(164 31 52 / 95%); }
 #host-controls.on-victory #end-game-button { display: none; }
-#team-setup-button { position: absolute; z-index: 1; top: clamp(0.8rem, 2.5vw, 1.5rem); right: clamp(0.8rem, 2.5vw, 1.5rem); display: grid; width: clamp(2.7rem, 5vw, 3.5rem); aspect-ratio: 1; place-items: center; padding: 0.65rem; border: 2px solid rgb(255 255 255 / 38%); border-radius: 50%; background: rgb(8 15 53 / 58%); color: #fff; box-shadow: 0 0.4rem 1rem rgb(0 0 0 / 22%); transition: border-color 180ms ease, background 180ms ease, transform 180ms ease; }
-#team-setup-button:hover, #team-setup-button:focus-visible { border-color: var(--yellow); background: rgb(25 41 126 / 90%); transform: rotate(20deg); }
 #team-setup-button:disabled { cursor: wait; opacity: 0.6; }
-#team-setup-button svg { width: 100%; height: 100%; fill: currentColor; }
 #buzzer-dialog { width: min(32rem, calc(100% - 2rem)); max-height: calc(100dvh - 2rem); padding: clamp(1.25rem, 4vw, 2rem); overflow: auto; border: 2px solid #596bd4; border-radius: 1rem; background: #fff; color: #17206a; text-align: center; box-shadow: 0 1.5rem 4rem rgb(0 0 0 / 55%); }
 #buzzer-dialog::backdrop { background: rgb(2 5 24 / 78%); backdrop-filter: blur(3px); }
 #buzzer-dialog h2 { margin: 0 2rem 0.5rem; font-size: clamp(1.5rem, 5vw, 2.2rem); }

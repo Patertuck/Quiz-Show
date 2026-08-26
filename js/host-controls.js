@@ -3,6 +3,9 @@ import qrcode from "../assets/vendor/qrcode.js";
 import { getDisplayAudioSettings, setDisplayAudioSettings, setJoinOverlay } from "./presentation-host.js";
 
 export function initializeHostControls({ navigate, requestEndGame }) {
+  const controls = document.querySelector("#host-controls");
+  const optionsButton = document.querySelector("#host-options-button");
+  const optionItems = document.querySelector(".host-option-items");
   const setupButton = document.querySelector("#team-setup-button");
   const audienceButton = document.querySelector("#audience-display-button");
   const playerButton = document.querySelector("#buzzer-join-button");
@@ -24,6 +27,22 @@ export function initializeHostControls({ navigate, requestEndGame }) {
     ambientMusicEnabled: document.querySelector("#audio-ambient-enabled")
   };
   let audioUpdateChain = Promise.resolve();
+
+  const setOptionsOpen = (open) => {
+    controls.classList.toggle("is-open", open);
+    optionsButton.setAttribute("aria-expanded", String(open));
+  };
+  optionsButton.addEventListener("click", () => setOptionsOpen(!controls.classList.contains("is-open")));
+  optionItems.addEventListener("click", () => setOptionsOpen(false));
+  document.addEventListener("pointerdown", (event) => {
+    if (!controls.contains(event.target)) setOptionsOpen(false);
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      setOptionsOpen(false);
+      optionsButton.blur();
+    }
+  });
 
   const readAudioInputs = () => Object.fromEntries(
     Object.entries(audioInputs).map(([key, input]) => [key, input.checked])

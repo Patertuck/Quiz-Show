@@ -8,31 +8,28 @@
 </head>
 <body>
   <nav id="host-controls" aria-label="Quizsteuerung" hidden>
-    <button id="audience-display-button" type="button" aria-label="Publikumsansicht öffnen" title="Publikumsansicht öffnen">
-      <svg aria-hidden="true" viewBox="0 0 24 24">
-        <path d="M3 4h18a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2h-7v2h3v2H7v-2h3v-2H3a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm0 2v11h18V6H3Z"/>
-      </svg>
-    </button>
-    <button id="buzzer-join-button" type="button" aria-label="QR-Code für Spielerhandys anzeigen" title="Spielerhandys">
-      <svg aria-hidden="true" viewBox="0 0 24 24">
-        <path d="M3 3h8v8H3V3Zm2 2v4h4V5H5Zm8-2h8v8h-8V3Zm2 2v4h4V5h-4ZM3 13h8v8H3v-8Zm2 2v4h4v-4H5Zm8-2h3v3h-3v-3Zm5 0h3v5h-2v3h-3v-5h-2v3h-2v-3h3v-3h2Zm1 6h2v2h-2v-2Z"/>
-      </svg>
-    </button>
-    <button id="audio-settings-button" type="button" aria-label="Display-Audio einstellen" title="Display-Audio">
-      <svg aria-hidden="true" viewBox="0 0 24 24">
-        <path d="M10 4v11.3A4 4 0 1 0 12 19V8h7V4h-9Zm-2 16a2 2 0 1 1 0-4 2 2 0 0 1 0 4Z"/>
-      </svg>
-    </button>
-    <button id="end-game-button" type="button" aria-label="Spiel beenden und Endstand anzeigen" title="Spiel beenden (Ctrl+Shift+V)">
-      <svg aria-hidden="true" viewBox="0 0 24 24">
-        <path d="M5 2h2v2h11l-2 4 2 4H7v10H5V2Zm2 4v4h7.76l-1-2 1-2H7Z"/>
-      </svg>
-    </button>
-    <button id="team-setup-button" type="button" aria-label="Teams einrichten" title="Teams einrichten">
+    <button id="host-options-button" type="button" aria-label="Host-Optionen anzeigen" title="Host-Optionen" aria-expanded="false">
       <svg aria-hidden="true" viewBox="0 0 24 24">
         <path d="M12 8.25a3.75 3.75 0 1 0 0 7.5 3.75 3.75 0 0 0 0-7.5Zm9.25 4.86v-2.22l-2.45-.68a7.2 7.2 0 0 0-.72-1.73l1.25-2.22-1.57-1.57-2.22 1.25a7.2 7.2 0 0 0-1.73-.72L13.11 2h-2.22l-.68 2.45a7.2 7.2 0 0 0-1.73.72L6.26 3.92 4.69 5.49l1.25 2.22a7.2 7.2 0 0 0-.72 1.73L2.77 10.1v2.22l2.45.68c.17.61.41 1.19.72 1.73l-1.25 2.22 1.57 1.57 2.22-1.25c.54.31 1.12.55 1.73.72l.68 2.45h2.22l.68-2.45a7.2 7.2 0 0 0 1.73-.72l2.22 1.25 1.57-1.57-1.25-2.22c.31-.54.55-1.12.72-1.73l2.45-.68Z"/>
       </svg>
     </button>
+    <div class="host-option-items">
+      <button id="audience-display-button" type="button" aria-label="Publikumsansicht öffnen" title="Publikumsansicht öffnen">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 4h18a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2h-7v2h3v2H7v-2h3v-2H3a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm0 2v11h18V6H3Z"/></svg>
+      </button>
+      <button id="buzzer-join-button" type="button" aria-label="QR-Code für Spielerhandys anzeigen" title="Spielerhandys">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 3h8v8H3V3Zm2 2v4h4V5H5Zm8-2h8v8h-8V3Zm2 2v4h4V5h-4ZM3 13h8v8H3v-8Zm2 2v4h4v-4H5Zm8-2h3v3h-3v-3Zm5 0h3v5h-2v3h-3v-5h-2v3h-2v-3h3v-3h2Zm1 6h2v2h-2v-2Z"/></svg>
+      </button>
+      <button id="audio-settings-button" type="button" aria-label="Display-Audio einstellen" title="Display-Audio">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M10 4v11.3A4 4 0 1 0 12 19V8h7V4h-9Zm-2 16a2 2 0 1 1 0-4 2 2 0 0 1 0 4Z"/></svg>
+      </button>
+      <button id="end-game-button" type="button" aria-label="Spiel beenden und Endstand anzeigen" title="Spiel beenden (Ctrl+Shift+V)">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 2h2v2h11l-2 4 2 4H7v10H5V2Zm2 4v4h7.76l-1-2 1-2H7Z"/></svg>
+      </button>
+      <button id="team-setup-button" type="button" aria-label="Teams einrichten" title="Teams einrichten">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 2c-4.42 0-8 2.24-8 5v1h16v-1c0-2.76-3.58-5-8-5Z"/></svg>
+      </button>
+    </div>
   </nav>
   <main id="app" aria-live="polite">
     <section class="status-screen"><div class="panel"><h1>Quiz wird geladen…</h1></div></section>
