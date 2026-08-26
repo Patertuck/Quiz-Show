@@ -1,4 +1,4 @@
-import { playPointSound } from "./display-sounds.js?v=10";
+import { playPointSound } from "./display-sounds.js";
 
 function reducedMotion() {
   return matchMedia("(prefers-reduced-motion: reduce)").matches;

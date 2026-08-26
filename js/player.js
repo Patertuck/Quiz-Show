@@ -1,4 +1,4 @@
-import { startLivePolling, usesQuickTunnelPolling } from "./live-state.js?v=1";
+import { startLivePolling, usesQuickTunnelPolling } from "./live-state.js";
 
 const waitingStep = document.querySelector("#waiting-step");
 const waitingTitle = document.querySelector("#waiting-title");

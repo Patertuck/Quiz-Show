@@ -5,7 +5,7 @@
 @import "./hub.css";
 @import "./jeopardy.css";
 @import "./ordering.css";
-@import "./listing.css?v=2";
-@import "./sync.css?v=3";
+@import "./listing.css";
+@import "./sync.css";
 @import "./scoreboard.css";
-@import "./victory.css?v=5";
+@import "./victory.css";

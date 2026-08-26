@@ -1,6 +1,6 @@
 import { state, saveState } from "../store.js";
 import { publishScoreHistory, publishVictory } from "../presentation-host.js";
-import { createScoreHistoryChart } from "../score-history-chart.js?v=4";
+import { createScoreHistoryChart } from "../score-history-chart.js";
 
 export async function mount(root) {
   await saveState().catch((error) => console.error("Could not save before final standings:", error));

@@ -1,14 +1,14 @@
 const definitions = {
-  buzzer: ["assets/Sounds/buzzer.mp3?v=2", 0.8, false],
+  buzzer: ["assets/Sounds/buzzer.mp3", 0.8, false],
   pointsPositive: ["assets/Sounds/points-positive.mp3", 0.55, false],
   pointsNegative: ["assets/Sounds/points-negative.mp3", 0.55, false],
-  drumroll: ["assets/Sounds/drumroll-loop.mp3?v=1", 0.5, true],
+  drumroll: ["assets/Sounds/drumroll-loop.mp3", 0.5, true],
   winnerCheer: ["assets/Sounds/winner-cheer.mp3", 0.75, false]
 };
 
 const musicDefinitions = {
-  ambient: ["assets/Sounds/gameshow-ambient.mp3?v=1", 0.12],
-  tension: ["assets/Sounds/Buzzer_music.mp3?v=1", 0.24]
+  ambient: ["assets/Sounds/gameshow-ambient.mp3", 0.12],
+  tension: ["assets/Sounds/Buzzer_music.mp3", 0.24]
 };
 
 const sounds = Object.fromEntries(Object.entries(definitions).map(([name, [src, volume, loop]]) => {

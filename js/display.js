@@ -1,9 +1,9 @@
-import { animateScoreDistribution } from "./display-score-animation.js?v=8";
+import { animateScoreDistribution } from "./display-score-animation.js";
 import qrcode from "../assets/vendor/qrcode.js";
-import { startLivePolling, usesQuickTunnelPolling } from "./live-state.js?v=1";
+import { startLivePolling, usesQuickTunnelPolling } from "./live-state.js";
 import { scheduleTextFit } from "./fit-text.js";
-import { createIntroHeads } from "./intro-heads.js?v=10";
-import { createScoreHistoryChart } from "./score-history-chart.js?v=4";
+import { createIntroHeads } from "./intro-heads.js";
+import { createScoreHistoryChart } from "./score-history-chart.js";
 import {
   playBuzzerSound,
   playWinnerCheer,
@@ -15,7 +15,7 @@ import {
   stopVictorySounds,
   syncBackgroundMusic,
   unlockDisplaySounds
-} from "./display-sounds.js?v=10";
+} from "./display-sounds.js";
 
 const root = document.querySelector("#display-root");
 const connection = document.querySelector("#display-connection");
@@ -423,12 +423,6 @@ function listing() {
       timer,
       element("p", "display-listing-progress", `${round.submittedCount} von ${listingState.teams.length} Teams haben abgegeben`)
     );
-    screen.append(content);
-    return screen;
-  }
-  if (round.phase === "classifying") {
-    const content = element("div", "display-listing-classifying");
-    content.append(element("div", "display-listing-spinner"), element("h1", "", "Antworten werden geprüft …"));
     screen.append(content);
     return screen;
   }

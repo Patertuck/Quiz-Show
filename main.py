@@ -1220,7 +1220,7 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
 
     def end_headers(self) -> None:
         if not self.request_path.startswith("/api/"):
-            self.send_header("Cache-Control", "no-store, max-age=0")
+            self.send_header("Cache-Control", "no-cache, max-age=0, must-revalidate")
         super().end_headers()
 
     def read_json(self, maximum: int = MAX_BUZZER_BODY_BYTES) -> dict:
