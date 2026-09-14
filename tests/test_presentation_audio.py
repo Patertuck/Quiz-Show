@@ -9,7 +9,7 @@ def presentation_question(**overrides):
         "value": 100,
         "question": "Welcher Song?",
         "questionImage": None,
-        "questionAudio": {"src": "assets/reverse-songs/test reverse.mp3", "label": "Rückwärtsversion"},
+        "questionAudio": {"src": "/quiz-content/test-quiz/assets/reverse-songs/test%20reverse.mp3", "label": "Rückwärtsversion"},
         "answerRevealed": False,
         "answer": None,
         "answerImage": None,
@@ -26,27 +26,27 @@ class PresentationAudioTests(unittest.TestCase):
             audioCommand={"id": "command-1", "action": "play", "target": "question"}
         ))
 
-        self.assertEqual("assets/reverse-songs/test reverse.mp3", clean["question"]["questionAudio"]["src"])
+        self.assertEqual("/quiz-content/test-quiz/assets/reverse-songs/test%20reverse.mp3", clean["question"]["questionAudio"]["src"])
         self.assertEqual("play", clean["question"]["audioCommand"]["action"])
 
     def test_hides_answer_audio_until_reveal(self):
         with self.assertRaisesRegex(ValueError, "unrevealed"):
             validate_presentation(presentation_question(
-                answerAudio={"src": "assets/reverse-songs/test normal.mp3", "label": "Originalversion"}
+                answerAudio={"src": "/quiz-content/test-quiz/assets/reverse-songs/test%20normal.mp3", "label": "Originalversion"}
             ))
 
     def test_accepts_answer_audio_after_reveal(self):
         clean = validate_presentation(presentation_question(
             answerRevealed=True,
             answer="Der Song",
-            answerAudio={"src": "assets/reverse-songs/test normal.mp3", "label": "Originalversion"},
+            answerAudio={"src": "/quiz-content/test-quiz/assets/reverse-songs/test%20normal.mp3", "label": "Originalversion"},
             audioCommand={"id": "command-2", "action": "restart", "target": "answer"},
         ))
 
         self.assertEqual("Originalversion", clean["question"]["answerAudio"]["label"])
 
     def test_rejects_unsafe_audio_path(self):
-        with self.assertRaisesRegex(ValueError, "beneath assets"):
+        with self.assertRaisesRegex(ValueError, "packaged quiz asset"):
             validate_presentation(presentation_question(
                 questionAudio={"src": "assets/../secret.mp3", "label": "Falsch"}
             ))

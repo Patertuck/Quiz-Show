@@ -341,7 +341,6 @@ export async function mount(element) {
   content = root.querySelector("#listing-content");
   statusLine = root.querySelector("#listing-status");
   await request("configure", {
-    configFingerprint: state.configFingerprint,
     teams: state.teams.map((team) => team.name),
     questionIds: state.config.games.listing.questions.map((question) => question.id)
   });

@@ -11,7 +11,7 @@ import * as listing from "./games/listing.js";
 import * as sync from "./games/sync.js";
 import * as victory from "./views/victory.js";
 import { GAME_CATALOG, hasConfiguredGame } from "./game-catalog.js";
-import { hostFetch, setActiveSlotId } from "./slot-api.js";
+import { hostFetch, setActiveInstanceName } from "./slot-api.js";
 
 const app = document.querySelector("#app");
 const scoreboardElement = document.querySelector("#scoreboard");
@@ -60,7 +60,7 @@ function routeName() {
 
 export function navigate(name) {
   const visibleName = name === "start" ? "intro" : name;
-  const hasRouteAccess = Boolean(state.library?.activeSlotId) || visibleName === "master";
+  const hasRouteAccess = Boolean(state.library?.activeInstanceName) || visibleName === "master";
   const hash = hasRouteAccess ? `#/${visibleName}` : "#/master";
   if (location.hash === hash) renderRoute();
   else location.hash = hash;
@@ -157,14 +157,14 @@ try {
   const requestedLocation = routeLocation();
   const requestedRoute = routeName();
   if (requestedLocation.legacySlotId) {
-    if (requestedLocation.legacySlotId !== library.activeSlotId) {
+    if (requestedLocation.legacySlotId !== library.activeInstanceName) {
       throw new Error("Dieser Link gehört nicht zum aktuell ausgewählten Spielstand.");
     }
     const visibleName = requestedLocation.name === "start" ? "intro" : requestedLocation.name;
     window.history.replaceState(null, "", `/#/${visibleName}`);
   }
-  setActiveSlotId(library.activeSlotId);
-  if (requestedRoute === "master" || !library.activeSlotId || !library.activeConfigUrl) {
+  setActiveInstanceName(library.activeInstanceName);
+  if (requestedRoute === "master" || !library.activeInstanceName || !library.activeConfigUrl) {
     state.config = null;
     if (requestedRoute !== "master") navigate("master");
     else await renderRoute();
@@ -181,7 +181,7 @@ try {
     }
     if (loaded) {
       const saved = state.savedState;
-      const compatibleSave = saved && !saved.invalid && saved.configFingerprint === state.configFingerprint;
+      const compatibleSave = saved && !saved.invalid;
       if (!["setup", "start"].includes(requestedRoute) && compatibleSave) {
         resumeRuntime(saved.teams);
         renderScoreboard();
@@ -195,7 +195,7 @@ try {
   if (routeLocation().legacySlotId && state.library) {
     state.config = null;
     state.library.configError = error.message;
-    setActiveSlotId(state.library.activeSlotId);
+    setActiveInstanceName(state.library.activeInstanceName);
     if (location.hash !== "#/master") location.hash = "#/master";
     else await renderRoute();
   } else renderError(error);

@@ -1,13 +1,13 @@
-let activeSlotId = null;
+let activeInstanceName = null;
 
-export function setActiveSlotId(slotId) {
-  activeSlotId = typeof slotId === "string" && slotId ? slotId : null;
+export function setActiveInstanceName(name) {
+  activeInstanceName = typeof name === "string" && name ? name : null;
 }
 
 export function slotUrl(path) {
-  if (!activeSlotId) return path;
+  if (!activeInstanceName) return path;
   const url = new URL(path, window.location.origin);
-  url.searchParams.set("slot", activeSlotId);
+  url.searchParams.set("instance", activeInstanceName);
   return `${url.pathname}${url.search}${url.hash}`;
 }
 

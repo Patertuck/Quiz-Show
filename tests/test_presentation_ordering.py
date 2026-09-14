@@ -9,15 +9,15 @@ class PresentationOrderingTests(unittest.TestCase):
             "screen": "ordering", "title": "Quizshow", "teams": [],
             "orderingMap": {
                 "label": "Römisches Reich",
-                "image": {"src": "assets/Maps/Römisches Reich.png", "alt": "Karte"},
+                "image": {"src": "/quiz-content/test-quiz/assets/Maps/R%C3%B6misches%20Reich.png", "alt": "Karte"},
             },
         })
 
         self.assertEqual("Römisches Reich", clean["orderingMap"]["label"])
-        self.assertEqual("assets/Maps/Römisches Reich.png", clean["orderingMap"]["image"]["src"])
+        self.assertEqual("/quiz-content/test-quiz/assets/Maps/R%C3%B6misches%20Reich.png", clean["orderingMap"]["image"]["src"])
 
     def test_rejects_unsafe_ordering_map(self):
-        with self.assertRaisesRegex(ValueError, "beneath assets"):
+        with self.assertRaisesRegex(ValueError, "packaged quiz asset"):
             main.validate_presentation({
                 "screen": "ordering", "title": "Quizshow", "teams": [],
                 "orderingMap": {
@@ -29,7 +29,7 @@ class PresentationOrderingTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "non-empty label"):
             main.validate_presentation({
                 "screen": "ordering", "title": "Quizshow", "teams": [],
-                "orderingMap": {"label": "", "image": {"src": "assets/map.png", "alt": "Karte"}},
+                "orderingMap": {"label": "", "image": {"src": "/quiz-content/test-quiz/assets/map.png", "alt": "Karte"}},
             })
 
     def test_accepts_ordering_question_selection(self):

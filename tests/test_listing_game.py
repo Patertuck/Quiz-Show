@@ -32,7 +32,7 @@ class ListingStateTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         state = ListingState(Path(temporary.name) / "listing-state.json")
-        state.configure("fingerprint", ["Rot", "Blau"], ["pets"])
+        state.configure(["Rot", "Blau"], ["pets"])
         return state
 
     @staticmethod

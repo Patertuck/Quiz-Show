@@ -7,7 +7,6 @@ class TeamLobbyStateTests(unittest.TestCase):
     def setUp(self):
         self.lobby = main.TeamLobbyState()
         self.lobby.initialize({
-            "configFingerprint": "config",
             "teams": [
                 {"name": "Team 1", "currentScore": 300, "startingScore": 0},
                 {"name": "Team 2", "currentScore": 100, "startingScore": 0},

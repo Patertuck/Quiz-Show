@@ -23,7 +23,7 @@ export async function mount(root, { navigate }) {
   const resumeButton = root.querySelector("#resume-button");
   const newButton = root.querySelector("#new-game-button");
   const saved = state.savedState;
-  const compatible = saved && !saved.invalid && saved.configFingerprint === state.configFingerprint;
+  const compatible = saved && !saved.invalid;
   let lobby;
   let events;
   let busy = false;
@@ -36,7 +36,7 @@ export async function mount(root, { navigate }) {
     startingScore: state.config.teams[index]?.startingScore ?? 0
   }));
   lobby = await post("/api/team-lobby/initialize", {
-    configFingerprint: state.configFingerprint, teams: seed, force: !state.gameStarted
+    teams: seed, force: !state.gameStarted
   });
   const editingActiveGame = state.gameStarted && lobby.phase === "locked";
 

@@ -16,7 +16,6 @@ class SyncState:
         self.temp_file = state_file.with_name(f".{state_file.name}.tmp")
         self.condition = threading.Condition()
         self.version = 0
-        self.config_fingerprint = ""
         self.teams: list[str] = []
         self.teams_revision = ""
         self.question_ids: list[str] = []
@@ -42,7 +41,6 @@ class SyncState:
             data = json.loads(self.state_file.read_text(encoding="utf-8"))
             if not isinstance(data, dict) or data.get("version") != 1:
                 return
-            self.config_fingerprint = data.get("configFingerprint", "")
             self.teams = data.get("teams", [])
             self.teams_revision = self._team_revision(self.teams)
             self.question_ids = data.get("questionIds", [])
@@ -58,7 +56,6 @@ class SyncState:
         with self.condition:
             self.state_file = state_file
             self.temp_file = state_file.with_name(f".{state_file.name}.tmp")
-            self.config_fingerprint = ""
             self.teams = []
             self.teams_revision = ""
             self.question_ids = []
@@ -76,7 +73,6 @@ class SyncState:
     def _save_unlocked(self) -> None:
         data = {
             "version": 1,
-            "configFingerprint": self.config_fingerprint,
             "teams": self.teams,
             "questionIds": self.question_ids,
             "rosterLocked": self.roster_locked,
@@ -100,7 +96,6 @@ class SyncState:
 
     def reset(self) -> None:
         with self.condition:
-            self.config_fingerprint = ""
             self.teams = []
             self.teams_revision = ""
             self.question_ids = []
@@ -118,13 +113,12 @@ class SyncState:
         self.connections = {}
         self.poll_connections = {}
 
-    def configure(self, fingerprint: str, teams: list[str], question_ids: list[str]) -> None:
-        if not fingerprint or not teams or not question_ids:
-            raise ValueError("Konfiguration, Teams und Fragen für Sync Up sind erforderlich.")
+    def configure(self, teams: list[str], question_ids: list[str]) -> None:
+        if not teams or not question_ids:
+            raise ValueError("Teams und Fragen für Sync Up sind erforderlich.")
         revision = self._team_revision(teams)
         with self.condition:
-            incompatible = fingerprint != self.config_fingerprint or revision != self.teams_revision
-            self.config_fingerprint = fingerprint
+            incompatible = revision != self.teams_revision
             self.teams = list(teams)
             self.teams_revision = revision
             self.question_ids = list(question_ids)
@@ -280,7 +274,7 @@ class SyncState:
             if (not isinstance(teams, list) or any(not isinstance(item, str) for item in teams)
                     or not isinstance(ids, list) or any(not isinstance(item, str) for item in ids)):
                 raise ValueError("Ungültige Sync-Up-Konfiguration.")
-            self.configure(payload.get("configFingerprint", ""), teams, ids)
+            self.configure(teams, ids)
             return self.snapshot("host")
         with self.condition:
             self._expire_unlocked()

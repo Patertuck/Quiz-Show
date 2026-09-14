@@ -6,7 +6,6 @@ import main
 def saved_state(version=3):
     state = {
         "version": version,
-        "configFingerprint": "test",
         "updatedAt": "2026-08-15T10:00:00Z",
         "revision": 1,
         "gameStarted": True,

@@ -8,8 +8,10 @@ sync-state.json
 .sync-state.json.tmp
 server-config.json
 questions.json
+quiz-data/
 quizzes/*.json
 .quiz-saves/
+.inactive-quiz-state/
 __pycache__/
 /assets/reverse-songs/
 output/

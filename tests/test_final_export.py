@@ -16,7 +16,6 @@ def png(width=1920, height=1080):
 
 def state():
     return {
-        "configFingerprint": "quiz-v1",
         "teams": [{"name": "Rot", "score": 300}, {"name": "Blau", "score": -100}],
         "scoreHistory": [
             {"scores": [0, 0], "game": None},

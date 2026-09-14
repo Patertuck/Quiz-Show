@@ -4,7 +4,6 @@ import { hostFetch } from "./slot-api.js";
 export const state = {
   config: null,
   library: null,
-  configFingerprint: "",
   teams: [],
   usedTiles: new Set(),
   activeValue: 0,
@@ -200,23 +199,9 @@ export function validateConfig(config) {
   return config;
 }
 
-function canonicalJson(value) {
-  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
-  if (value && typeof value === "object") {
-    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`;
-  }
-  return JSON.stringify(value);
-}
-
-async function fingerprint(config) {
-  const bytes = new TextEncoder().encode(canonicalJson(config));
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
 function validateSavedState(saved) {
   if (!saved || typeof saved !== "object" || ![1, 2, 3, 4].includes(saved.version)) throw new Error("Das gespeicherte Spiel hat ein nicht unterstütztes Format.");
-  if (typeof saved.configFingerprint !== "string" || typeof saved.gameStarted !== "boolean") throw new Error("Im gespeicherten Spiel fehlen erforderliche Felder.");
+  if (typeof saved.gameStarted !== "boolean") throw new Error("Im gespeicherten Spiel fehlen erforderliche Felder.");
   if (!Number.isInteger(saved.revision) || saved.revision < 1) throw new Error("Das gespeicherte Spiel hat eine ungültige Revision.");
   if (!Array.isArray(saved.teams) || !saved.teams.length) throw new Error("Das gespeicherte Spiel muss mindestens ein Team enthalten.");
   saved.teams.forEach((team) => {
@@ -274,15 +259,27 @@ async function loadSavedState() {
   const response = await hostFetch("/api/state", { cache: "no-store" });
   if (response.status === 404) return null;
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) return { invalid: true, configFingerprint: "", error: payload.error || `HTTP ${response.status}` };
+  if (!response.ok) return { invalid: true, error: payload.error || `HTTP ${response.status}` };
   try { return validateSavedState(payload); }
-  catch (error) { return { invalid: true, configFingerprint: "", error: error.message }; }
+  catch (error) { return { invalid: true, error: error.message }; }
 }
 
 export async function loadQuizConfig(configUrl = "questions.json") {
   const response = await fetch(configUrl, { cache: "no-store" });
   if (!response.ok) throw new Error(`${configUrl} konnte nicht geladen werden (HTTP ${response.status}).`);
-  return validateConfig(await response.json());
+  const config = validateConfig(await response.json());
+  const configLocation = new URL(configUrl, window.location.href);
+  const resolveAssets = (value) => {
+    if (Array.isArray(value)) value.forEach(resolveAssets);
+    else if (value && typeof value === "object") {
+      if (typeof value.src === "string" && value.src.startsWith("assets/")) {
+        value.src = new URL(value.src, configLocation).pathname;
+      }
+      Object.values(value).forEach(resolveAssets);
+    }
+  };
+  resolveAssets(config);
+  return config;
 }
 
 export async function loadQuizLibrary() {
@@ -295,7 +292,6 @@ export async function loadQuizLibrary() {
 
 export async function loadApplicationData(configUrl = "questions.json") {
   state.config = await loadQuizConfig(configUrl);
-  state.configFingerprint = await fingerprint(state.config);
   state.savedState = await loadSavedState();
   document.title = state.config.title;
 }
@@ -303,7 +299,6 @@ export async function loadApplicationData(configUrl = "questions.json") {
 export function stateSnapshot() {
   return {
     version: 4,
-    configFingerprint: state.configFingerprint,
     updatedAt: new Date().toISOString(),
     revision: ++state.revision,
     gameStarted: state.gameStarted,

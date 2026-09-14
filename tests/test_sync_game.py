@@ -10,7 +10,7 @@ class SyncStateTest(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.path = Path(self.temp.name) / "sync-state.json"
         self.state = SyncState(self.path)
-        self.state.configure("fingerprint", ["Rot", "Blau", "Grün"], ["q1", "q2"])
+        self.state.configure(["Rot", "Blau", "Grün"], ["q1", "q2"])
 
     def tearDown(self):
         self.temp.cleanup()

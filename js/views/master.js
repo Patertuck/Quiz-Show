@@ -27,7 +27,7 @@ function reloadAt(path) {
 
 export async function mount(root) {
   if (state.gameStarted) await saveState();
-  if (state.library?.activeSlotId) await publishStandby();
+  if (state.library?.activeInstanceName) await publishStandby();
   const groups = root.querySelector("#master-save-groups");
   const form = root.querySelector("#master-new-form");
   const nameInput = root.querySelector("#master-slot-name");
@@ -35,7 +35,7 @@ export async function mount(root) {
   const errorLine = root.querySelector("#master-new-error");
   const initialError = state.library?.configError;
   let library = await loadQuizLibrary();
-  const configs = new Map();
+  const variations = new Map();
   if (initialError) errorLine.textContent = initialError;
 
   async function switchSlot(action, payload, destination) {
@@ -50,27 +50,27 @@ export async function mount(root) {
     }
   }
 
-  await Promise.all(library.configurations.map(async (item) => {
+  await Promise.all(library.variations.map(async (item) => {
     try {
       const config = await loadQuizConfig(item.url);
-      configs.set(item.id, { ...item, title: config.title, valid: true });
+      variations.set(item.id, { ...item, title: config.title, valid: true });
     } catch (error) {
-      configs.set(item.id, { ...item, title: item.id, valid: false, error: error.message });
+      variations.set(item.id, { ...item, title: item.id, valid: false, error: error.message });
     }
   }));
 
   function renderConfigOptions() {
     configSelect.replaceChildren();
-    [...configs.values()].sort((a, b) => a.title.localeCompare(b.title, "de-CH")).forEach((config) => {
+    [...variations.values()].sort((a, b) => a.title.localeCompare(b.title, "de-CH")).forEach((config) => {
       const option = document.createElement("option");
       option.value = config.id;
       option.textContent = config.valid ? config.title : `${config.title} (ungültig)`;
       option.disabled = !config.valid;
       configSelect.append(option);
     });
-    const available = [...configs.values()].some(({ valid }) => valid);
+    const available = [...variations.values()].some(({ valid }) => valid);
     form.querySelector("button").disabled = !available;
-    if (!available) errorLine.textContent = "Legt eine gültige JSON-Konfiguration im Ordner quizzes ab.";
+    if (!available) errorLine.textContent = "Legt eine gültige Quiz-Variante unter quiz-data/variations ab.";
   }
 
   function actionButton(text, className, action) {
@@ -89,57 +89,60 @@ export async function mount(root) {
 
   function renderSlots() {
     groups.replaceChildren();
-    if (!library.slots.length) {
+    if (!library.instances.length) {
       const empty = document.createElement("p");
       empty.className = "master-empty panel";
-      empty.textContent = "Noch keine Spielstände vorhanden.";
+      empty.textContent = "Noch keine Quiz-Instanzen vorhanden.";
       groups.append(empty);
       return;
     }
     const byConfig = new Map();
-    library.slots.forEach((slot) => {
-      if (!byConfig.has(slot.configId)) byConfig.set(slot.configId, []);
-      byConfig.get(slot.configId).push(slot);
+    library.instances.forEach((instance) => {
+      if (!byConfig.has(instance.variationId)) byConfig.set(instance.variationId, []);
+      byConfig.get(instance.variationId).push(instance);
     });
-    byConfig.forEach((slots, configId) => {
+    byConfig.forEach((instances, variationId) => {
       const section = document.createElement("section");
       section.className = "master-save-group";
       const heading = document.createElement("h3");
-      heading.textContent = configs.get(configId)?.title || `${configId} (Konfiguration fehlt)`;
+      heading.textContent = variations.get(variationId)?.title || `${variationId} (Variante fehlt)`;
       section.append(heading);
       const grid = document.createElement("div");
       grid.className = "master-save-grid";
-      slots.forEach((slot) => {
+      instances.forEach((instance) => {
         const card = document.createElement("article");
-        card.className = `master-save-card panel${slot.id === library.activeSlotId ? " active" : ""}`;
-        const title = document.createElement("h4"); title.textContent = slot.name;
+        card.className = `master-save-card panel${instance.name === library.activeInstanceName ? " active" : ""}`;
+        const title = document.createElement("h4"); title.textContent = instance.name;
         const detail = document.createElement("p");
-        detail.textContent = `${slot.hasState ? "Spiel begonnen" : "Noch nicht begonnen"} · ${formatTime(slot.updatedAt)}`;
+        const status = instance.hasState ? "Spiel begonnen" : (instance.hasResults ? "Nur historische Ergebnisse" : "Noch nicht begonnen");
+        detail.textContent = `${status}${instance.hasResults ? " · Ergebnisse vorhanden" : ""} · ${formatTime(instance.updatedAt)}`;
         const actions = document.createElement("div"); actions.className = "master-save-actions";
         actions.append(actionButton("Fortsetzen", "primary-button", async () => {
-          await switchSlot("activate", { slotId: slot.id }, slot.hasState ? "hub" : "setup");
+          await switchSlot("activate", { name: instance.name }, instance.hasState ? "hub" : "setup");
         }));
-        actions.lastElementChild.disabled = !slot.configAvailable || !configs.get(configId)?.valid;
+        actions.lastElementChild.disabled = !instance.variationAvailable || !variations.get(variationId)?.valid
+          || (!instance.hasState && instance.hasResults);
         actions.append(actionButton("Umbenennen", "secondary-button", async () => {
-          const name = window.prompt("Neuer Name des Spielstands", slot.name);
+          const name = window.prompt("Neuer Instanzname (Kleinbuchstaben, Zahlen und Bindestriche)", instance.name);
           if (name === null) return;
-          library = await control("rename", { slotId: slot.id, name });
+          library = await control("rename", { name: instance.name, newName: name });
           renderSlots();
         }));
         actions.append(actionButton("Löschen", "danger-button", async () => {
-          if (!window.confirm(`Spielstand «${slot.name}» wirklich löschen?`)) return;
-          const wasActive = slot.id === library.activeSlotId;
+          const resultWarning = instance.hasResults ? " Alle gespeicherten Ergebnisse gehen ebenfalls verloren." : "";
+          if (!window.confirm(`Quiz-Instanz «${instance.name}» wirklich löschen?${resultWarning}`)) return;
+          const wasActive = instance.name === library.activeInstanceName;
           const wasStarted = state.gameStarted;
           if (wasActive) state.gameStarted = false;
-          try { library = await control("delete", { slotId: slot.id }); }
+          try { library = await control("delete", { name: instance.name }); }
           catch (error) { state.gameStarted = wasStarted; throw error; }
           if (wasActive) reloadAt("/#/master");
           else renderSlots();
         }));
-        if (!slot.configAvailable) {
+        if (!instance.variationAvailable) {
           const warning = document.createElement("p");
           warning.className = "master-save-warning";
-          warning.textContent = "Die zugehörige Quizkonfiguration fehlt.";
+          warning.textContent = "Die zugehörige Quiz-Variante fehlt.";
           card.append(title, detail, warning, actions);
         } else card.append(title, detail, actions);
         grid.append(card);
@@ -155,7 +158,7 @@ export async function mount(root) {
     const button = form.querySelector("button");
     button.disabled = true;
     try {
-      await switchSlot("create", { name: nameInput.value, configId: configSelect.value }, "intro");
+      await switchSlot("create", { name: nameInput.value, variationId: configSelect.value }, "intro");
     } catch (error) {
       errorLine.textContent = error.message;
       button.disabled = false;

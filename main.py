@@ -43,9 +43,10 @@ ORDERING_FILE = PROJECT_DIRECTORY / "ordering-state.json"
 ORDERING_TEMP_FILE = PROJECT_DIRECTORY / ".ordering-state.tmp"
 LISTING_FILE = PROJECT_DIRECTORY / "listing-state.json"
 SYNC_FILE = PROJECT_DIRECTORY / "sync-state.json"
-QUIZ_DIRECTORY = PROJECT_DIRECTORY / "quizzes"
-QUIZ_SAVE_DIRECTORY = PROJECT_DIRECTORY / ".quiz-saves"
-QUIZ_LIBRARY = QuizLibrary(QUIZ_DIRECTORY, QUIZ_SAVE_DIRECTORY)
+QUIZ_DATA_DIRECTORY = PROJECT_DIRECTORY / "quiz-data"
+QUIZ_VARIATION_DIRECTORY = QUIZ_DATA_DIRECTORY / "variations"
+QUIZ_INSTANCE_DIRECTORY = QUIZ_DATA_DIRECTORY / "instances"
+QUIZ_LIBRARY = QuizLibrary(QUIZ_VARIATION_DIRECTORY, QUIZ_INSTANCE_DIRECTORY)
 MAX_STATE_BYTES = 1_000_000
 STATE_LOCK = threading.Lock()
 TILE_ID_PATTERN = re.compile(r"^\d+:\d+$")
@@ -53,7 +54,6 @@ MAX_BUZZER_BODY_BYTES = 16_384
 MAX_PRESENTATION_BODY_BYTES = 262_144
 MAX_FINAL_EXPORT_BODY_BYTES = 25_000_000
 MAX_FINAL_EXPORT_PNG_BYTES = 8_000_000
-FINAL_EXPORT_DIRECTORY = PROJECT_DIRECTORY / "output"
 FINAL_EXPORT_LOCK = threading.Lock()
 PRESENTATION_SCREENS = {"standby", "team-lobby", "hub", "jeopardy-board", "jeopardy-question", "ordering", "listing", "sync", "victory", "score-history"}
 HUB_GAME_IDS = {"jeopardy", "ordering", "listing", "sync"}
@@ -89,7 +89,6 @@ def _decode_export_png(value: object, field: str) -> bytes:
 def final_export_key(state: dict) -> str:
     identity = {
         "formatVersion": 2,
-        "configFingerprint": state["configFingerprint"],
         "teams": state["teams"],
         "scoreHistory": state["scoreHistory"],
     }
@@ -117,7 +116,7 @@ def final_export_csv(state: dict) -> bytes:
     return output.getvalue().encode("utf-8-sig")
 
 
-def save_final_export(payload: dict, state: dict, directory: Path = FINAL_EXPORT_DIRECTORY) -> tuple[Path, bool]:
+def save_final_export(payload: dict, state: dict, directory: Path) -> tuple[Path, bool]:
     podium = _decode_export_png(payload.get("podiumPng"), "podiumPng")
     score_history = _decode_export_png(payload.get("scoreHistoryPng"), "scoreHistoryPng")
     export_key = final_export_key(state)
@@ -287,8 +286,6 @@ def validate_state(state: object) -> dict:
         raise ValueError("State must be a JSON object.")
     if state.get("version") not in {1, 2, 3, 4}:
         raise ValueError("Unsupported state version.")
-    if not isinstance(state.get("configFingerprint"), str) or not state["configFingerprint"]:
-        raise ValueError("configFingerprint must be a non-empty string.")
     if not isinstance(state.get("updatedAt"), str) or not state["updatedAt"]:
         raise ValueError("updatedAt must be a non-empty string.")
     if not isinstance(state.get("gameStarted"), bool):
@@ -470,7 +467,6 @@ class TeamLobbyState:
     def __init__(self) -> None:
         self.condition = threading.Condition()
         self.version = 0
-        self.config_fingerprint = ""
         self.phase = "uninitialized"
         self.teams: list[dict] = []
         self.memberships: dict[str, str] = {}
@@ -497,7 +493,6 @@ class TeamLobbyState:
 
     def reset(self) -> None:
         with self.condition:
-            self.config_fingerprint = ""
             self.phase = "uninitialized"
             self.teams = []
             self.memberships = {}
@@ -512,14 +507,13 @@ class TeamLobbyState:
         return team
 
     def initialize(self, payload: dict) -> dict:
-        fingerprint = payload.get("configFingerprint")
         source = payload.get("teams")
-        if not isinstance(fingerprint, str) or not fingerprint or not isinstance(source, list):
+        if not isinstance(source, list):
             raise ValueError("Die Team-Lobby kann nicht initialisiert werden.")
         if not 1 <= len(source) <= self.MAX_TEAMS:
             raise ValueError(f"Die Lobby benötigt 1 bis {self.MAX_TEAMS} Teams.")
         with self.condition:
-            if self.phase in {"open", "locked"} and self.config_fingerprint == fingerprint and not payload.get("force"):
+            if self.phase in {"open", "locked"} and not payload.get("force"):
                 return self._snapshot_unlocked("host")
             self.teams = []
             self.memberships = {}
@@ -536,7 +530,6 @@ class TeamLobbyState:
                     "id": secrets.token_urlsafe(8), "name": name, "ownerDeviceId": None,
                     "currentScore": current_score, "startingScore": starting_score,
                 })
-            self.config_fingerprint = fingerprint
             self.phase = "open"
             self._changed()
             return self._snapshot_unlocked("host")
@@ -637,7 +630,6 @@ class OrderingState:
         self.temp_file = state_file.with_name(f".{state_file.name}.tmp")
         self.condition = threading.Condition()
         self.version = 0
-        self.config_fingerprint = ""
         self.teams: list[str] = []
         self.teams_revision = ""
         self.completed: list[str] = []
@@ -653,7 +645,6 @@ class OrderingState:
             data = json.loads(self.state_file.read_text(encoding="utf-8"))
             if not isinstance(data, dict) or data.get("version") != 1:
                 return
-            self.config_fingerprint = data.get("configFingerprint", "")
             self.teams = data.get("teams", [])
             self.teams_revision = BuzzerState.team_revision(self.teams)
             self.completed = data.get("completedQuestionIds", [])
@@ -663,7 +654,7 @@ class OrderingState:
 
     def _save_unlocked(self) -> None:
         data = {
-            "version": 1, "configFingerprint": self.config_fingerprint,
+            "version": 1,
             "teams": self.teams, "completedQuestionIds": self.completed, "round": self.round,
         }
         encoded = (json.dumps(data, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
@@ -686,7 +677,6 @@ class OrderingState:
 
     def reset(self) -> None:
         with self.condition:
-            self.config_fingerprint = ""
             self.teams = []
             self.teams_revision = ""
             self.completed = []
@@ -700,7 +690,6 @@ class OrderingState:
         with self.condition:
             self.state_file = state_file
             self.temp_file = state_file.with_name(f".{state_file.name}.tmp")
-            self.config_fingerprint = ""
             self.teams = []
             self.teams_revision = ""
             self.completed = []
@@ -711,16 +700,15 @@ class OrderingState:
             self.version += 1
             self.condition.notify_all()
 
-    def configure(self, fingerprint: str, teams: list[str], question_ids: list[str]) -> None:
-        if not fingerprint or not teams or not question_ids:
-            raise ValueError("Konfiguration, Teams und Fragen für Order Up sind erforderlich.")
+    def configure(self, teams: list[str], question_ids: list[str]) -> None:
+        if not teams or not question_ids:
+            raise ValueError("Teams und Fragen für Order Up sind erforderlich.")
         revision = BuzzerState.team_revision(teams)
         with self.condition:
-            if fingerprint != self.config_fingerprint or revision != self.teams_revision:
+            if revision != self.teams_revision:
                 self.completed = []
                 self.round = None
                 self.poll_connections = {}
-            self.config_fingerprint = fingerprint
             self.teams = list(teams)
             self.teams_revision = revision
             self.completed = [item for item in self.completed if item in question_ids]
@@ -795,7 +783,7 @@ class OrderingState:
             ids = payload.get("questionIds")
             if not isinstance(teams, list) or any(not isinstance(x, str) for x in teams) or not isinstance(ids, list) or any(not isinstance(x, str) for x in ids):
                 raise ValueError("Ungültige Order-Up-Konfiguration.")
-            self.configure(payload.get("configFingerprint", ""), teams, ids)
+            self.configure(teams, ids)
         elif action == "start":
             self.start(payload.get("question"))
         else:
@@ -936,10 +924,19 @@ class OrderingState:
                 self._changed_unlocked(False)
 
 
-INACTIVE_SAVE_DIRECTORY = QUIZ_SAVE_DIRECTORY / ".inactive"
+INACTIVE_SAVE_DIRECTORY = PROJECT_DIRECTORY / ".inactive-quiz-state"
+INACTIVE_SAVE_DIRECTORY.mkdir(parents=True, exist_ok=True)
 ORDERING = OrderingState(QUIZ_LIBRARY.active_state_path("ordering-state.json") or INACTIVE_SAVE_DIRECTORY / "ordering-state.json")
 LISTING = ListingState(QUIZ_LIBRARY.active_state_path("listing-state.json") or INACTIVE_SAVE_DIRECTORY / "listing-state.json")
 SYNC = SyncState(QUIZ_LIBRARY.active_state_path("sync-state.json") or INACTIVE_SAVE_DIRECTORY / "sync-state.json")
+
+
+def validate_quiz_media_source(value: str, field: str) -> str:
+    src = value.replace("\\", "/")
+    match = re.fullmatch(r"/quiz-content/([a-z0-9](?:[a-z0-9-]*[a-z0-9])?)/assets/(.+)", src)
+    if not match or any(part in {"", ".", ".."} for part in match.group(2).split("/")):
+        raise ValueError(f"{field}.src must be a packaged quiz asset.")
+    return src
 
 
 def validate_presentation_image(image: object, field: str) -> dict | None:
@@ -947,9 +944,7 @@ def validate_presentation_image(image: object, field: str) -> dict | None:
         return None
     if not isinstance(image, dict) or not isinstance(image.get("src"), str) or not isinstance(image.get("alt"), str):
         raise ValueError(f"{field} must contain src and alt strings.")
-    src = image["src"].replace("\\", "/")
-    if not src.startswith("assets/") or ".." in src.split("/") or re.match(r"^[a-z]+:", src, re.I):
-        raise ValueError(f"{field}.src must be beneath assets/.")
+    src = validate_quiz_media_source(image["src"], field)
     return {"src": src, "alt": image["alt"]}
 
 
@@ -958,9 +953,7 @@ def validate_presentation_audio(audio: object, field: str) -> dict | None:
         return None
     if not isinstance(audio, dict) or not isinstance(audio.get("src"), str) or not isinstance(audio.get("label"), str):
         raise ValueError(f"{field} must contain src and label strings.")
-    src = audio["src"].replace("\\", "/")
-    if not src.startswith("assets/") or ".." in src.split("/") or re.match(r"^[a-z]+:", src, re.I):
-        raise ValueError(f"{field}.src must be beneath assets/.")
+    src = validate_quiz_media_source(audio["src"], field)
     if not audio["label"].strip():
         raise ValueError(f"{field}.label must not be empty.")
     return {"src": src, "label": audio["label"]}
@@ -1298,11 +1291,11 @@ def load_current_state() -> dict | None:
 def active_state_files() -> tuple[Path, Path]:
     state_file = QUIZ_LIBRARY.active_state_path("game-state.json")
     if state_file is None:
-        raise ValueError("Es ist kein Spielstand ausgewählt.")
+        raise ValueError("Es ist keine Quiz-Instanz ausgewählt.")
     return state_file, state_file.with_name(".game-state.tmp")
 
 
-def bind_active_slot() -> None:
+def bind_active_instance() -> None:
     directory = QUIZ_LIBRARY.active_directory()
     if directory is None:
         ORDERING.switch_storage(INACTIVE_SAVE_DIRECTORY / "ordering-state.json")
@@ -1346,6 +1339,26 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.send_error(404)
         return None
 
+    def translate_path(self, path: str) -> str:
+        content = QUIZ_LIBRARY.content_path(path)
+        if content is not None:
+            return str(content[0])
+        if urlsplit(path).path.startswith("/quiz-content/"):
+            return str(PROJECT_DIRECTORY / ".missing-quiz-content")
+        return super().translate_path(path)
+
+    def authorize_quiz_content(self) -> bool | None:
+        if not self.request_path.startswith("/quiz-content/"):
+            return None
+        content = QUIZ_LIBRARY.content_path(self.path)
+        if content is None:
+            self.send_error(404)
+            return False
+        if content[1] == "config" and not self.is_host:
+            self.send_error(403, "Quizkonfigurationen sind nur auf dem Quiz-Host verfügbar.")
+            return False
+        return True
+
     def end_headers(self) -> None:
         if not self.request_path.startswith("/api/"):
             self.send_header("Cache-Control", "no-cache, max-age=0, must-revalidate")
@@ -1369,15 +1382,19 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.send_json(403, {"error": "Dieser Endpunkt ist nur auf dem Quiz-Host verfügbar."})
         return False
 
-    def require_active_slot(self) -> bool:
-        """Reject a host request made by a tab for a different save slot."""
-        requested = parse_qs(urlsplit(self.path).query).get("slot", [None])[0]
-        if requested is not None and requested == QUIZ_LIBRARY.active_slot_id():
+    def require_active_instance(self) -> bool:
+        """Reject a host request made by a tab for a different quiz instance."""
+        requested = parse_qs(urlsplit(self.path).query).get("instance", [None])[0]
+        if requested is not None and requested == QUIZ_LIBRARY.active_instance_name():
             return True
         if getattr(self, "command", None) in {"POST", "PUT", "PATCH"}:
             self.close_connection = True
-        self.send_json(409, {"error": "Der aktive Spielstand wurde gewechselt."})
+        self.send_json(409, {"error": "Die aktive Quiz-Instanz wurde gewechselt."})
         return False
+
+    # Internal compatibility alias while endpoint handlers share this guard.
+    def require_active_slot(self) -> bool:
+        return self.require_active_instance()
 
     def send_json(self, status: int, payload: object | None = None) -> None:
         body = b"" if payload is None else json.dumps(payload).encode("utf-8")
@@ -1397,6 +1414,11 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self) -> None:  # noqa: N802 - required by BaseHTTPRequestHandler
+        quiz_content = self.authorize_quiz_content()
+        if quiz_content is not None:
+            if quiz_content:
+                super().do_GET()
+            return
         slot_scoped_host_paths = {
             "/api/team-lobby/state", "/api/team-lobby/events",
             "/api/sync/state", "/api/sync/events",
@@ -1406,8 +1428,8 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
             "/api/buzzer/info", "/api/buzzer/state", "/api/buzzer/events",
         }
         if self.is_host and self.request_path in slot_scoped_host_paths:
-            requested_slot = parse_qs(urlsplit(self.path).query).get("slot", [None])[0]
-            if requested_slot is not None and not self.require_active_slot():
+            requested_instance = parse_qs(urlsplit(self.path).query).get("instance", [None])[0]
+            if requested_instance is not None and not self.require_active_instance():
                 return
         if self.request_path == "/api/live-state":
             query = parse_qs(urlsplit(self.path).query)
@@ -1629,7 +1651,7 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
         if self.request_path == "/api/state":
             if not self.require_host():
                 return
-            if not self.require_active_slot():
+            if not self.require_active_instance():
                 return
             try:
                 state_file, _ = active_state_files()
@@ -1682,6 +1704,11 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_HEAD(self) -> None:  # noqa: N802 - required by BaseHTTPRequestHandler
+        quiz_content = self.authorize_quiz_content()
+        if quiz_content is not None:
+            if quiz_content:
+                super().do_HEAD()
+            return
         if self.request_path == "/.quiz-saves" or self.request_path.startswith("/.quiz-saves/"):
             self.send_error(404)
             return
@@ -1716,17 +1743,20 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
                 payload = self.read_json(MAX_PRESENTATION_BODY_BYTES)
                 action = payload.get("action")
                 if action == "create":
-                    QUIZ_LIBRARY.create(payload.get("name"), payload.get("configId"))
-                    bind_active_slot()
+                    QUIZ_LIBRARY.create(payload.get("name"), payload.get("variationId"))
+                    bind_active_instance()
                 elif action == "activate":
-                    QUIZ_LIBRARY.activate(payload.get("slotId"))
-                    bind_active_slot()
+                    QUIZ_LIBRARY.activate(payload.get("name"))
+                    bind_active_instance()
                 elif action == "rename":
-                    QUIZ_LIBRARY.rename(payload.get("slotId"), payload.get("name"))
-                elif action == "delete":
-                    was_active = QUIZ_LIBRARY.delete(payload.get("slotId"))
+                    was_active = QUIZ_LIBRARY.active_instance_name() == payload.get("name")
+                    QUIZ_LIBRARY.rename(payload.get("name"), payload.get("newName"))
                     if was_active:
-                        bind_active_slot()
+                        bind_active_instance()
+                elif action == "delete":
+                    was_active = QUIZ_LIBRARY.delete(payload.get("name"))
+                    if was_active:
+                        bind_active_instance()
                 else:
                     raise ValueError("Unbekannte Spielstand-Aktion.")
             except (UnicodeError, json.JSONDecodeError, ValueError, OSError) as error:
@@ -1747,7 +1777,11 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
                 if state is None:
                     self.send_json(409, {"error": "Es ist kein gültiger Spielstand für den Export gespeichert."})
                     return
-                target, created = save_final_export(payload, state)
+                results_directory = QUIZ_LIBRARY.active_results_directory()
+                if results_directory is None:
+                    self.send_json(409, {"error": "Das aktive Quiz hat kein gültiges Ergebnisverzeichnis."})
+                    return
+                target, created = save_final_export(payload, state, results_directory)
             except (UnicodeError, json.JSONDecodeError, ValueError) as error:
                 self.send_json(400, {"error": str(error)})
                 return
@@ -1921,8 +1955,7 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
                         current = validate_state(json.loads(state_file.read_text(encoding="utf-8")))
                     except (OSError, UnicodeError, json.JSONDecodeError, ValueError):
                         current = None
-                    if (current is not None and current["configFingerprint"] == state["configFingerprint"]
-                            and current["revision"] > state["revision"]):
+                    if current is not None and current["revision"] > state["revision"]:
                         self.send_json(409, {"error": "Eine neuere Revision des Spielstands ist bereits gespeichert."})
                         return
                 with state_temp_file.open("wb") as state_handle:

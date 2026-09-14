@@ -2,7 +2,22 @@
 
 ## Fragen konfigurieren
 
-Quizkonfigurationen liegen als JSON-Dateien im Ordner `quizzes`. Die Quiz-Auswahl erkennt die Dateien beim Laden automatisch. Allgemeine Angaben wie `title` und `teams` stehen auf der obersten Ebene; die verfügbaren Spiele werden unter `games` eingetragen. Nur Spiele, deren Schlüssel vorhanden sind, erscheinen in der Spielauswahl.
+Wiederverwendbare Quiz-Varianten und ihre spielbaren Instanzen liegen getrennt unter `quiz-data`. Namen dürfen nur Kleinbuchstaben, Zahlen und Bindestriche enthalten. Eine Variante enthält die Fragen und Medien; mehrere Instanzen können dieselbe Variante verwenden:
+
+```text
+quiz-data/
+├── variations/
+│   └── mein-quiz-v1/
+│       ├── quiz-config.json
+│       └── assets/
+└── instances/
+    └── family-quiz-2026/
+        ├── instance.json
+        ├── game-state.json
+        └── results/
+```
+
+Allgemeine Angaben wie `title` und `teams` stehen in `quiz-config.json` auf der obersten Ebene; die verfügbaren Spiele werden unter `games` eingetragen. Nur Spiele, deren Schlüssel vorhanden sind, erscheinen in der Spielauswahl.
 
 ```json
 {
@@ -18,9 +33,15 @@ Quizkonfigurationen liegen als JSON-Dateien im Ordner `quizzes`. Die Quiz-Auswah
 }
 ```
 
-Unterstützte Schlüssel sind `jeopardy`, `ordering`, `listing` und `sync`. Ein vorhandenes Spiel muss vollständig konfiguriert sein und mindestens eine Frage enthalten. Das vollständige Format zeigt `questions.example.json`; kopiert diese Datei als Ausgangspunkt unter einem beliebigen Namen nach `quizzes`. Medienfelder wie `questionAudio` oder `answerAudio` sind optional; fehlen sie, werden keine Audiosteuerungen angezeigt.
+Unterstützte Schlüssel sind `jeopardy`, `ordering`, `listing` und `sync`. Ein vorhandenes Spiel muss vollständig konfiguriert sein und mindestens eine Frage enthalten. Das vollständige Format zeigt `questions.example.json`; kopiert diese Datei als `quiz-config.json` in eine neue Variante. Medienfelder wie `questionAudio` oder `answerAudio` sind optional. Medien liegen im `assets`-Ordner derselben Variante und werden beispielsweise als `assets/bilder/karte.png` referenziert.
 
-Die Quiz-Auswahl verwaltet benannte Spielstände. Jeder Spielstand gehört fest zu einer Quizkonfiguration und wird automatisch im ignorierten Ordner `.quiz-saves` gespeichert. Beim nächsten Programmstart wird das zuletzt ausgewählte Quiz wieder auf dem Intro geöffnet.
+Die Quiz-Auswahl verwaltet global eindeutig benannte Quiz-Instanzen. Jede Instanz verweist in `instance.json` auf ihre Variante und speichert ihren vollständigen Spielstand sowie fertige Exporte im eigenen Ordner. Nach einem Serverneustart wird keine Instanz automatisch ausgewählt.
+
+## Sichern und wiederherstellen
+
+Der gesamte Ordner `quiz-data` ist bewusst nicht im Repository enthalten. Beendet den Quizserver und kopiert diesen einen Ordner in euer Backup. Nach dem Klonen auf einem anderen Gerät kopiert ihr ihn unverändert neben `main.py` zurück; damit sind alle Varianten, fortsetzbaren Instanzen und Ergebnisse wieder vorhanden.
+
+Geheimnisse in `server-config.json` gehören nicht zu diesem Backup. API-Schlüssel werden auf jedem Gerät separat eingerichtet. Varianten werden nicht gegen bestehende Instanzen geprüft: Wer Fragen oder Medien nachträglich ändert, ist selbst für die Kompatibilität mit gespeicherten Spielständen verantwortlich.
 
 ## Im lokalen Netzwerk
 

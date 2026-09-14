@@ -18,7 +18,6 @@ class ListingState:
         self.temp_file = state_file.with_name(f".{state_file.name}.tmp")
         self.condition = threading.Condition()
         self.version = 0
-        self.config_fingerprint = ""
         self.teams: list[str] = []
         self.teams_revision = ""
         self.completed: list[str] = []
@@ -40,7 +39,6 @@ class ListingState:
             data = json.loads(self.state_file.read_text(encoding="utf-8"))
             if not isinstance(data, dict) or data.get("version") != 1:
                 return
-            self.config_fingerprint = data.get("configFingerprint", "")
             self.teams = data.get("teams", [])
             self.teams_revision = self.team_revision(self.teams)
             self.completed = data.get("completedQuestionIds", [])
@@ -56,7 +54,6 @@ class ListingState:
         with self.condition:
             self.state_file = state_file
             self.temp_file = state_file.with_name(f".{state_file.name}.tmp")
-            self.config_fingerprint = ""
             self.teams = []
             self.teams_revision = ""
             self.completed = []
@@ -70,7 +67,6 @@ class ListingState:
     def _save_unlocked(self) -> None:
         data = {
             "version": 1,
-            "configFingerprint": self.config_fingerprint,
             "teams": self.teams,
             "completedQuestionIds": self.completed,
             "round": self.round,
@@ -90,7 +86,6 @@ class ListingState:
 
     def reset(self) -> None:
         with self.condition:
-            self.config_fingerprint = ""
             self.teams = []
             self.teams_revision = ""
             self.completed = []
@@ -99,16 +94,15 @@ class ListingState:
             self.temp_file.unlink(missing_ok=True)
             self._changed_unlocked(False)
 
-    def configure(self, fingerprint: str, teams: list[str], question_ids: list[str]) -> None:
-        if not fingerprint or not teams or not question_ids:
-            raise ValueError("Konfiguration, Teams und Fragen für List It sind erforderlich.")
+    def configure(self, teams: list[str], question_ids: list[str]) -> None:
+        if not teams or not question_ids:
+            raise ValueError("Teams und Fragen für List It sind erforderlich.")
         revision = self.team_revision(teams)
         with self.condition:
-            if fingerprint != self.config_fingerprint or revision != self.teams_revision:
+            if revision != self.teams_revision:
                 self.completed = []
                 self.round = None
                 self.poll_connections = {}
-            self.config_fingerprint = fingerprint
             self.teams = list(teams)
             self.teams_revision = revision
             self.completed = [item for item in self.completed if item in question_ids]
@@ -314,7 +308,7 @@ class ListingState:
             if (not isinstance(teams, list) or any(not isinstance(item, str) for item in teams)
                     or not isinstance(ids, list) or any(not isinstance(item, str) for item in ids)):
                 raise ValueError("Ungültige List-It-Konfiguration.")
-            self.configure(payload.get("configFingerprint", ""), teams, ids)
+            self.configure(teams, ids)
         elif action == "start":
             self.start(payload.get("question"))
         else:
