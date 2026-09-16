@@ -1,4 +1,8 @@
-quiz-data/
+quiz-data/*
+!quiz-data/variations/
+quiz-data/variations/*
+!quiz-data/variations/beispiel-quiz/
+!quiz-data/variations/beispiel-quiz/**
 __pycache__/
 .venv/
 .idea/

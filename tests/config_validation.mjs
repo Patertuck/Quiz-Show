@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 import { validateConfig } from "../js/store.js";
 import { configuredGames, gameDefinition } from "../js/game-catalog.js";
@@ -67,4 +68,13 @@ test("uses instance logo overrides without changing the catalog defaults", () =>
   assert.equal(gameDefinition("jeopardy", logos).logo, logos.jeopardy);
   assert.equal(configuredGames(config({ jeopardy }), logos)[0].logo, logos.jeopardy);
   assert.equal(gameDefinition("jeopardy").logo, "assets/Logos/Logo_Jeopardy.png");
+});
+
+test("the committed example quiz is a valid four-game variation", () => {
+  const source = readFileSync(
+    new URL("../quiz-data/variations/beispiel-quiz/quiz-config.json", import.meta.url),
+    "utf8"
+  );
+  const example = validateConfig(JSON.parse(source));
+  assert.deepEqual(Object.keys(example.games), ["jeopardy", "ordering", "listing", "sync"]);
 });

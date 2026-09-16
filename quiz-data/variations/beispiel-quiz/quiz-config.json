@@ -1,0 +1,59 @@
+{
+  "title": "Quizy Beispielquiz",
+  "teams": [
+    { "name": "Team Rot", "startingScore": 0 },
+    { "name": "Team Blau", "startingScore": 0 }
+  ],
+  "games": {
+    "jeopardy": {
+      "values": [100],
+      "categories": [
+        {
+          "name": "Kurz gefragt",
+          "questions": [
+            {
+              "question": "Wie viele Seiten hat ein Sechseck?",
+              "answer": "Sechs"
+            }
+          ]
+        }
+      ]
+    },
+    "ordering": {
+      "pointsPerCorrect": 100,
+      "questions": [
+        {
+          "id": "zahlen-sortieren",
+          "title": "Zahlenfolge",
+          "prompt": "Sortiert die Zahlen von der kleinsten zur grössten.",
+          "timeLimitSeconds": 30,
+          "items": ["Eins", "Zehn", "Hundert"]
+        }
+      ]
+    },
+    "listing": {
+      "questions": [
+        {
+          "id": "regenbogenfarben",
+          "title": "Farben des Regenbogens",
+          "displayCategory": "Allgemeinwissen",
+          "prompt": "Nennt möglichst viele Farben des Regenbogens.",
+          "validationRule": "Akzeptiere Rot, Orange, Gelb, Grün, Blau, Indigo und Violett. Akzeptiere eindeutige alternative Schreibweisen, aber keine anderen Farben.",
+          "timeLimitSeconds": 45,
+          "maxItems": 7,
+          "placementPoints": [300, 200, 100]
+        }
+      ]
+    },
+    "sync": {
+      "timeLimitSeconds": 8,
+      "pointsPerSync": 100,
+      "questions": [
+        {
+          "id": "quizabend-planen",
+          "prompt": "Wer würde am ehesten spontan einen Quizabend organisieren?"
+        }
+      ]
+    }
+  }
+}

@@ -36,6 +36,8 @@ Allgemeine Angaben wie `title` und `teams` stehen in `quiz-config.json` auf der 
 
 Unterstützte Schlüssel sind `jeopardy`, `ordering`, `listing` und `sync`. Ein vorhandenes Spiel muss vollständig konfiguriert sein und mindestens eine Frage enthalten. Das vollständige Format zeigt `questions.example.json`; kopiert diese Datei als `quiz-config.json` in eine neue Variante. Medienfelder wie `questionAudio` oder `answerAudio` sind optional. Medien liegen im `assets`-Ordner derselben Variante und werden beispielsweise als `assets/bilder/karte.png` referenziert.
 
+Die mitgelieferte Variante `quiz-data/variations/beispiel-quiz` enthält je eine kleine Runde aller vier Spieltypen. Sie erscheint nach einem frischen Klonen direkt in der Quiz-Auswahl und eignet sich zum Ausprobieren sowie als minimale Vorlage.
+
 Die Quiz-Auswahl verwaltet global eindeutig benannte Quiz-Instanzen. Jede Instanz verweist in `instance.json` auf ihre Variante und speichert ihren vollständigen Spielstand sowie fertige Exporte im eigenen Ordner. Nach einem Serverneustart wird keine Instanz automatisch ausgewählt.
 
 ### Logos pro Quiz-Instanz
@@ -52,7 +54,7 @@ Die Dateinamen inklusive Gross-/Kleinschreibung müssen exakt übereinstimmen. N
 
 ## Sichern und wiederherstellen
 
-Der gesamte Ordner `quiz-data` ist bewusst nicht im Repository enthalten. Beendet den Quizserver und kopiert diesen einen Ordner in euer Backup. Nach dem Klonen auf einem anderen Gerät kopiert ihr ihn unverändert neben `main.py` zurück; damit sind alle Varianten, fortsetzbaren Instanzen und Ergebnisse wieder vorhanden.
+Mit Ausnahme der mitgelieferten Variante `beispiel-quiz` ist der Ordner `quiz-data` bewusst nicht im Repository enthalten. Beendet den Quizserver und kopiert diesen einen Ordner in euer Backup. Nach dem Klonen auf einem anderen Gerät kopiert ihr ihn unverändert neben `main.py` zurück; damit sind alle eigenen Varianten, fortsetzbaren Instanzen und Ergebnisse wieder vorhanden.
 
 Varianten werden nicht gegen bestehende Instanzen geprüft: Wer Fragen oder Medien nachträglich ändert, ist selbst für die Kompatibilität mit gespeicherten Spielständen verantwortlich.
 
