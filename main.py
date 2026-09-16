@@ -29,6 +29,7 @@ import struct
 from urllib.parse import parse_qs, urlsplit
 
 from listing_game import ListingState
+from instance_state import InstanceStateStore
 from quiz_library import QuizLibrary
 from sync_game import SyncState
 
@@ -37,18 +38,11 @@ BIND_HOST = "0.0.0.0"
 HOST_URL = "http://127.0.0.1:8000/"
 PORT = 8000
 PROJECT_DIRECTORY = Path(__file__).resolve().parent
-STATE_FILE = PROJECT_DIRECTORY / "game-state.json"
-STATE_TEMP_FILE = PROJECT_DIRECTORY / ".game-state.tmp"
-ORDERING_FILE = PROJECT_DIRECTORY / "ordering-state.json"
-ORDERING_TEMP_FILE = PROJECT_DIRECTORY / ".ordering-state.tmp"
-LISTING_FILE = PROJECT_DIRECTORY / "listing-state.json"
-SYNC_FILE = PROJECT_DIRECTORY / "sync-state.json"
 QUIZ_DATA_DIRECTORY = PROJECT_DIRECTORY / "quiz-data"
 QUIZ_VARIATION_DIRECTORY = QUIZ_DATA_DIRECTORY / "variations"
 QUIZ_INSTANCE_DIRECTORY = QUIZ_DATA_DIRECTORY / "instances"
 QUIZ_LIBRARY = QuizLibrary(QUIZ_VARIATION_DIRECTORY, QUIZ_INSTANCE_DIRECTORY)
 MAX_STATE_BYTES = 1_000_000
-STATE_LOCK = threading.Lock()
 TILE_ID_PATTERN = re.compile(r"^\d+:\d+$")
 MAX_BUZZER_BODY_BYTES = 16_384
 MAX_PRESENTATION_BODY_BYTES = 262_144
@@ -625,9 +619,9 @@ TEAM_LOBBY = TeamLobbyState()
 class OrderingState:
     """Persistent, server-authoritative state for collaborative ordering rounds."""
 
-    def __init__(self, state_file: Path) -> None:
-        self.state_file = state_file
-        self.temp_file = state_file.with_name(f".{state_file.name}.tmp")
+    def __init__(self, storage: Path | InstanceStateStore) -> None:
+        self.store = storage if isinstance(storage, InstanceStateStore) else InstanceStateStore(storage)
+        self.state_file = self.store.path
         self.condition = threading.Condition()
         self.version = 0
         self.teams: list[str] = []
@@ -639,30 +633,22 @@ class OrderingState:
         self._load()
 
     def _load(self) -> None:
-        if not self.state_file.exists():
+        data = self.store.read("ordering")
+        if data is None:
             return
-        try:
-            data = json.loads(self.state_file.read_text(encoding="utf-8"))
-            if not isinstance(data, dict) or data.get("version") != 1:
-                return
-            self.teams = data.get("teams", [])
-            self.teams_revision = BuzzerState.team_revision(self.teams)
-            self.completed = data.get("completedQuestionIds", [])
-            self.round = data.get("round")
-        except (OSError, UnicodeError, json.JSONDecodeError):
-            self.round = None
+        if data.get("version") != 1:
+            raise ValueError("Der Order-Up-Spielstand hat eine ungültige Version.")
+        self.teams = data.get("teams", [])
+        self.teams_revision = BuzzerState.team_revision(self.teams)
+        self.completed = data.get("completedQuestionIds", [])
+        self.round = data.get("round")
 
     def _save_unlocked(self) -> None:
         data = {
             "version": 1,
             "teams": self.teams, "completedQuestionIds": self.completed, "round": self.round,
         }
-        encoded = (json.dumps(data, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
-        with self.temp_file.open("wb") as handle:
-            handle.write(encoded)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(self.temp_file, self.state_file)
+        self.store.write("ordering", data)
 
     def _changed_unlocked(self, persist: bool = True) -> None:
         if persist:
@@ -675,30 +661,38 @@ class OrderingState:
             self.round["phase"] = "locked"
             self._changed_unlocked()
 
-    def reset(self) -> None:
+    def reset(self, persist: bool = True) -> None:
         with self.condition:
             self.teams = []
             self.teams_revision = ""
             self.completed = []
             self.round = None
             self.poll_connections = {}
-            self.state_file.unlink(missing_ok=True)
-            self.temp_file.unlink(missing_ok=True)
+            if persist:
+                self.store.write("ordering", None)
             self._changed_unlocked(False)
 
     def switch_storage(self, state_file: Path) -> None:
         with self.condition:
+            self.store = InstanceStateStore(state_file)
             self.state_file = state_file
-            self.temp_file = state_file.with_name(f".{state_file.name}.tmp")
-            self.teams = []
-            self.teams_revision = ""
-            self.completed = []
-            self.round = None
-            self.connections = {}
-            self.poll_connections = {}
-            self._load()
-            self.version += 1
-            self.condition.notify_all()
+            self._reload_unlocked()
+
+    def reload(self) -> None:
+        with self.condition:
+            self.state_file = self.store.path
+            self._reload_unlocked()
+
+    def _reload_unlocked(self) -> None:
+        self.teams = []
+        self.teams_revision = ""
+        self.completed = []
+        self.round = None
+        self.connections = {}
+        self.poll_connections = {}
+        self._load()
+        self.version += 1
+        self.condition.notify_all()
 
     def configure(self, teams: list[str], question_ids: list[str]) -> None:
         if not teams or not question_ids:
@@ -924,11 +918,10 @@ class OrderingState:
                 self._changed_unlocked(False)
 
 
-INACTIVE_SAVE_DIRECTORY = PROJECT_DIRECTORY / ".inactive-quiz-state"
-INACTIVE_SAVE_DIRECTORY.mkdir(parents=True, exist_ok=True)
-ORDERING = OrderingState(QUIZ_LIBRARY.active_state_path("ordering-state.json") or INACTIVE_SAVE_DIRECTORY / "ordering-state.json")
-LISTING = ListingState(QUIZ_LIBRARY.active_state_path("listing-state.json") or INACTIVE_SAVE_DIRECTORY / "listing-state.json")
-SYNC = SyncState(QUIZ_LIBRARY.active_state_path("sync-state.json") or INACTIVE_SAVE_DIRECTORY / "sync-state.json")
+INSTANCE_STATE = InstanceStateStore(QUIZ_LIBRARY.active_state_path("state.json"))
+ORDERING = OrderingState(INSTANCE_STATE)
+LISTING = ListingState(INSTANCE_STATE)
+SYNC = SyncState(INSTANCE_STATE)
 
 
 def validate_quiz_media_source(value: str, field: str) -> str:
@@ -1276,35 +1269,24 @@ def live_state_snapshot(team_index: int | None = None, device_id: str | None = N
 
 
 def load_current_state() -> dict | None:
-    state_file = QUIZ_LIBRARY.active_state_path("game-state.json")
-    if state_file is None:
+    value = INSTANCE_STATE.read("game")
+    if value is None:
         return None
-    with STATE_LOCK:
-        if not state_file.exists():
-            return None
-        try:
-            return validate_state(json.loads(state_file.read_text(encoding="utf-8")))
-        except (OSError, UnicodeError, json.JSONDecodeError, ValueError):
-            return None
-
-
-def active_state_files() -> tuple[Path, Path]:
-    state_file = QUIZ_LIBRARY.active_state_path("game-state.json")
-    if state_file is None:
-        raise ValueError("Es ist keine Quiz-Instanz ausgewählt.")
-    return state_file, state_file.with_name(".game-state.tmp")
+    try:
+        return validate_state(value)
+    except ValueError:
+        return None
 
 
 def bind_active_instance() -> None:
     directory = QUIZ_LIBRARY.active_directory()
-    if directory is None:
-        ORDERING.switch_storage(INACTIVE_SAVE_DIRECTORY / "ordering-state.json")
-        LISTING.switch_storage(INACTIVE_SAVE_DIRECTORY / "listing-state.json")
-        SYNC.switch_storage(INACTIVE_SAVE_DIRECTORY / "sync-state.json")
-    else:
-        ORDERING.switch_storage(directory / "ordering-state.json")
-        LISTING.switch_storage(directory / "listing-state.json")
-        SYNC.switch_storage(directory / "sync-state.json")
+    INSTANCE_STATE.switch(directory / "state.json" if directory is not None else None)
+    game = INSTANCE_STATE.read("game")
+    if game is not None:
+        validate_state(game)
+    ORDERING.reload()
+    LISTING.reload()
+    SYNC.reload()
     TEAM_LOBBY.reset()
     BUZZER.sync_teams(load_current_state())
     PRESENTATION.update({"screen": "standby", "title": "Quizshow", "teams": []})
@@ -1653,26 +1635,21 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
                 return
             if not self.require_active_instance():
                 return
-            try:
-                state_file, _ = active_state_files()
-            except ValueError as error:
-                self.send_json(409, {"error": str(error)})
+            raw_state = INSTANCE_STATE.read("game")
+            if raw_state is None:
+                self.send_json(404, {"error": "Es ist kein gespeichertes Spiel vorhanden."})
                 return
-            with STATE_LOCK:
-                if not state_file.exists():
-                    self.send_json(404, {"error": "Es ist kein gespeichertes Spiel vorhanden."})
-                    return
-                try:
-                    state = validate_state(json.loads(state_file.read_text(encoding="utf-8")))
-                except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as error:
-                    self.send_json(500, {"error": f"Der gespeicherte Spielstand ist ungültig: {error}"})
-                    return
+            try:
+                state = validate_state(raw_state)
+            except ValueError as error:
+                self.send_json(500, {"error": f"Der gespeicherte Spielstand ist ungültig: {error}"})
+                return
             self.send_json(200, state)
             return
         if self.request_path in {
             "/game-state.json", "/.game-state.tmp", "/ordering-state.json", "/.ordering-state.tmp",
             "/listing-state.json", "/.listing-state.json.tmp", "/sync-state.json",
-            "/.sync-state.json.tmp", "/server-questions.json",
+            "/.sync-state.json.tmp", "/state.json", "/.state.json.tmp", "/server-questions.json",
         }:
             self.send_error(404)
             return
@@ -1746,8 +1723,17 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
                     QUIZ_LIBRARY.create(payload.get("name"), payload.get("variationId"))
                     bind_active_instance()
                 elif action == "activate":
+                    previous = QUIZ_LIBRARY.active_instance_name()
                     QUIZ_LIBRARY.activate(payload.get("name"))
-                    bind_active_instance()
+                    try:
+                        bind_active_instance()
+                    except Exception:
+                        if previous is None:
+                            QUIZ_LIBRARY.deactivate()
+                        else:
+                            QUIZ_LIBRARY.activate(previous)
+                        bind_active_instance()
+                        raise
                 elif action == "rename":
                     was_active = QUIZ_LIBRARY.active_instance_name() == payload.get("name")
                     QUIZ_LIBRARY.rename(payload.get("name"), payload.get("newName"))
@@ -1945,24 +1931,11 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         try:
-            state_file, state_temp_file = active_state_files()
             payload = json.loads(self.rfile.read(content_length).decode("utf-8"))
             state = validate_state(payload)
-            encoded = (json.dumps(state, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
-            with STATE_LOCK:
-                if state_file.exists():
-                    try:
-                        current = validate_state(json.loads(state_file.read_text(encoding="utf-8")))
-                    except (OSError, UnicodeError, json.JSONDecodeError, ValueError):
-                        current = None
-                    if current is not None and current["revision"] > state["revision"]:
-                        self.send_json(409, {"error": "Eine neuere Revision des Spielstands ist bereits gespeichert."})
-                        return
-                with state_temp_file.open("wb") as state_handle:
-                    state_handle.write(encoded)
-                    state_handle.flush()
-                    os.fsync(state_handle.fileno())
-                os.replace(state_temp_file, state_file)
+            if not INSTANCE_STATE.write_game(state, state["revision"]):
+                self.send_json(409, {"error": "Eine neuere Revision des Spielstands ist bereits gespeichert."})
+                return
         except (UnicodeError, json.JSONDecodeError, ValueError) as error:
             self.send_json(400, {"error": str(error)})
             return
@@ -1981,17 +1954,14 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
         if not self.require_active_slot():
             return
         try:
-            state_file, state_temp_file = active_state_files()
-            with STATE_LOCK:
-                state_file.unlink(missing_ok=True)
-                state_temp_file.unlink(missing_ok=True)
+            INSTANCE_STATE.clear()
         except (OSError, ValueError) as error:
             self.send_json(500, {"error": f"Der Spielstand konnte nicht gelöscht werden: {error}"})
             return
         BUZZER.sync_teams(None)
-        ORDERING.reset()
-        LISTING.reset()
-        SYNC.reset()
+        ORDERING.reset(False)
+        LISTING.reset(False)
+        SYNC.reset(False)
         self.send_json(200, {"deleted": True})
 
 

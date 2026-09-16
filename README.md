@@ -13,7 +13,7 @@ quiz-data/
 └── instances/
     └── family-quiz-2026/
         ├── instance.json
-        ├── game-state.json
+        ├── state.json
         └── results/
 ```
 

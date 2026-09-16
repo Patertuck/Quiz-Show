@@ -3,17 +3,18 @@
 from __future__ import annotations
 
 import json
-import os
 import secrets
 import threading
 import time
 from pathlib import Path
 
+from instance_state import InstanceStateStore
+
 
 class SyncState:
-    def __init__(self, state_file: Path) -> None:
-        self.state_file = state_file
-        self.temp_file = state_file.with_name(f".{state_file.name}.tmp")
+    def __init__(self, storage: Path | InstanceStateStore) -> None:
+        self.store = storage if isinstance(storage, InstanceStateStore) else InstanceStateStore(storage)
+        self.state_file = self.store.path
         self.condition = threading.Condition()
         self.version = 0
         self.teams: list[str] = []
@@ -35,40 +36,45 @@ class SyncState:
         return hashlib.sha256(encoded).hexdigest()[:16]
 
     def _load(self) -> None:
-        if not self.state_file.exists():
+        data = self.store.read("sync")
+        if data is None:
             return
-        try:
-            data = json.loads(self.state_file.read_text(encoding="utf-8"))
-            if not isinstance(data, dict) or data.get("version") != 1:
-                return
-            self.teams = data.get("teams", [])
-            self.teams_revision = self._team_revision(self.teams)
-            self.question_ids = data.get("questionIds", [])
-            self.roster_locked = data.get("rosterLocked", False)
-            self.participants = data.get("participants", [])
-            self.completed = data.get("completedQuestionIds", [])
-            self.round = data.get("round")
-            self.game_id = data.get("gameId") or secrets.token_urlsafe(9)
-        except (OSError, UnicodeError, json.JSONDecodeError):
-            self.round = None
+        if data.get("version") != 1:
+            raise ValueError("Der Sync-Up-Spielstand hat eine ungültige Version.")
+        self.teams = data.get("teams", [])
+        self.teams_revision = self._team_revision(self.teams)
+        self.question_ids = data.get("questionIds", [])
+        self.roster_locked = data.get("rosterLocked", False)
+        self.participants = data.get("participants", [])
+        self.completed = data.get("completedQuestionIds", [])
+        self.round = data.get("round")
+        self.game_id = data.get("gameId") or secrets.token_urlsafe(9)
 
     def switch_storage(self, state_file: Path) -> None:
         with self.condition:
+            self.store = InstanceStateStore(state_file)
             self.state_file = state_file
-            self.temp_file = state_file.with_name(f".{state_file.name}.tmp")
-            self.teams = []
-            self.teams_revision = ""
-            self.question_ids = []
-            self.roster_locked = False
-            self.participants = []
-            self.completed = []
-            self.round = None
-            self.game_id = secrets.token_urlsafe(9)
-            self.connections = {}
-            self.poll_connections = {}
-            self._load()
-            self.version += 1
-            self.condition.notify_all()
+            self._reload_unlocked()
+
+    def reload(self) -> None:
+        with self.condition:
+            self.state_file = self.store.path
+            self._reload_unlocked()
+
+    def _reload_unlocked(self) -> None:
+        self.teams = []
+        self.teams_revision = ""
+        self.question_ids = []
+        self.roster_locked = False
+        self.participants = []
+        self.completed = []
+        self.round = None
+        self.game_id = secrets.token_urlsafe(9)
+        self.connections = {}
+        self.poll_connections = {}
+        self._load()
+        self.version += 1
+        self.condition.notify_all()
 
     def _save_unlocked(self) -> None:
         data = {
@@ -81,12 +87,7 @@ class SyncState:
             "round": self.round,
             "gameId": self.game_id,
         }
-        encoded = (json.dumps(data, ensure_ascii=False, indent=2) + "\n").encode()
-        with self.temp_file.open("wb") as handle:
-            handle.write(encoded)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(self.temp_file, self.state_file)
+        self.store.write("sync", data)
 
     def _changed_unlocked(self, persist: bool = True) -> None:
         if persist:
@@ -94,14 +95,14 @@ class SyncState:
         self.version += 1
         self.condition.notify_all()
 
-    def reset(self) -> None:
+    def reset(self, persist: bool = True) -> None:
         with self.condition:
             self.teams = []
             self.teams_revision = ""
             self.question_ids = []
             self._reset_game_unlocked()
-            self.state_file.unlink(missing_ok=True)
-            self.temp_file.unlink(missing_ok=True)
+            if persist:
+                self.store.write("sync", None)
             self._changed_unlocked(False)
 
     def _reset_game_unlocked(self) -> None:

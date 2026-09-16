@@ -11,6 +11,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import quote, unquote, urlsplit
 
+from instance_state import InstanceStateStore
+
 
 class QuizLibrary:
     INSTANCE_VERSION = 1
@@ -118,12 +120,18 @@ class QuizLibrary:
         files = [item for item in directory.rglob("*") if item.is_file() and not item.name.startswith(".")]
         newest = max(files, key=lambda item: item.stat().st_mtime, default=metadata_file)
         results = directory / "results"
+        state_file = directory / "state.json"
+        try:
+            has_state = state_file.is_file() and InstanceStateStore.load_file(state_file)["game"] is not None
+        except ValueError:
+            # Keep Resume available so activation can report the corrupt save.
+            has_state = True
         return {
             "name": directory.name,
             "variationId": value["variationId"],
             "createdAt": value["createdAt"],
             "updatedAt": self._timestamp(newest),
-            "hasState": (directory / "game-state.json").is_file(),
+            "hasState": has_state,
             "hasResults": results.is_dir() and any(item.is_file() for item in results.rglob("*")),
             "variationAvailable": any(item["id"] == value["variationId"] for item in self.variations()),
         }
@@ -187,6 +195,10 @@ class QuizLibrary:
                 raise ValueError("Die Quiz-Variante dieser Instanz fehlt.")
             self._active_instance_name = directory.name
             return directory.name
+
+    def deactivate(self) -> None:
+        with self.lock:
+            self._active_instance_name = None
 
     def rename(self, name: object, new_name: object) -> str:
         with self.lock:
