@@ -8,6 +8,7 @@ export function initializeHostControls({ navigate, requestEndGame }) {
   const optionsButton = document.querySelector("#host-options-button");
   const optionItems = document.querySelector(".host-option-items");
   const setupButton = document.querySelector("#team-setup-button");
+  const introButton = document.querySelector("#intro-page-button");
   const masterButton = document.querySelector("#master-page-button");
   const audienceButton = document.querySelector("#audience-display-button");
   const playerButton = document.querySelector("#buzzer-join-button");
@@ -82,6 +83,17 @@ export function initializeHostControls({ navigate, requestEndGame }) {
   });
 
   endGameButton.addEventListener("click", requestEndGame);
+  introButton.addEventListener("click", async () => {
+    introButton.disabled = true;
+    try {
+      await saveState();
+      navigate("start");
+    } catch (error) {
+      window.alert(`Das aktuelle Spiel konnte nicht gespeichert werden: ${error.message}`);
+    } finally {
+      introButton.disabled = false;
+    }
+  });
   masterButton.addEventListener("click", async () => {
     masterButton.disabled = true;
     try {
