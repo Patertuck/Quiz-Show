@@ -200,6 +200,21 @@ class ListingStateTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Ungültige Teamseite"):
             state.control({"action": "result-navigate", "teamPosition": 2})
 
+    def test_results_can_be_cancelled_until_points_are_distributed(self):
+        state = self.make_state()
+        state.start(QUESTION)
+        state.control({"action": "lock"})
+        wait_until(state, "results")
+        state.control({"action": "cancel"})
+        self.assertIsNone(state.snapshot("host")["round"])
+
+        state.start(QUESTION)
+        state.control({"action": "lock"})
+        wait_until(state, "results")
+        state.control({"action": "confirm-distribution"})
+        with self.assertRaisesRegex(ValueError, "verteilten Punkten"):
+            state.control({"action": "cancel"})
+
     def test_completed_question_can_be_reopened(self):
         state = self.make_state()
         state.completed.append("pets")

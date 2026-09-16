@@ -3,6 +3,7 @@ import { state, applyAward, saveState } from "../store.js";
 import { renderScoreboard } from "../scoreboard.js";
 import { scheduleTextFit } from "../fit-text.js";
 import { hostFetch, slotUrl } from "../slot-api.js";
+import { confirmAction } from "../confirm-dialog.js";
 
 let root;
 let content;
@@ -62,7 +63,7 @@ function button(label, className, onClick, disabled = false) {
   element.disabled = disabled;
   element.addEventListener("click", async () => {
     element.disabled = true;
-    try { await onClick(); }
+    try { await onClick(element); }
     catch (error) {
       console.error(error);
       setStatus(error.message);
@@ -165,10 +166,21 @@ function renderActive(round) {
   actions.className = "listing-actions";
   actions.append(
     button("Jetzt auswerten", "primary-button", () => request("lock")),
-    button("Runde abbrechen", "danger-button", () => request("cancel"))
+    button("Runde abbrechen", "danger-button", confirmCancel)
   );
   panel.append(title, timer, teams, actions);
   content.replaceChildren(panel);
+}
+
+async function confirmCancel(trigger) {
+  const confirmed = await confirmAction({
+    title: "Diese Runde abbrechen?",
+    message: "Alle eingereichten Begriffe dieser Runde werden verworfen.",
+    confirmLabel: "Runde abbrechen",
+    cancelLabel: "Runde fortsetzen"
+  });
+  if (confirmed) await request("cancel");
+  else trigger.disabled = false;
 }
 
 function renderReview(round) {
@@ -286,7 +298,8 @@ function renderTeamResult(round) {
       () => request("result-navigate", { teamPosition: position - 1 }), position === 0),
     button("Nächstes Team →", "secondary-button",
       () => request("result-navigate", { teamPosition: position + 1 }), position + 1 >= round.results.length),
-    button("Direkt zur Rangliste", "primary-button", () => request("result-ranking"))
+    button("Direkt zur Rangliste", "primary-button", () => request("result-ranking")),
+    button("Runde abbrechen", "danger-button", confirmCancel)
   );
   panel.append(heading, resultItems(result.items || []), actions);
   content.replaceChildren(panel);
@@ -306,7 +319,8 @@ function renderRanking(round) {
   } else {
     actions.append(
       button("Teamseiten anzeigen", "secondary-button", () => request("result-teams")),
-      button("Punkte verteilen", "primary-button", distribute)
+      button("Punkte verteilen", "primary-button", distribute),
+      button("Runde abbrechen", "danger-button", confirmCancel)
     );
   }
   panel.append(title, resultTable(round), actions);

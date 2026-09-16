@@ -2,6 +2,7 @@ import { publishOrdering } from "../presentation-host.js";
 import { state, applyAward, saveState } from "../store.js";
 import { renderScoreboard } from "../scoreboard.js";
 import { hostFetch, slotUrl } from "../slot-api.js";
+import { confirmAction } from "../confirm-dialog.js";
 
 let root;
 let content;
@@ -35,7 +36,7 @@ function button(label, className, onClick, disabled = false) {
   element.disabled = disabled;
   element.addEventListener("click", async () => {
     element.disabled = true;
-    try { await onClick(); }
+    try { await onClick(element); }
     catch (error) { console.error(error); setStatus(error.message); element.disabled = disabled; }
   });
   return element;
@@ -269,21 +270,15 @@ async function distribute() {
   await publishOrdering(questionSelection(), orderingMap());
 }
 
-function confirmCancel() {
-  const dialog = root.querySelector("#ordering-cancel-dialog");
-  return new Promise((resolve, reject) => {
-    const finish = () => {
-      dialog.removeEventListener("close", finish);
-      if (dialog.returnValue === "cancel") request("cancel").then(resolve, reject);
-      else {
-        render(orderingState);
-        resolve();
-      }
-    };
-    dialog.addEventListener("close", finish);
-    dialog.returnValue = "";
-    dialog.showModal();
+async function confirmCancel(trigger) {
+  const confirmed = await confirmAction({
+    title: "Diese Runde abbrechen?",
+    message: "Alle für diese Frage eingereichten Reihenfolgen werden verworfen.",
+    confirmLabel: "Runde abbrechen",
+    cancelLabel: "Runde fortsetzen"
   });
+  if (confirmed) await request("cancel");
+  else trigger.disabled = false;
 }
 
 function render(snapshot) {

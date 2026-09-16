@@ -310,8 +310,8 @@ class ListingState:
                     self._begin_review_unlocked()
                     return self._snapshot_unlocked("host")
                 if action == "cancel":
-                    if self.round["phase"] in {"results", "distributed"}:
-                        raise ValueError("Eine ausgewertete Runde kann nicht mehr abgebrochen werden.")
+                    if self.round["phase"] == "distributed":
+                        raise ValueError("Eine Runde mit verteilten Punkten kann nicht mehr abgebrochen werden.")
                     self.round = None
                 elif action == "reopen-question":
                     if self.round:

@@ -25,6 +25,17 @@ a { color: inherit; text-decoration: none; }
 .primary-button:hover, .primary-button:focus-visible { background: var(--blue-dark); }
 .secondary-button { border: 2px solid var(--blue); background: #fff; color: var(--blue); }
 .error-message { padding: 1rem; border-radius: 0.5rem; background: #ffe9e9; color: #8b1111; text-align: left; white-space: pre-wrap; }
+.confirmation-dialog { width: min(28rem, calc(100% - 2rem)); padding: clamp(1.4rem, 4vw, 2rem); border: 2px solid #f5d96f; border-radius: 1rem; background: radial-gradient(circle at 50% 0%, #673590, #321347 58%, #210d35); color: #fff; text-align: center; box-shadow: 0 1.5rem 4rem #10051dcc, 0 0 1.4rem #f5d96f44; }
+.confirmation-dialog[open] { animation: confirmation-dialog-in 180ms ease-out; }
+.confirmation-dialog::backdrop { background: #10051ddd; backdrop-filter: blur(3px); }
+.confirmation-dialog h2 { margin: 0 0 .65rem; color: #ffe16d; font-size: clamp(1.45rem, 4vw, 2rem); }
+.confirmation-dialog p { margin: 0 auto 1.35rem; max-width: 24rem; color: #ead7f5; line-height: 1.45; }
+.confirmation-dialog-actions { display: flex; flex-wrap: wrap; gap: .6rem; justify-content: center; }
+.confirmation-dialog .secondary-button { border-color: #d9aaff; background: #fff; color: #48206d; }
+.confirmation-dialog .danger-button { padding: .75rem 1.25rem; border: 2px solid #ff91a2; background: #9b263c; color: #fff; font-weight: bold; }
+.confirmation-dialog .danger-button:hover, .confirmation-dialog .danger-button:focus-visible { background: #bd3450; }
+@keyframes confirmation-dialog-in { from { opacity: 0; transform: translateY(.6rem) scale(.97); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .confirmation-dialog[open] { animation: none; } }
 .viewport-above-scoreboard { height: calc(100vh - var(--scoreboard-height)); height: calc(100dvh - var(--scoreboard-height)); min-height: 0; overflow: hidden; }
 .back-to-hub { position: relative; z-index: 4; display: grid; width: 2.65rem; height: 2.65rem; place-items: center; border: 1px solid rgb(255 255 255 / 32%); border-radius: 50%; background: rgb(255 255 255 / 12%); color: #fff; font-size: 1.55rem; font-weight: bold; }
 .back-to-hub:hover, .back-to-hub:focus-visible { background: rgb(255 255 255 / 24%); }

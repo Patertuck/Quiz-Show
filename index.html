@@ -73,6 +73,14 @@
     </div>
     <p id="audio-settings-status" role="status" aria-live="polite"></p>
   </dialog>
+  <dialog id="confirmation-dialog" class="confirmation-dialog" aria-labelledby="confirmation-dialog-title" aria-describedby="confirmation-dialog-message">
+    <h2 id="confirmation-dialog-title"></h2>
+    <p id="confirmation-dialog-message"></p>
+    <form method="dialog" class="confirmation-dialog-actions">
+      <button id="confirmation-dialog-cancel" value="cancel" class="secondary-button"></button>
+      <button id="confirmation-dialog-confirm" value="confirm" class="danger-button"></button>
+    </form>
+  </dialog>
   <script type="module" src="js/app.js"></script>
 </body>
 </html>

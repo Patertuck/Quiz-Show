@@ -2,6 +2,7 @@ import { publishSync } from "../presentation-host.js";
 import { state, applyAward, saveState } from "../store.js";
 import { renderScoreboard } from "../scoreboard.js";
 import { hostFetch, slotUrl } from "../slot-api.js";
+import { confirmAction } from "../confirm-dialog.js";
 
 let root;
 let content;
@@ -29,7 +30,7 @@ function button(label, className, onClick, disabled = false) {
   item.disabled = disabled;
   item.addEventListener("click", async () => {
     item.disabled = true;
-    try { await onClick(); }
+    try { await onClick(item); }
     catch (error) {
       console.error(error);
       statusLine.textContent = error.message;
@@ -98,9 +99,7 @@ function renderOverview() {
   const actions = document.createElement("div");
   actions.className = "sync-actions";
   actions.append(
-    button("Spiel zurücksetzen", "danger-button", async () => {
-      if (window.confirm("Teilnehmer, Antworten und Sync-Punkte wirklich löschen?")) await request("reset-game");
-    })
+    button("Spiel zurücksetzen", "danger-button", confirmReset)
   );
   layout.append(prompts);
   content.replaceChildren(layout, actions);
@@ -116,7 +115,7 @@ function renderPrepared(round) {
   actions.className = "sync-actions";
   actions.append(
     button("Timer starten", "primary-button", () => request("start")),
-    button("Abbrechen", "danger-button", () => request("cancel"))
+    button("Abbrechen", "danger-button", confirmCancel)
   );
   panel.append(prompt, Object.assign(document.createElement("div"), {
     className: "sync-host-timer", textContent: String(round.timeLimitSeconds)
@@ -138,7 +137,7 @@ function renderActive(round) {
   actions.className = "sync-actions";
   actions.append(
     button("Testspieler abstimmen lassen", "secondary-button", () => request("vote-test-players")),
-    button("Runde abbrechen", "danger-button", () => request("cancel"))
+    button("Runde abbrechen", "danger-button", confirmCancel)
   );
   panel.replaceChildren(prompt, timer, actions);
   content.replaceChildren(panel);
@@ -183,10 +182,32 @@ function renderResults(round) {
   } else {
     actions.append(
       button("Punkte verteilen", "primary-button", distribute),
-      button("Frage abbrechen", "danger-button", () => request("cancel"))
+      button("Frage abbrechen", "danger-button", confirmCancel)
     );
   }
   content.replaceChildren(heading, resultTeams(round), actions);
+}
+
+async function confirmCancel(trigger) {
+  const confirmed = await confirmAction({
+    title: "Diese Frage abbrechen?",
+    message: "Alle Antworten und Ergebnisse dieser Frage werden verworfen.",
+    confirmLabel: "Frage abbrechen",
+    cancelLabel: "Frage fortsetzen"
+  });
+  if (confirmed) await request("cancel");
+  else trigger.disabled = false;
+}
+
+async function confirmReset(trigger) {
+  const confirmed = await confirmAction({
+    title: "Sync Up zurücksetzen?",
+    message: "Alle Teilnehmer, Antworten und Sync-Punkte werden gelöscht.",
+    confirmLabel: "Spiel zurücksetzen",
+    cancelLabel: "Behalten"
+  });
+  if (confirmed) await request("reset-game");
+  else trigger.disabled = false;
 }
 
 async function distribute() {
