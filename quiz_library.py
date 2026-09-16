@@ -25,6 +25,7 @@ LOGO_FILENAMES = {
 
 class QuizLibrary:
     INSTANCE_VERSION = 1
+    ACTIVE_SELECTION_FILENAME = ".active-instance"
     MAX_NAME_LENGTH = 60
     NAME_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
     CONFIG_FILENAME = "quiz-config.json"
@@ -38,6 +39,29 @@ class QuizLibrary:
         self._active_instance_name: str | None = None
         self.variation_directory.mkdir(parents=True, exist_ok=True)
         self.instance_directory.mkdir(parents=True, exist_ok=True)
+        self._restore_active_instance()
+
+    @property
+    def _active_selection_path(self) -> Path:
+        return self.instance_directory / self.ACTIVE_SELECTION_FILENAME
+
+    def _persist_active_instance(self, name: str | None) -> None:
+        temporary = self._active_selection_path.with_name(f"{self.ACTIVE_SELECTION_FILENAME}.tmp")
+        with temporary.open("w", encoding="utf-8", newline="\n") as handle:
+            handle.write(f"{name}\n" if name else "")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, self._active_selection_path)
+
+    def _restore_active_instance(self) -> None:
+        try:
+            name = self._active_selection_path.read_text(encoding="utf-8").strip()
+            directory = self._instance_path(name)
+            if self._read_instance(directory)["variationAvailable"]:
+                self._active_instance_name = directory.name
+        except (OSError, UnicodeError, ValueError):
+            # A stale or damaged pointer must not prevent the quiz library starting.
+            self._active_instance_name = None
 
     @staticmethod
     def _timestamp(path: Path) -> str:
@@ -229,6 +253,7 @@ class QuizLibrary:
                     "createdAt": datetime.now(timezone.utc).isoformat(),
                 })
                 (directory / "logos").mkdir()
+                self._persist_active_instance(clean)
             except Exception:
                 shutil.rmtree(directory)
                 raise
@@ -241,11 +266,13 @@ class QuizLibrary:
             metadata = self._read_instance(directory)
             if not metadata["variationAvailable"]:
                 raise ValueError("Die Quiz-Variante dieser Instanz fehlt.")
+            self._persist_active_instance(directory.name)
             self._active_instance_name = directory.name
             return directory.name
 
     def deactivate(self) -> None:
         with self.lock:
+            self._persist_active_instance(None)
             self._active_instance_name = None
 
     def rename(self, name: object, new_name: object) -> str:
@@ -257,8 +284,14 @@ class QuizLibrary:
             target = self._instance_path(clean, False)
             if target.exists():
                 raise ValueError("Eine Quiz-Instanz mit diesem Namen existiert bereits.")
+            active = self._active_instance_name == source.name
             os.replace(source, target)
-            if self._active_instance_name == source.name:
+            if active:
+                try:
+                    self._persist_active_instance(clean)
+                except Exception:
+                    os.replace(target, source)
+                    raise
                 self._active_instance_name = clean
             return clean
 
@@ -269,6 +302,7 @@ class QuizLibrary:
             shutil.rmtree(directory)
             if was_active:
                 self._active_instance_name = None
+                self._persist_active_instance(None)
             return was_active
 
     def active_directory(self) -> Path | None:

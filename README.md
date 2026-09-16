@@ -40,7 +40,7 @@ Für Order Up legt `games.ordering.scoringMode` die Wertung fest. `relative` (St
 
 Die mitgelieferte Variante `quiz-data/variations/beispiel-quiz` enthält je eine kleine Runde aller vier Spieltypen. Sie erscheint nach einem frischen Klonen direkt in der Quiz-Auswahl und eignet sich zum Ausprobieren sowie als minimale Vorlage.
 
-Die Quiz-Auswahl verwaltet global eindeutig benannte Quiz-Instanzen. Jede Instanz verweist in `instance.json` auf ihre Variante und speichert ihren vollständigen Spielstand sowie fertige Exporte im eigenen Ordner. Nach einem Serverneustart wird keine Instanz automatisch ausgewählt.
+Die Quiz-Auswahl verwaltet global eindeutig benannte Quiz-Instanzen. Jede Instanz verweist in `instance.json` auf ihre Variante und speichert ihren vollständigen Spielstand sowie fertige Exporte im eigenen Ordner. Die zuletzt aktive Instanz wird gespeichert und beim nächsten Serverstart automatisch wieder ausgewählt.
 
 ### Logos pro Quiz-Instanz
 

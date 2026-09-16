@@ -81,15 +81,33 @@ class QuizLibraryTests(unittest.TestCase):
         self.library.activate("second")
         self.assertEqual('{"instance": 2}', self.library.active_state_path().read_text(encoding="utf-8"))
 
-    def test_new_library_process_starts_without_active_instance(self):
+    def test_new_library_process_restores_active_instance(self):
         self.library.create("saved-game", "alpha")
         restarted = QuizLibrary(self.variations, self.instances, self.logos)
-        self.assertIsNone(restarted.active_instance_name())
+        self.assertEqual("saved-game", restarted.active_instance_name())
         self.assertEqual(["saved-game"], [item["name"] for item in restarted.instances()])
+
+    def test_restored_selection_tracks_activation_rename_and_delete(self):
+        self.library.create("first", "alpha")
+        self.library.create("second", "beta")
+        self.library.activate("first")
+        self.library.rename("first", "renamed")
+        restarted = QuizLibrary(self.variations, self.instances, self.logos)
+        self.assertEqual("renamed", restarted.active_instance_name())
+        restarted.delete("renamed")
+        self.assertIsNone(QuizLibrary(self.variations, self.instances, self.logos).active_instance_name())
+
+    def test_invalid_saved_selection_is_ignored(self):
+        self.instances.mkdir(exist_ok=True)
+        (self.instances / QuizLibrary.ACTIVE_SELECTION_FILENAME).write_text("Missing Instance", encoding="utf-8")
+        restarted = QuizLibrary(self.variations, self.instances, self.logos)
+        self.assertIsNone(restarted.active_instance_name())
 
     def test_missing_variation_disables_activation_but_keeps_instance(self):
         self.library.create("missing-variation", "alpha")
         (self.variations / "alpha" / "quiz-config.json").unlink()
+        restarted = QuizLibrary(self.variations, self.instances, self.logos)
+        self.assertIsNone(restarted.active_instance_name())
         self.assertFalse(self.library.instances()[0]["variationAvailable"])
         with self.assertRaisesRegex(ValueError, "fehlt"):
             self.library.activate("missing-variation")
