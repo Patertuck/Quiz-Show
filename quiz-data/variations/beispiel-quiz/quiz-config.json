@@ -20,7 +20,8 @@
       ]
     },
     "ordering": {
-      "pointsPerCorrect": 100,
+      "scoringMode": "relative",
+      "pointsPerCorrect": 50,
       "questions": [
         {
           "id": "zahlen-sortieren",

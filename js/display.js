@@ -306,12 +306,21 @@ function ordering() {
     column.dataset.teamIndex = teamIndex;
     column.style.setProperty("--ordering-count", round.teamOrders[teamIndex].length);
     const title = element("h2");
-    title.append(element("span", "", name), element("strong", "", `+${round.roundPoints[teamIndex]}`));
+    title.append(element("span", "", name), element("strong", "", round.pointsRevealed ? `+${round.roundPoints[teamIndex]}` : ""));
     column.append(title);
     round.teamOrders[teamIndex].forEach((id, slot) => {
       const revealed = round.revealed.includes(slot);
       const correct = revealed && id === round.revealedItems[slot]?.id;
-      column.append(element("div", `display-ordering-cell${revealed ? (correct ? " correct" : " wrong") : ""}`, itemNames.get(id)));
+      const resultClass = revealed
+        ? round.scoringMode === "relative" ? " relative-revealed" : correct ? " correct" : " wrong"
+        : "";
+      const cell = element("div", `display-ordering-cell${resultClass}`);
+      cell.append(element("span", "", itemNames.get(id)));
+      if (revealed && round.scoringMode === "relative" && round.pointsRevealed) {
+        const value = round.rowPoints[teamIndex][slot];
+        cell.append(element("strong", `display-ordering-row-points${value === 0 ? " zero" : ""}`, `+${value}`));
+      }
+      column.append(cell);
     });
     (teamIndex < split ? left : right).append(column);
   });

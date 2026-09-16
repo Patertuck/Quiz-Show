@@ -29,11 +29,17 @@
 .ordering-result-column h2 { display: flex; min-width: 0; margin: 0; align-items: center; justify-content: space-between; gap: .3rem; font-size: clamp(.65rem, 1.25vw, 1rem); }
 .ordering-result-column h2 span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ordering-result-column h2 strong { color: #ffe16d; }
-.ordering-result-cell { display: grid; min-height: 2rem; padding: .25rem; place-items: center; border-radius: .35rem; background: #f7f0fb; color: #321347; font-size: clamp(.58rem, 1.1vw, .9rem); text-align: center; }
+.ordering-result-cell { position: relative; display: grid; min-height: 2rem; padding: .25rem; place-items: center; border-radius: .35rem; background: #f7f0fb; color: #321347; font-size: clamp(.58rem, 1.1vw, .9rem); text-align: center; }
 .ordering-result-cell.correct { background: #43a86b; color: #fff; }
 .ordering-result-cell.wrong { background: #bb3e54; color: #fff; }
+.ordering-result-cell.relative-revealed { background: #eee1a1; }
+.ordering-result-cell.relative-revealed > span { overflow-wrap: anywhere; }
+.ordering-row-points { position: absolute; z-index: 1; top: .12rem; right: .12rem; padding: .06rem .25rem; border: 1px solid #f5d96f; border-radius: 999px; background: #4a2464; color: #fff2a6; font-size: clamp(.45rem, .72vw, .62rem); font-variant-numeric: tabular-nums; line-height: 1.15; white-space: nowrap; box-shadow: 0 .12rem .3rem #210d3555; animation: ordering-points-pop 220ms ease-out; }
+.ordering-row-points.zero { border-color: #9b879f; background: #65566b; color: #e5dce8; }
 .ordering-solution .solution-cell { border: 2px dashed #f5d96f; background: #3a1854; color: #fff; }
 .ordering-solution .solution-cell.revealed { border-style: solid; background: #f5d96f; color: #291138; }
 #ordering-cancel-dialog { max-width: 28rem; border: 0; border-radius: .8rem; padding: 1.5rem; color: #321347; }
 #ordering-cancel-dialog::backdrop { background: #10051dcc; }
+@keyframes ordering-points-pop { from { opacity: 0; transform: scale(.65); } to { opacity: 1; transform: scale(1); } }
 @media (max-width: 800px) { .ordering-results { grid-template-columns: 1fr minmax(7rem, 10rem) 1fr; } .ordering-result-side { flex-direction: column; } }
+@media (prefers-reduced-motion: reduce) { .ordering-row-points { animation: none; } }

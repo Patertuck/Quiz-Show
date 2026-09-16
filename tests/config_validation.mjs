@@ -51,6 +51,16 @@ test("rejects no games, unknown games, and malformed present games", () => {
   assert.throws(() => validateConfig(config({ listing: {} })), /listing\.questions/);
 });
 
+test("accepts relative and exact ordering scoring modes and rejects unknown modes", () => {
+  assert.equal(validateConfig(config({ ordering })).games.ordering, ordering);
+  assert.equal(validateConfig(config({ ordering: { ...ordering, scoringMode: "relative" } })).games.ordering.scoringMode, "relative");
+  assert.equal(validateConfig(config({ ordering: { ...ordering, scoringMode: "exact" } })).games.ordering.scoringMode, "exact");
+  assert.throws(
+    () => validateConfig(config({ ordering: { ...ordering, scoringMode: "distance" } })),
+    /scoringMode/
+  );
+});
+
 test("allows jeopardy audio fields to be omitted or used as the only medium", () => {
   const audioOnly = {
     values: [100],

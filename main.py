@@ -642,6 +642,12 @@ class OrderingState:
         self.teams_revision = BuzzerState.team_revision(self.teams)
         self.completed = data.get("completedQuestionIds", [])
         self.round = data.get("round")
+        # Rounds persisted by older releases used exact-position scoring.
+        if self.round is not None and "scoringMode" not in self.round:
+            self.round["scoringMode"] = "exact"
+        # Older rounds displayed points as answers were revealed.
+        if self.round is not None and "pointsRevealed" not in self.round:
+            self.round["pointsRevealed"] = bool(self.round.get("revealed"))
 
     def _save_unlocked(self) -> None:
         data = {
@@ -711,6 +717,7 @@ class OrderingState:
         items = question.get("items")
         seconds = question.get("timeLimitSeconds")
         points = question.get("pointsPerCorrect")
+        scoring_mode = question.get("scoringMode", "relative")
         if not isinstance(items, list) or not 3 <= len(items) <= 7 or any(not isinstance(item, str) or not item.strip() for item in items):
             raise ValueError("Eine Frage benötigt 3 bis 7 Elemente.")
         if len({item.strip().casefold() for item in items}) != len(items):
@@ -719,6 +726,8 @@ class OrderingState:
             raise ValueError("timeLimitSeconds muss zwischen 5 und 600 liegen.")
         if not isinstance(points, int) or isinstance(points, bool) or points <= 0:
             raise ValueError("pointsPerCorrect muss positiv sein.")
+        if scoring_mode not in {"relative", "exact"}:
+            raise ValueError("scoringMode muss relative oder exact sein.")
         return question
 
     def start(self, question: object) -> None:
@@ -740,10 +749,11 @@ class OrderingState:
             self.round = {
                 "id": secrets.token_urlsafe(12), "questionId": clean["id"], "title": clean["title"],
                 "prompt": clean["prompt"], "timeLimitSeconds": clean["timeLimitSeconds"],
-                "pointsPerCorrect": clean["pointsPerCorrect"], "correctItems": correct,
+                "pointsPerCorrect": clean["pointsPerCorrect"],
+                "scoringMode": clean.get("scoringMode", "relative"), "correctItems": correct,
                 "shuffledItems": shuffled, "teamOrders": [order.copy() for _ in self.teams],
                 "deadlineAt": int(time.time() * 1000) + clean["timeLimitSeconds"] * 1000,
-                "phase": "active", "revealed": [],
+                "phase": "active", "revealed": [], "pointsRevealed": False,
             }
             self._changed_unlocked()
 
@@ -795,9 +805,15 @@ class OrderingState:
                     if slot not in self.round["revealed"]:
                         self.round["revealed"].append(slot)
                         self.round["revealed"].sort()
-                elif action == "confirm-distribution":
+                elif action == "reveal-points":
                     if len(self.round["revealed"]) != len(self.round["correctItems"]):
-                        raise ValueError("Deckt alle Antworten auf, bevor ihr die Punkte verteilt.")
+                        raise ValueError("Deckt alle Antworten auf, bevor ihr die Punkte anzeigt.")
+                    if self.round.get("pointsRevealed"):
+                        raise ValueError("Die Punkte wurden bereits angezeigt.")
+                    self.round["pointsRevealed"] = True
+                elif action == "confirm-distribution":
+                    if not self.round.get("pointsRevealed"):
+                        raise ValueError("Zeigt die Punkte an, bevor ihr sie verteilt.")
                     self.round["phase"] = "distributed"
                     if self.round["questionId"] not in self.completed:
                         self.completed.append(self.round["questionId"])
@@ -810,18 +826,32 @@ class OrderingState:
                 self._changed_unlocked()
         return self.snapshot("host")
 
-    def _round_points_unlocked(self, team_index: int) -> int:
+    def _row_points_unlocked(self, team_index: int) -> list[int]:
         if not self.round:
-            return 0
+            return []
         correct = [item["id"] for item in self.round["correctItems"]]
         order = self.round["teamOrders"][team_index]
-        return sum(self.round["pointsPerCorrect"] for slot in self.round["revealed"] if order[slot] == correct[slot])
+        points = self.round["pointsPerCorrect"]
+        if self.round.get("scoringMode", "exact") == "exact":
+            return [points if item_id == correct[slot] else 0 for slot, item_id in enumerate(order)]
+        correct_positions = {item_id: slot for slot, item_id in enumerate(correct)}
+        return [
+            points * sum(
+                correct_positions[item_id] < correct_positions[later_id]
+                for later_id in order[slot + 1:]
+            )
+            for slot, item_id in enumerate(order)
+        ]
+
+    def _round_points_unlocked(self, team_index: int) -> int:
+        row_points = self._row_points_unlocked(team_index)
+        return sum(row_points[slot] for slot in self.round["revealed"]) if self.round else 0
 
     def awards(self) -> dict:
         with self.condition:
             self._expire_unlocked()
-            if not self.round or len(self.round["revealed"]) != len(self.round["correctItems"]):
-                raise ValueError("Deckt alle Antworten auf, bevor ihr die Punkte verteilt.")
+            if not self.round or not self.round.get("pointsRevealed"):
+                raise ValueError("Zeigt die Punkte an, bevor ihr sie verteilt.")
             return {
                 "awardId": f"ordering:{self.round['id']}",
                 "awards": [{"teamIndex": index, "points": self._round_points_unlocked(index)} for index in range(len(self.teams))],
@@ -839,13 +869,15 @@ class OrderingState:
         if not self.round:
             return result
         round_data = {key: self.round[key] for key in (
-            "id", "questionId", "title", "prompt", "timeLimitSeconds", "pointsPerCorrect",
-            "shuffledItems", "deadlineAt", "phase", "revealed"
+            "id", "questionId", "title", "prompt", "timeLimitSeconds", "pointsPerCorrect", "scoringMode",
+            "shuffledItems", "deadlineAt", "phase", "revealed", "pointsRevealed"
         )}
         if role == "host":
             round_data["correctItems"] = self.round["correctItems"]
             round_data["teamOrders"] = self.round["teamOrders"]
-            round_data["roundPoints"] = [self._round_points_unlocked(index) for index in range(len(self.teams))]
+            if self.round["pointsRevealed"]:
+                round_data["rowPoints"] = [self._row_points_unlocked(index) for index in range(len(self.teams))]
+                round_data["roundPoints"] = [self._round_points_unlocked(index) for index in range(len(self.teams))]
         elif role == "team":
             if isinstance(team_index, int) and 0 <= team_index < len(self.teams) and self.round["phase"] == "active":
                 round_data["teamOrder"] = self.round["teamOrders"][team_index]
@@ -855,7 +887,9 @@ class OrderingState:
                 self.round["correctItems"][slot] if slot in self.round["revealed"] else None
                 for slot in range(len(self.round["correctItems"]))
             ]
-            round_data["roundPoints"] = [self._round_points_unlocked(index) for index in range(len(self.teams))]
+            if self.round["pointsRevealed"]:
+                round_data["rowPoints"] = [self._row_points_unlocked(index) for index in range(len(self.teams))]
+                round_data["roundPoints"] = [self._round_points_unlocked(index) for index in range(len(self.teams))]
         result["round"] = round_data
         return result
 

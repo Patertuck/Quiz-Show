@@ -36,6 +36,8 @@ Allgemeine Angaben wie `title` und `teams` stehen in `quiz-config.json` auf der 
 
 Unterstützte Schlüssel sind `jeopardy`, `ordering`, `listing` und `sync`. Ein vorhandenes Spiel muss vollständig konfiguriert sein und mindestens eine Frage enthalten. Das vollständige Format zeigt `questions.example.json`; kopiert diese Datei als `quiz-config.json` in eine neue Variante. Medienfelder wie `questionAudio` oder `answerAudio` sind optional. Medien liegen im `assets`-Ordner derselben Variante und werden beispielsweise als `assets/bilder/karte.png` referenziert.
 
+Für Order Up legt `games.ordering.scoringMode` die Wertung fest. `relative` (Standard) vergibt `pointsPerCorrect` für jedes Paar von Elementen, das ein Team in der richtigen relativen Reihenfolge angeordnet hat. `exact` vergibt den Wert stattdessen für jede exakt richtige Position.
+
 Die mitgelieferte Variante `quiz-data/variations/beispiel-quiz` enthält je eine kleine Runde aller vier Spieltypen. Sie erscheint nach einem frischen Klonen direkt in der Quiz-Auswahl und eignet sich zum Ausprobieren sowie als minimale Vorlage.
 
 Die Quiz-Auswahl verwaltet global eindeutig benannte Quiz-Instanzen. Jede Instanz verweist in `instance.json` auf ihre Variante und speichert ihren vollständigen Spielstand sowie fertige Exporte im eigenen Ordner. Nach einem Serverneustart wird keine Instanz automatisch ausgewählt.

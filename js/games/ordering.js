@@ -118,17 +118,23 @@ function renderOverview() {
 
 function renderPreview() {
   const question = selectedQuestion;
+  const scoringMode = state.config.games.ordering.scoringMode || "relative";
+  const points = state.config.games.ordering.pointsPerCorrect;
+  const maximum = scoringMode === "relative"
+    ? question.items.length * (question.items.length - 1) / 2 * points
+    : question.items.length * points;
   setStatus("Der Timer startet, sobald ihr auf «Starten» drückt.");
   const preview = document.createElement("section"); preview.className = "ordering-preview";
   const title = document.createElement("h2"); title.textContent = question.title;
   const prompt = document.createElement("p"); prompt.textContent = question.prompt;
-  const details = document.createElement("p"); details.textContent = `${question.items.length} Elemente · ${question.timeLimitSeconds} Sekunden · ${state.config.games.ordering.pointsPerCorrect} Punkte pro richtiger Position`;
+  const unit = scoringMode === "relative" ? "richtigem Paar" : "richtiger Position";
+  const details = document.createElement("p"); details.textContent = `${question.items.length} Elemente · ${question.timeLimitSeconds} Sekunden · ${points} Punkte pro ${unit} · maximal ${maximum} Punkte`;
   const list = document.createElement("ol");
   question.items.forEach((text) => { const item = document.createElement("li"); item.textContent = text; list.append(item); });
   preview.append(title, prompt, details, list);
   const actions = document.createElement("div"); actions.className = "ordering-actions";
   actions.append(
-    button("Starten", "primary-button", () => request("start", { question: { ...question, pointsPerCorrect: state.config.games.ordering.pointsPerCorrect } })),
+    button("Starten", "primary-button", () => request("start", { question: { ...question, pointsPerCorrect: points, scoringMode } })),
     button("Zurück", "secondary-button", async () => {
       selectedQuestion = null;
       selectedPreviewItems = [];
@@ -179,14 +185,25 @@ function teamColumn(round, teamIndex) {
   const heading = document.createElement("h2");
   heading.innerHTML = `<span></span><strong></strong>`;
   heading.querySelector("span").textContent = orderingState.teams[teamIndex];
-  heading.querySelector("strong").textContent = `+${round.roundPoints[teamIndex]}`;
+  heading.querySelector("strong").textContent = round.pointsRevealed ? `+${round.roundPoints[teamIndex]}` : "";
   column.append(heading);
   const correct = round.correctItems.map((item) => item.id);
   round.teamOrders[teamIndex].forEach((id, slot) => {
     const cell = document.createElement("div");
     cell.className = "ordering-result-cell";
-    if (round.revealed.includes(slot)) cell.classList.add(id === correct[slot] ? "correct" : "wrong");
-    cell.textContent = itemText(id, round);
+    const revealed = round.revealed.includes(slot);
+    if (revealed && round.scoringMode === "exact") cell.classList.add(id === correct[slot] ? "correct" : "wrong");
+    if (revealed && round.scoringMode === "relative") cell.classList.add("relative-revealed");
+    const label = document.createElement("span"); label.textContent = itemText(id, round);
+    cell.append(label);
+    if (revealed && round.scoringMode === "relative" && round.pointsRevealed) {
+      const points = document.createElement("strong");
+      points.className = "ordering-row-points";
+      const value = round.rowPoints[teamIndex][slot];
+      if (value === 0) points.classList.add("zero");
+      points.textContent = `+${value}`;
+      cell.append(points);
+    }
     column.append(cell);
   });
   return column;
@@ -194,7 +211,13 @@ function teamColumn(round, teamIndex) {
 
 function renderResults(round) {
   const allRevealed = round.revealed.length === round.correctItems.length;
-  setStatus(round.phase === "distributed" ? "Punkte wurden verteilt." : "Klickt auf die Antwortfelder, um sie in beliebiger Reihenfolge aufzudecken.");
+  setStatus(round.phase === "distributed"
+    ? "Punkte wurden verteilt."
+    : round.pointsRevealed
+      ? "Die Punkte sind sichtbar und können verteilt werden."
+      : allRevealed
+        ? "Alle Antworten wurden aufgedeckt. Jetzt könnt ihr die Punkte anzeigen."
+        : "Klickt auf die Antwortfelder, um sie in beliebiger Reihenfolge aufzudecken.");
   const board = document.createElement("div"); board.className = "ordering-results";
   const split = Math.ceil(orderingState.teams.length / 2);
   const left = document.createElement("div"); left.className = "ordering-result-side";
@@ -229,10 +252,9 @@ function renderResults(round) {
       await request("close");
     }));
   } else {
-    actions.append(
-      button("Punkte verteilen", "primary-button", distribute, !allRevealed),
-      button("Runde abbrechen", "danger-button", confirmCancel, round.revealed.length > 0)
-    );
+    if (round.pointsRevealed) actions.append(button("Punkte verteilen", "primary-button", distribute));
+    else actions.append(button("Punkte anzeigen", "primary-button", () => request("reveal-points"), !allRevealed));
+    actions.append(button("Runde abbrechen", "danger-button", confirmCancel, round.revealed.length > 0));
   }
   content.replaceChildren(board, ...(mapItems.length ? [mapActions] : []), actions);
 }

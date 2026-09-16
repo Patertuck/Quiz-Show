@@ -104,6 +104,9 @@ export function validateConfig(config) {
     if (!Number.isInteger(ordering.pointsPerCorrect) || ordering.pointsPerCorrect <= 0) {
       throw new Error("games.ordering.pointsPerCorrect muss eine positive Ganzzahl sein.");
     }
+    if (ordering.scoringMode !== undefined && !["relative", "exact"].includes(ordering.scoringMode)) {
+      throw new Error("games.ordering.scoringMode muss relative oder exact sein.");
+    }
     if (!Array.isArray(ordering.questions) || !ordering.questions.length) {
       throw new Error("games.ordering.questions muss mindestens eine Frage enthalten.");
     }
