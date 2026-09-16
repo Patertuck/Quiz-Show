@@ -16,7 +16,12 @@ class QuizLibraryTests(unittest.TestCase):
         root = Path(self.temporary.name)
         self.variations = root / "variations"
         self.instances = root / "instances"
-        self.library = QuizLibrary(self.variations, self.instances)
+        self.logos = root / "standard-logos"
+        self.logos.mkdir()
+        for filename in ("logo_Quiz.png", "Logo_Jeopardy.png", "Logo_Order_Up.png",
+                         "Logo_List_It.png", "Logo_Sync_Up.png"):
+            (self.logos / filename).write_bytes(filename.encode())
+        self.library = QuizLibrary(self.variations, self.instances, self.logos)
         for package, title in (("alpha", "Alpha"), ("beta", "Beta")):
             (self.variations / package).mkdir()
             (self.variations / package / "quiz-config.json").write_text(
@@ -78,7 +83,7 @@ class QuizLibraryTests(unittest.TestCase):
 
     def test_new_library_process_starts_without_active_instance(self):
         self.library.create("saved-game", "alpha")
-        restarted = QuizLibrary(self.variations, self.instances)
+        restarted = QuizLibrary(self.variations, self.instances, self.logos)
         self.assertIsNone(restarted.active_instance_name())
         self.assertEqual(["saved-game"], [item["name"] for item in restarted.instances()])
 
@@ -94,7 +99,7 @@ class QuizLibraryTests(unittest.TestCase):
         config = self.variations / "alpha" / "quiz-config.json"
         config.write_text(json.dumps({"title": "Changed questions"}), encoding="utf-8")
 
-        restarted = QuizLibrary(self.variations, self.instances)
+        restarted = QuizLibrary(self.variations, self.instances, self.logos)
         self.assertEqual("editable-variation", restarted.activate("editable-variation"))
 
     def test_content_paths_only_expose_config_and_contained_assets(self):
@@ -107,6 +112,24 @@ class QuizLibraryTests(unittest.TestCase):
         self.assertEqual("config", self.library.content_path("/quiz-content/alpha/quiz-config.json")[1])
         self.assertIsNone(self.library.content_path("/quiz-content/alpha/results/private.csv"))
         self.assertIsNone(self.library.content_path("/quiz-content/alpha/assets/../quiz-config.json"))
+
+    def test_instance_logos_override_defaults_independently(self):
+        self.library.create("evening", "alpha")
+        urls = self.library.logo_urls()
+        self.assertEqual("/quiz-logos/evening/logo_Quiz.png", urls["main"])
+        self.assertEqual(self.logos / "logo_Quiz.png", self.library.logo_path(urls["main"]))
+
+        override = self.instances / "evening" / "logos" / "logo_Quiz.png"
+        override.write_bytes(b"custom")
+        self.assertEqual(override.resolve(), self.library.logo_path(urls["main"]))
+        self.assertEqual(self.logos / "Logo_Jeopardy.png", self.library.logo_path(urls["jeopardy"]))
+
+    def test_logo_paths_only_expose_allowlisted_files_for_active_instance(self):
+        self.library.create("active", "alpha")
+        self.library.create("other", "alpha")
+        self.assertIsNone(self.library.logo_path("/quiz-logos/active/logo_Quiz.png"))
+        self.assertIsNone(self.library.logo_path("/quiz-logos/other/unknown.png"))
+        self.assertIsNone(self.library.logo_path("/quiz-logos/other/../instance.json"))
 
     def test_persistent_game_services_switch_shared_store_without_leaking_progress(self):
         root = Path(self.temporary.name)

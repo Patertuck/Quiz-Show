@@ -1,6 +1,7 @@
 import { startLivePolling, usesQuickTunnelPolling } from "./live-state.js";
 
 const waitingStep = document.querySelector("#waiting-step");
+const waitingLogo = document.querySelector(".player-waiting-logo");
 const waitingTitle = document.querySelector("#waiting-title");
 const waitingStatus = document.querySelector("#waiting-status");
 const waitingTeamRow = document.querySelector("#waiting-team-row");
@@ -210,6 +211,9 @@ function renderTeamLobby() {
 
 function render() {
   reconcileLiveStreams();
+  if (presentationState?.logos?.main && waitingLogo.src !== new URL(presentationState.logos.main, location.href).href) {
+    waitingLogo.src = presentationState.logos.main;
+  }
   if (!currentState) return;
   if (teamLobbyState?.phase === "open") {
     renderTeamLobby();

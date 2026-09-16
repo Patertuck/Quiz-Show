@@ -30,7 +30,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from listing_game import ListingState
 from instance_state import InstanceStateStore
-from quiz_library import QuizLibrary
+from quiz_library import LOGO_FILENAMES, QuizLibrary
 from sync_game import SyncState
 
 
@@ -41,7 +41,8 @@ PROJECT_DIRECTORY = Path(__file__).resolve().parent
 QUIZ_DATA_DIRECTORY = PROJECT_DIRECTORY / "quiz-data"
 QUIZ_VARIATION_DIRECTORY = QUIZ_DATA_DIRECTORY / "variations"
 QUIZ_INSTANCE_DIRECTORY = QUIZ_DATA_DIRECTORY / "instances"
-QUIZ_LIBRARY = QuizLibrary(QUIZ_VARIATION_DIRECTORY, QUIZ_INSTANCE_DIRECTORY)
+QUIZ_LIBRARY = QuizLibrary(QUIZ_VARIATION_DIRECTORY, QUIZ_INSTANCE_DIRECTORY,
+                           PROJECT_DIRECTORY / "assets" / "Logos")
 MAX_STATE_BYTES = 1_000_000
 TILE_ID_PATTERN = re.compile(r"^\d+:\d+$")
 MAX_BUZZER_BODY_BYTES = 16_384
@@ -944,6 +945,25 @@ def validate_presentation_audio(audio: object, field: str) -> dict | None:
     return {"src": src, "label": audio["label"]}
 
 
+def validate_presentation_logos(logos: object) -> dict[str, str]:
+    defaults = {key: f"/assets/Logos/{filename}" for key, filename in LOGO_FILENAMES.items()}
+    if logos is None:
+        return defaults
+    if not isinstance(logos, dict) or set(logos) != set(LOGO_FILENAMES):
+        raise ValueError("Presentation logos are invalid.")
+    clean = {}
+    for key, filename in LOGO_FILENAMES.items():
+        value = logos.get(key)
+        if not isinstance(value, str):
+            raise ValueError("Presentation logos are invalid.")
+        escaped_filename = re.escape(filename)
+        if (value != defaults[key]
+                and not re.fullmatch(rf"/quiz-logos/[a-z0-9](?:[a-z0-9-]*[a-z0-9])?/{escaped_filename}", value)):
+            raise ValueError("Presentation logos are invalid.")
+        clean[key] = value
+    return clean
+
+
 def validate_presentation(payload: object) -> dict:
     if not isinstance(payload, dict) or payload.get("screen") not in PRESENTATION_SCREENS:
         raise ValueError("Presentation screen is invalid.")
@@ -962,7 +982,10 @@ def validate_presentation(payload: object) -> dict:
             raise ValueError("Each presentation team needs an integer score.")
         clean_teams.append({"name": team["name"], "score": score})
 
-    clean: dict = {"screen": payload["screen"], "title": title, "teams": clean_teams}
+    clean: dict = {
+        "screen": payload["screen"], "title": title, "teams": clean_teams,
+        "logos": validate_presentation_logos(payload.get("logos")),
+    }
     audio_settings = payload.get("audioSettings")
     if audio_settings is None:
         clean["audioSettings"] = {
@@ -1210,7 +1233,7 @@ class PresentationState:
         self.condition = threading.Condition()
         self.version = int(time.time() * 1000)
         self.server_session_id = f"{self.version}-{secrets.token_hex(8)}"
-        self.payload = {"screen": "standby", "title": "Quiz Show", "teams": []}
+        self.payload = validate_presentation({"screen": "standby", "title": "Quiz Show", "teams": []})
 
     def update(self, payload: object) -> dict:
         clean = validate_presentation(payload)
@@ -1281,7 +1304,10 @@ def bind_active_instance() -> None:
     SYNC.reload()
     TEAM_LOBBY.reset()
     BUZZER.sync_teams(load_current_state())
-    PRESENTATION.update({"screen": "standby", "title": "Quizshow", "teams": []})
+    PRESENTATION.update({
+        "screen": "standby", "title": "Quizshow", "teams": [],
+        "logos": QUIZ_LIBRARY.logo_urls(),
+    })
 
 
 class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
@@ -1314,6 +1340,11 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
         return None
 
     def translate_path(self, path: str) -> str:
+        logo = QUIZ_LIBRARY.logo_path(path)
+        if logo is not None:
+            return str(logo)
+        if urlsplit(path).path.startswith("/quiz-logos/"):
+            return str(PROJECT_DIRECTORY / ".missing-quiz-logo")
         content = QUIZ_LIBRARY.content_path(path)
         if content is not None:
             return str(content[0])
@@ -1333,8 +1364,18 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
             return False
         return True
 
+    def authorize_quiz_logo(self) -> bool | None:
+        if not self.request_path.startswith("/quiz-logos/"):
+            return None
+        if QUIZ_LIBRARY.logo_path(self.path) is None:
+            self.send_error(404)
+            return False
+        return True
+
     def end_headers(self) -> None:
-        if not self.request_path.startswith("/api/"):
+        if self.request_path.startswith("/quiz-logos/"):
+            self.send_header("Cache-Control", "no-store")
+        elif not self.request_path.startswith("/api/"):
             self.send_header("Cache-Control", "no-cache, max-age=0, must-revalidate")
         super().end_headers()
 
@@ -1382,6 +1423,11 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(body)
 
     def do_GET(self) -> None:  # noqa: N802 - required by BaseHTTPRequestHandler
+        quiz_logo = self.authorize_quiz_logo()
+        if quiz_logo is not None:
+            if quiz_logo:
+                super().do_GET()
+            return
         quiz_content = self.authorize_quiz_content()
         if quiz_content is not None:
             if quiz_content:
@@ -1649,6 +1695,11 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_HEAD(self) -> None:  # noqa: N802 - required by BaseHTTPRequestHandler
+        quiz_logo = self.authorize_quiz_logo()
+        if quiz_logo is not None:
+            if quiz_logo:
+                super().do_HEAD()
+            return
         quiz_content = self.authorize_quiz_content()
         if quiz_content is not None:
             if quiz_content:

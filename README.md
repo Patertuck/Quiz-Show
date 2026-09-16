@@ -13,6 +13,7 @@ quiz-data/
 └── instances/
     └── family-quiz-2026/
         ├── instance.json
+        ├── logos/
         ├── state.json
         └── results/
 ```
@@ -36,6 +37,18 @@ Allgemeine Angaben wie `title` und `teams` stehen in `quiz-config.json` auf der 
 Unterstützte Schlüssel sind `jeopardy`, `ordering`, `listing` und `sync`. Ein vorhandenes Spiel muss vollständig konfiguriert sein und mindestens eine Frage enthalten. Das vollständige Format zeigt `questions.example.json`; kopiert diese Datei als `quiz-config.json` in eine neue Variante. Medienfelder wie `questionAudio` oder `answerAudio` sind optional. Medien liegen im `assets`-Ordner derselben Variante und werden beispielsweise als `assets/bilder/karte.png` referenziert.
 
 Die Quiz-Auswahl verwaltet global eindeutig benannte Quiz-Instanzen. Jede Instanz verweist in `instance.json` auf ihre Variante und speichert ihren vollständigen Spielstand sowie fertige Exporte im eigenen Ordner. Nach einem Serverneustart wird keine Instanz automatisch ausgewählt.
+
+### Logos pro Quiz-Instanz
+
+Die Standardlogos liegen öffentlich unter `assets/Logos`. Eine Quiz-Instanz kann einzelne Logos ersetzen, indem im eigenen Ordner `quiz-data/instances/<instanzname>/logos/` eine PNG-Datei mit demselben Namen abgelegt wird. Nicht vorhandene Ersetzungen verwenden weiterhin das jeweilige Standardlogo:
+
+- `logo_Quiz.png`
+- `Logo_Jeopardy.png`
+- `Logo_Order_Up.png`
+- `Logo_List_It.png`
+- `Logo_Sync_Up.png`
+
+Die Dateinamen inklusive Gross-/Kleinschreibung müssen exakt übereinstimmen. Neue Instanzen erhalten den leeren `logos`-Ordner automatisch. Weil Instanzlogos innerhalb von `quiz-data` liegen, werden sie mit dem beschriebenen Quiz-Backup gesichert.
 
 ## Sichern und wiederherstellen
 

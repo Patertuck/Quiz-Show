@@ -32,7 +32,14 @@ function teams() {
 }
 
 function base(screen) {
-  return { screen, title: state.config?.title || "Quiz Show", teams: teams(), joinOverlay, audioSettings };
+  return {
+    screen,
+    title: state.config?.title || "Quiz Show",
+    teams: teams(),
+    logos: state.library?.activeLogoUrls,
+    joinOverlay,
+    audioSettings
+  };
 }
 
 function media(image) {

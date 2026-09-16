@@ -50,7 +50,6 @@ const presentationQueue = [];
 const animatedOrderingRounds = new Set();
 const animatedListingRounds = new Set();
 const animatedSyncRounds = new Set();
-const standbyLogoSource = "assets/Logos/Logo-1024.webp";
 const standbyLogoRetryDelay = 2000;
 const usePollingTransport = usesQuickTunnelPolling();
 
@@ -61,7 +60,7 @@ function element(tag, className, text) {
   return node;
 }
 
-function logoImage(className) {
+function logoImage(className, source) {
   const logo = element("img", className);
   let retryTimer;
   logo.addEventListener("load", () => clearTimeout(retryTimer));
@@ -69,10 +68,11 @@ function logoImage(className) {
     clearTimeout(retryTimer);
     retryTimer = setTimeout(() => {
       if (!logo.isConnected) return;
-      logo.src = `${standbyLogoSource}?retry=${Date.now()}`;
+      const separator = source.includes("?") ? "&" : "?";
+      logo.src = `${source}${separator}retry=${Date.now()}`;
     }, standbyLogoRetryDelay);
   });
-  logo.src = standbyLogoSource;
+  logo.src = source;
   logo.alt = "";
   logo.setAttribute("aria-hidden", "true");
   return logo;
@@ -112,7 +112,7 @@ function scoreboard(teams) {
 function standby() {
   const screen = element("section", "display-screen display-standby");
   const content = element("div", "display-standby-content");
-  content.append(logoImage("display-standby-logo"));
+  content.append(logoImage("display-standby-logo", presentation.logos.main));
   screen.append(content);
   return screen;
 }
@@ -166,7 +166,7 @@ function hub() {
   screen.append(element("h1", "", presentation.title));
   const area = element("div", "display-hub-game-area");
   const games = element("div", "display-hub-games");
-  const availableGames = presentation.games.map(gameDefinition);
+  const availableGames = presentation.games.map((id) => gameDefinition(id, presentation.logos));
   games.style.setProperty("--game-count", availableGames.length);
   games.style.setProperty("--game-width", `${availableGames.length * 100}cqh`);
   games.style.setProperty("--game-max-width", `${availableGames.length * 24}rem`);

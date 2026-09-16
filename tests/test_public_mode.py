@@ -188,7 +188,10 @@ class PublicStaticFileTests(unittest.TestCase):
             (package / "assets").mkdir(parents=True)
             (package / "quiz-config.json").write_text('{"title":"Test"}', encoding="utf-8")
             (package / "assets" / "image.png").write_bytes(b"image")
-            library = QuizLibrary(root / "variations", root / "instances")
+            logos = root / "standard-logos"
+            logos.mkdir()
+            (logos / "logo_Quiz.png").write_bytes(b"default-logo")
+            library = QuizLibrary(root / "variations", root / "instances", logos)
             with patch.object(main, "QUIZ_LIBRARY", library):
                 server = main.LocalQuizServer(("127.0.0.1", 0), main.QuizRequestHandler)
                 thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -212,6 +215,44 @@ class PublicStaticFileTests(unittest.TestCase):
                         "/quiz-content/test-quiz/assets/../quiz-config.json", "192.168.1.248:8000")[0])
                     self.assertEqual(200, request(
                         "/quiz-content/test-quiz/quiz-config.json", "127.0.0.1:8000")[0])
+                finally:
+                    server.shutdown()
+                    server.server_close()
+                    thread.join(timeout=2)
+
+    def test_active_instance_logo_is_public_without_exposing_inactive_instances(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            package = root / "variations" / "test-quiz"
+            package.mkdir(parents=True)
+            (package / "quiz-config.json").write_text('{"title":"Test"}', encoding="utf-8")
+            logos = root / "standard-logos"
+            logos.mkdir()
+            (logos / "logo_Quiz.png").write_bytes(b"default")
+            library = QuizLibrary(root / "variations", root / "instances", logos)
+            library.create("first", "test-quiz")
+            override = root / "instances" / "first" / "logos" / "logo_Quiz.png"
+            override.write_bytes(b"custom")
+            with patch.object(main, "QUIZ_LIBRARY", library):
+                server = main.LocalQuizServer(("127.0.0.1", 0), main.QuizRequestHandler)
+                thread = threading.Thread(target=server.serve_forever, daemon=True)
+                thread.start()
+                try:
+                    def request(path):
+                        connection = http.client.HTTPConnection("127.0.0.1", server.server_port, timeout=2)
+                        connection.request("GET", path, headers={"Host": "192.168.1.248:8000"})
+                        response = connection.getresponse()
+                        body = response.read()
+                        result = response.status, response.headers, body
+                        connection.close()
+                        return result
+
+                    status, headers, body = request("/quiz-logos/first/logo_Quiz.png")
+                    self.assertEqual(200, status)
+                    self.assertEqual(b"custom", body)
+                    self.assertEqual("no-store", headers["Cache-Control"])
+                    self.assertEqual(404, request("/quiz-logos/other/logo_Quiz.png")[0])
+                    self.assertEqual(404, request("/quiz-logos/first/../instance.json")[0])
                 finally:
                     server.shutdown()
                     server.server_close()

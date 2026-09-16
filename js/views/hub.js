@@ -4,7 +4,7 @@ import { state } from "../store.js";
 
 export function mount(root) {
   const gameContainer = root.querySelector(".game-cards");
-  const games = configuredGames(state.config);
+  const games = configuredGames(state.config, state.library?.activeLogoUrls);
   gameContainer.style.setProperty("--game-count", games.length);
   gameContainer.style.setProperty("--game-width", `${games.length * 100}cqh`);
   gameContainer.style.setProperty("--game-max-width", `${games.length * 24}rem`);

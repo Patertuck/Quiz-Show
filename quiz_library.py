@@ -14,15 +14,26 @@ from urllib.parse import quote, unquote, urlsplit
 from instance_state import InstanceStateStore
 
 
+LOGO_FILENAMES = {
+    "main": "logo_Quiz.png",
+    "jeopardy": "Logo_Jeopardy.png",
+    "ordering": "Logo_Order_Up.png",
+    "listing": "Logo_List_It.png",
+    "sync": "Logo_Sync_Up.png",
+}
+
+
 class QuizLibrary:
     INSTANCE_VERSION = 1
     MAX_NAME_LENGTH = 60
     NAME_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
     CONFIG_FILENAME = "quiz-config.json"
 
-    def __init__(self, variation_directory: Path, instance_directory: Path) -> None:
+    def __init__(self, variation_directory: Path, instance_directory: Path,
+                 logo_directory: Path) -> None:
         self.variation_directory = variation_directory.resolve()
         self.instance_directory = instance_directory.resolve()
+        self.logo_directory = logo_directory.resolve()
         self.lock = threading.RLock()
         self._active_instance_name: str | None = None
         self.variation_directory.mkdir(parents=True, exist_ok=True)
@@ -165,7 +176,43 @@ class QuizLibrary:
             "variations": self.variations(),
             "instances": self.instances(),
             "activeInstanceName": self.active_instance_name(),
+            "activeLogoUrls": self.logo_urls() if self.active_instance_name() else None,
         }
+
+    def logo_urls(self) -> dict[str, str]:
+        """Return cache-isolated logo URLs for the active instance or shared defaults."""
+        name = self.active_instance_name()
+        if name is None:
+            return {key: f"/assets/Logos/{quote(filename)}"
+                    for key, filename in LOGO_FILENAMES.items()}
+        return {key: f"/quiz-logos/{quote(name)}/{quote(filename)}"
+                for key, filename in LOGO_FILENAMES.items()}
+
+    def logo_path(self, request_path: str) -> Path | None:
+        """Resolve one public logo without exposing other files from an instance."""
+        decoded = unquote(urlsplit(request_path).path)
+        parts = decoded.strip("/").split("/")
+        if len(parts) != 3 or parts[0] != "quiz-logos" or parts[2] not in LOGO_FILENAMES.values():
+            return None
+        active_name = self.active_instance_name()
+        if active_name is None or parts[1] != active_name:
+            return None
+        try:
+            directory = self._instance_path(active_name)
+            override_root = directory / "logos"
+            override = override_root / parts[2]
+            if override_root.is_dir() and not override_root.is_symlink() and override.is_file() and not override.is_symlink():
+                resolved = override.resolve(strict=True)
+                resolved.relative_to(override_root.resolve(strict=True))
+                return resolved
+            default = self.logo_directory / parts[2]
+            if default.is_file() and not default.is_symlink():
+                resolved = default.resolve(strict=True)
+                resolved.relative_to(self.logo_directory)
+                return resolved
+        except (OSError, ValueError):
+            return None
+        return None
 
     def create(self, name: object, variation_id: object) -> str:
         with self.lock:
@@ -181,8 +228,9 @@ class QuizLibrary:
                     "variationId": config.parent.name,
                     "createdAt": datetime.now(timezone.utc).isoformat(),
                 })
+                (directory / "logos").mkdir()
             except Exception:
-                directory.rmdir()
+                shutil.rmtree(directory)
                 raise
             self._active_instance_name = clean
             return clean

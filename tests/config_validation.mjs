@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { validateConfig } from "../js/store.js";
+import { configuredGames, gameDefinition } from "../js/game-catalog.js";
 
 const team = { name: "Team 1", startingScore: 0 };
 const jeopardy = {
@@ -59,4 +60,11 @@ test("allows jeopardy audio fields to be omitted or used as the only medium", ()
   };
   assert.equal(validateConfig(config({ jeopardy })).games.jeopardy, jeopardy);
   assert.equal(validateConfig(config({ jeopardy: audioOnly })).games.jeopardy, audioOnly);
+});
+
+test("uses instance logo overrides without changing the catalog defaults", () => {
+  const logos = { jeopardy: "/quiz-logos/evening/Logo_Jeopardy.png" };
+  assert.equal(gameDefinition("jeopardy", logos).logo, logos.jeopardy);
+  assert.equal(configuredGames(config({ jeopardy }), logos)[0].logo, logos.jeopardy);
+  assert.equal(gameDefinition("jeopardy").logo, "assets/Logos/Logo_Jeopardy.png");
 });
