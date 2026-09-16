@@ -56,7 +56,7 @@ function validateSide(item, textKey, imageKey, audioKey, path) {
 }
 
 export function validateConfig(config) {
-  if (!config || typeof config !== "object" || Array.isArray(config)) throw new Error("questions.json muss ein Objekt enthalten.");
+  if (!config || typeof config !== "object" || Array.isArray(config)) throw new Error("quiz-config.json muss ein Objekt enthalten.");
   requireString(config.title, "title");
   if (!Array.isArray(config.teams) || !config.teams.length) throw new Error("teams muss mindestens ein Team enthalten.");
   config.teams.forEach((team, index) => {
@@ -264,7 +264,7 @@ async function loadSavedState() {
   catch (error) { return { invalid: true, error: error.message }; }
 }
 
-export async function loadQuizConfig(configUrl = "questions.json") {
+export async function loadQuizConfig(configUrl) {
   const response = await fetch(configUrl, { cache: "no-store" });
   if (!response.ok) throw new Error(`${configUrl} konnte nicht geladen werden (HTTP ${response.status}).`);
   const config = validateConfig(await response.json());
@@ -290,7 +290,7 @@ export async function loadQuizLibrary() {
   return payload;
 }
 
-export async function loadApplicationData(configUrl = "questions.json") {
+export async function loadApplicationData(configUrl) {
   state.config = await loadQuizConfig(configUrl);
   state.savedState = await loadSavedState();
   document.title = state.config.title;

@@ -619,9 +619,8 @@ TEAM_LOBBY = TeamLobbyState()
 class OrderingState:
     """Persistent, server-authoritative state for collaborative ordering rounds."""
 
-    def __init__(self, storage: Path | InstanceStateStore) -> None:
-        self.store = storage if isinstance(storage, InstanceStateStore) else InstanceStateStore(storage)
-        self.state_file = self.store.path
+    def __init__(self, store: InstanceStateStore) -> None:
+        self.store = store
         self.condition = threading.Condition()
         self.version = 0
         self.teams: list[str] = []
@@ -672,15 +671,8 @@ class OrderingState:
                 self.store.write("ordering", None)
             self._changed_unlocked(False)
 
-    def switch_storage(self, state_file: Path) -> None:
-        with self.condition:
-            self.store = InstanceStateStore(state_file)
-            self.state_file = state_file
-            self._reload_unlocked()
-
     def reload(self) -> None:
         with self.condition:
-            self.state_file = self.store.path
             self._reload_unlocked()
 
     def _reload_unlocked(self) -> None:
@@ -918,7 +910,7 @@ class OrderingState:
                 self._changed_unlocked(False)
 
 
-INSTANCE_STATE = InstanceStateStore(QUIZ_LIBRARY.active_state_path("state.json"))
+INSTANCE_STATE = InstanceStateStore(QUIZ_LIBRARY.active_state_path())
 ORDERING = OrderingState(INSTANCE_STATE)
 LISTING = ListingState(INSTANCE_STATE)
 SYNC = SyncState(INSTANCE_STATE)
@@ -1389,12 +1381,6 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
         if body:
             self.wfile.write(body)
 
-    def redirect_to_player(self) -> None:
-        self.send_response(308)
-        self.send_header("Location", "/player")
-        self.send_header("Content-Length", "0")
-        self.end_headers()
-
     def do_GET(self) -> None:  # noqa: N802 - required by BaseHTTPRequestHandler
         quiz_content = self.authorize_quiz_content()
         if quiz_content is not None:
@@ -1646,20 +1632,9 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
                 return
             self.send_json(200, state)
             return
-        if self.request_path in {
-            "/game-state.json", "/.game-state.tmp", "/ordering-state.json", "/.ordering-state.tmp",
-            "/listing-state.json", "/.listing-state.json.tmp", "/sync-state.json",
-            "/.sync-state.json.tmp", "/state.json", "/.state.json.tmp", "/server-questions.json",
-        }:
-            self.send_error(404)
-            return
-        if self.request_path == "/.quiz-saves" or self.request_path.startswith("/.quiz-saves/"):
-            self.send_error(404)
-            return
         if not self.is_host:
             allowed = {
                 "/player", "/player.html", "/styles/player.css", "/js/player.js",
-                "/buzzer", "/buzzer.html", "/styles/buzzer.css", "/js/buzzer.js",
                 "/display", "/display.html", "/styles/display.css", "/styles/sync.css", "/js/display.js",
                 "/js/display-score-animation.js", "/js/display-sounds.js", "/js/score-history-chart.js", "/js/live-state.js", "/js/fit-text.js",
                 "/js/game-catalog.js",
@@ -1667,15 +1642,8 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
             if self.request_path not in allowed and not self.request_path.startswith("/assets/"):
                 self.send_error(403, "Von einem anderen Gerät sind nur die Spieler- und Publikumsansicht verfügbar.")
                 return
-        if self.request_path in {"/buzzer", "/buzzer.html"}:
-            self.redirect_to_player()
-            return
         if self.request_path == "/player":
             self.path = "/player.html"
-        elif self.request_path == "/styles/buzzer.css":
-            self.path = "/styles/player.css"
-        elif self.request_path == "/js/buzzer.js":
-            self.path = "/js/player.js"
         elif self.request_path == "/display":
             self.path = "/display.html"
         super().do_GET()
@@ -1686,12 +1654,8 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
             if quiz_content:
                 super().do_HEAD()
             return
-        if self.request_path == "/.quiz-saves" or self.request_path.startswith("/.quiz-saves/"):
-            self.send_error(404)
-            return
         allowed = {
             "/player", "/player.html", "/styles/player.css", "/js/player.js",
-            "/buzzer", "/buzzer.html", "/styles/buzzer.css", "/js/buzzer.js",
             "/display", "/display.html", "/styles/display.css", "/styles/sync.css", "/js/display.js",
             "/js/display-score-animation.js", "/js/display-sounds.js", "/js/score-history-chart.js", "/js/live-state.js", "/js/fit-text.js",
             "/js/game-catalog.js",
@@ -1699,15 +1663,8 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
         if not self.is_host and self.request_path not in allowed and not self.request_path.startswith("/assets/"):
             self.send_error(403, "Von einem anderen Gerät sind nur die Spieler- und Publikumsansicht verfügbar.")
             return
-        if self.request_path in {"/buzzer", "/buzzer.html"}:
-            self.redirect_to_player()
-            return
         if self.request_path == "/player":
             self.path = "/player.html"
-        elif self.request_path == "/styles/buzzer.css":
-            self.path = "/styles/player.css"
-        elif self.request_path == "/js/buzzer.js":
-            self.path = "/js/player.js"
         elif self.request_path == "/display":
             self.path = "/display.html"
         super().do_HEAD()

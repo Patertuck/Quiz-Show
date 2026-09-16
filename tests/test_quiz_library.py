@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 import main
+from instance_state import InstanceStateStore
 from listing_game import ListingState
 from quiz_library import QuizLibrary
 from sync_game import SyncState
@@ -64,16 +65,16 @@ class QuizLibraryTests(unittest.TestCase):
 
     def test_instance_state_paths_are_isolated(self):
         self.library.create("first", "alpha")
-        first_path = self.library.active_state_path("game-state.json")
+        first_path = self.library.active_state_path()
         first_path.write_text('{"instance": 1}', encoding="utf-8")
         self.library.create("second", "alpha")
-        second_path = self.library.active_state_path("game-state.json")
+        second_path = self.library.active_state_path()
         second_path.write_text('{"instance": 2}', encoding="utf-8")
 
         self.library.activate("first")
-        self.assertEqual('{"instance": 1}', self.library.active_state_path("game-state.json").read_text(encoding="utf-8"))
+        self.assertEqual('{"instance": 1}', self.library.active_state_path().read_text(encoding="utf-8"))
         self.library.activate("second")
-        self.assertEqual('{"instance": 2}', self.library.active_state_path("game-state.json").read_text(encoding="utf-8"))
+        self.assertEqual('{"instance": 2}', self.library.active_state_path().read_text(encoding="utf-8"))
 
     def test_new_library_process_starts_without_active_instance(self):
         self.library.create("saved-game", "alpha")
@@ -107,26 +108,29 @@ class QuizLibraryTests(unittest.TestCase):
         self.assertIsNone(self.library.content_path("/quiz-content/alpha/results/private.csv"))
         self.assertIsNone(self.library.content_path("/quiz-content/alpha/assets/../quiz-config.json"))
 
-    def test_persistent_game_services_switch_storage_without_leaking_progress(self):
+    def test_persistent_game_services_switch_shared_store_without_leaking_progress(self):
         root = Path(self.temporary.name)
         first = root / "first"
         second = root / "second"
         first.mkdir()
         second.mkdir()
-        services = [
-            main.OrderingState(first / "ordering.json"),
-            ListingState(first / "listing.json"),
-            SyncState(first / "sync.json"),
-        ]
+        store = InstanceStateStore(first / "state.json")
+        services = [main.OrderingState(store), ListingState(store), SyncState(store)]
         for service in services:
             service.configure(["Team 1"], ["question"])
             with service.condition:
                 service.completed = ["question"]
                 service._changed_unlocked()
-            service.switch_storage(second / service.state_file.name)
+
+        store.switch(second / "state.json")
+        for service in services:
+            service.reload()
             service.configure(["Team 1"], ["question"])
             self.assertEqual([], service.completed)
-            service.switch_storage(first / service.state_file.name)
+
+        store.switch(first / "state.json")
+        for service in services:
+            service.reload()
             self.assertEqual(["question"], service.completed)
 
 

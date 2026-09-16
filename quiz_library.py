@@ -235,11 +235,11 @@ class QuizLibrary:
         return (f"/quiz-content/{quote(metadata['variationId'])}/{self.CONFIG_FILENAME}"
                 if metadata["variationAvailable"] else None)
 
-    def active_state_path(self, filename: str) -> Path | None:
+    def active_state_path(self) -> Path | None:
         directory = self.active_directory()
         if directory is None:
             return None
-        path = directory / filename
+        path = directory / "state.json"
         if path.is_symlink():
             raise ValueError("Der Instanz-Spielstand darf kein symbolischer Link sein.")
         return path

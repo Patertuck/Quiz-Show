@@ -6,17 +6,14 @@ import json
 import secrets
 import threading
 import time
-from pathlib import Path
-
 from instance_state import InstanceStateStore
 
 
 class ListingState:
     """Persistent state machine for timed, manually reviewed list rounds."""
 
-    def __init__(self, storage: Path | InstanceStateStore) -> None:
-        self.store = storage if isinstance(storage, InstanceStateStore) else InstanceStateStore(storage)
-        self.state_file = self.store.path
+    def __init__(self, store: InstanceStateStore) -> None:
+        self.store = store
         self.condition = threading.Condition()
         self.version = 0
         self.teams: list[str] = []
@@ -47,15 +44,8 @@ class ListingState:
             self.round["phase"] = "active"
             self.round["deadlineAt"] = 0
 
-    def switch_storage(self, state_file: Path) -> None:
-        with self.condition:
-            self.store = InstanceStateStore(state_file)
-            self.state_file = state_file
-            self._reload_unlocked()
-
     def reload(self) -> None:
         with self.condition:
-            self.state_file = self.store.path
             self._reload_unlocked()
 
     def _reload_unlocked(self) -> None:

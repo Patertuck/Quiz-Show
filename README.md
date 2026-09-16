@@ -41,7 +41,7 @@ Die Quiz-Auswahl verwaltet global eindeutig benannte Quiz-Instanzen. Jede Instan
 
 Der gesamte Ordner `quiz-data` ist bewusst nicht im Repository enthalten. Beendet den Quizserver und kopiert diesen einen Ordner in euer Backup. Nach dem Klonen auf einem anderen Gerät kopiert ihr ihn unverändert neben `main.py` zurück; damit sind alle Varianten, fortsetzbaren Instanzen und Ergebnisse wieder vorhanden.
 
-Geheimnisse in `server-config.json` gehören nicht zu diesem Backup. API-Schlüssel werden auf jedem Gerät separat eingerichtet. Varianten werden nicht gegen bestehende Instanzen geprüft: Wer Fragen oder Medien nachträglich ändert, ist selbst für die Kompatibilität mit gespeicherten Spielständen verantwortlich.
+Varianten werden nicht gegen bestehende Instanzen geprüft: Wer Fragen oder Medien nachträglich ändert, ist selbst für die Kompatibilität mit gespeicherten Spielständen verantwortlich.
 
 ## Im lokalen Netzwerk
 
@@ -81,7 +81,3 @@ Der öffentliche Link ändert sich bei jedem Start. Jeder, der ihn kennt, kann a
 
 Quick Tunnels sind ein bequemer Dienst für private Spiele, aber kein Ersatz für ein dauerhaft betriebenes oder großes öffentliches Angebot.
 Sie unterstützen keine Server-Sent Events. Die Quizshow erkennt deshalb `trycloudflare.com` automatisch und verteilt Live-Updates per HTTP-Polling. Im lokalen Netzwerk bleiben die schnelleren Event-Streams aktiv. Eine Verzögerung von bis zu ungefähr einer Sekunde über den öffentlichen Link ist normal.
-
-## Geheimnisse
-
-API-Schlüssel gehören nur in eine ignorierte lokale Konfigurationsdatei und nie ins Repository. Einen bereits weitergegebenen oder offengelegten Schlüssel beim jeweiligen Anbieter widerrufen und neu erstellen.

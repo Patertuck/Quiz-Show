@@ -43,18 +43,13 @@ let navigationId = 0;
 
 function routeLocation() {
   const parts = location.hash.replace(/^#\/?/, "").split("/").filter(Boolean);
-  if (parts[0] === "master") return { name: "master", legacySlotId: null, canonical: true };
-  if (parts[0] === "save" && parts[1]) {
-    return { name: parts[2] || "intro", legacySlotId: decodeURIComponent(parts[1]), canonical: false };
-  }
   const name = parts[0] || "intro";
-  return { name, legacySlotId: null, canonical: Boolean(parts[0]) && !["start", "warmup"].includes(name) };
+  return { name, canonical: Boolean(parts[0]) && name !== "start" };
 }
 
 function routeName() {
   const requested = routeLocation().name;
   if (requested === "intro") return "start";
-  if (requested === "warmup") return state.gameStarted || state.savedState?.gameStarted ? "hub" : "start";
   return requested;
 }
 
@@ -156,13 +151,6 @@ try {
   let library = await loadQuizLibrary();
   const requestedLocation = routeLocation();
   const requestedRoute = routeName();
-  if (requestedLocation.legacySlotId) {
-    if (requestedLocation.legacySlotId !== library.activeInstanceName) {
-      throw new Error("Dieser Link gehört nicht zum aktuell ausgewählten Spielstand.");
-    }
-    const visibleName = requestedLocation.name === "start" ? "intro" : requestedLocation.name;
-    window.history.replaceState(null, "", `/#/${visibleName}`);
-  }
   setActiveInstanceName(library.activeInstanceName);
   if (requestedRoute === "master" || !library.activeInstanceName || !library.activeConfigUrl) {
     state.config = null;
@@ -186,17 +174,11 @@ try {
         resumeRuntime(saved.teams);
         renderScoreboard();
       }
-      if (!requestedLocation.canonical && !requestedLocation.legacySlotId) navigate(requestedRoute);
+      if (!requestedLocation.canonical) navigate(requestedRoute);
       else await renderRoute();
     }
   }
 } catch (error) {
   console.error(error);
-  if (routeLocation().legacySlotId && state.library) {
-    state.config = null;
-    state.library.configError = error.message;
-    setActiveInstanceName(state.library.activeInstanceName);
-    if (location.hash !== "#/master") location.hash = "#/master";
-    else await renderRoute();
-  } else renderError(error);
+  renderError(error);
 }

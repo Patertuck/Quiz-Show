@@ -3,6 +3,7 @@ import time
 import unittest
 from pathlib import Path
 
+from instance_state import InstanceStateStore
 from listing_game import ListingState
 
 
@@ -31,7 +32,7 @@ class ListingStateTests(unittest.TestCase):
     def make_state(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
-        state = ListingState(Path(temporary.name) / "listing-state.json")
+        state = ListingState(InstanceStateStore(Path(temporary.name) / "state.json"))
         state.configure(["Rot", "Blau"], ["pets"])
         return state
 

@@ -2,14 +2,15 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from instance_state import InstanceStateStore
 from sync_game import SyncState
 
 
 class SyncStateTest(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
-        self.path = Path(self.temp.name) / "sync-state.json"
-        self.state = SyncState(self.path)
+        self.path = Path(self.temp.name) / "state.json"
+        self.state = SyncState(InstanceStateStore(self.path))
         self.state.configure(["Rot", "Blau", "Grün"], ["q1", "q2"])
 
     def tearDown(self):
@@ -178,7 +179,7 @@ class SyncStateTest(unittest.TestCase):
             self.state.vote({"deviceId": device, "roundId": round_id, "selectedParticipantId": selected})
         self.expire()
         first_award = self.state.awards()
-        loaded = SyncState(self.path)
+        loaded = SyncState(InstanceStateStore(self.path))
         self.assertEqual(len(loaded.participants), 3)
         self.assertEqual(loaded.snapshot()["round"]["phase"], "results")
         self.assertEqual(first_award, loaded.awards())

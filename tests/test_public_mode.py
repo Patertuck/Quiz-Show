@@ -145,6 +145,24 @@ class ServerDisconnectTests(unittest.TestCase):
 
 
 class PublicStaticFileTests(unittest.TestCase):
+    def test_removed_buzzer_aliases_return_not_found(self):
+        server = main.LocalQuizServer(("127.0.0.1", 0), main.QuizRequestHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            for path in ("/buzzer", "/buzzer.html", "/styles/buzzer.css", "/js/buzzer.js"):
+                with self.subTest(path=path):
+                    connection = http.client.HTTPConnection("127.0.0.1", server.server_port, timeout=2)
+                    connection.request("GET", path, headers={"Host": "127.0.0.1"})
+                    response = connection.getresponse()
+                    response.read()
+                    connection.close()
+                    self.assertEqual(404, response.status)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
     def test_lan_display_can_load_game_catalog(self):
         server = main.LocalQuizServer(("127.0.0.1", 0), main.QuizRequestHandler)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
