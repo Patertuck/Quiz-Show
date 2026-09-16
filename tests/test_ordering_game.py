@@ -120,6 +120,23 @@ class OrderingStateTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Zeigt die Punkte"):
             state.control({"action": "confirm-distribution"})
 
+    def test_round_can_be_cancelled_until_answer_reveal_begins(self):
+        state = self.make_state()
+        state.start(QUESTION)
+        state.control({"action": "cancel"})
+        self.assertIsNone(state.snapshot("host")["round"])
+
+        state.start(QUESTION)
+        state.control({"action": "lock"})
+        state.control({"action": "cancel"})
+        self.assertIsNone(state.snapshot("host")["round"])
+
+        state.start(QUESTION)
+        state.control({"action": "lock"})
+        state.control({"action": "reveal", "slot": 0})
+        with self.assertRaisesRegex(ValueError, "nicht abgebrochen"):
+            state.control({"action": "cancel"})
+
 
 if __name__ == "__main__":
     unittest.main()

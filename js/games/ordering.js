@@ -275,9 +275,13 @@ function confirmCancel() {
     const finish = () => {
       dialog.removeEventListener("close", finish);
       if (dialog.returnValue === "cancel") request("cancel").then(resolve, reject);
-      else resolve();
+      else {
+        render(orderingState);
+        resolve();
+      }
     };
     dialog.addEventListener("close", finish);
+    dialog.returnValue = "";
     dialog.showModal();
   });
 }
