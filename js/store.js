@@ -120,8 +120,8 @@ export function validateConfig(config) {
       throw new Error(`${path}.id muss eindeutig sein und darf nur Buchstaben, Zahlen und Bindestriche enthalten.`);
     }
     orderingIds.add(question.id);
-    if (!Number.isInteger(question.timeLimitSeconds) || question.timeLimitSeconds < 5 || question.timeLimitSeconds > 600) {
-      throw new Error(`${path}.timeLimitSeconds muss eine Ganzzahl von 5 bis 600 sein.`);
+    if (!Number.isInteger(question.timeLimitSeconds) || question.timeLimitSeconds <= 0) {
+      throw new Error(`${path}.timeLimitSeconds muss eine positive Ganzzahl sein.`);
     }
     if (!Array.isArray(question.items) || question.items.length < 3 || question.items.length > 7) {
       throw new Error(`${path}.items muss 3 bis 7 Einträge in der richtigen Reihenfolge enthalten.`);
@@ -163,8 +163,8 @@ export function validateConfig(config) {
       throw new Error(`${path}.id muss eindeutig sein und darf nur Buchstaben, Zahlen und Bindestriche enthalten.`);
     }
     listingIds.add(question.id);
-    if (!Number.isInteger(question.timeLimitSeconds) || question.timeLimitSeconds < 5 || question.timeLimitSeconds > 600) {
-      throw new Error(`${path}.timeLimitSeconds muss eine Ganzzahl von 5 bis 600 sein.`);
+    if (!Number.isInteger(question.timeLimitSeconds) || question.timeLimitSeconds <= 0) {
+      throw new Error(`${path}.timeLimitSeconds muss eine positive Ganzzahl sein.`);
     }
     if (!Number.isInteger(question.maxItems) || question.maxItems < 1 || question.maxItems > 50) {
       throw new Error(`${path}.maxItems muss eine Ganzzahl von 1 bis 50 sein.`);
@@ -179,8 +179,8 @@ export function validateConfig(config) {
   if (hasConfiguredGame(config, "sync")) {
     const sync = config.games.sync;
     if (!sync || typeof sync !== "object" || Array.isArray(sync)) throw new Error("games.sync muss ein Objekt sein.");
-    if (!Number.isInteger(sync.timeLimitSeconds) || sync.timeLimitSeconds < 1 || sync.timeLimitSeconds > 60) {
-      throw new Error("games.sync.timeLimitSeconds muss eine Ganzzahl von 1 bis 60 sein.");
+    if (!Number.isInteger(sync.timeLimitSeconds) || sync.timeLimitSeconds <= 0) {
+      throw new Error("games.sync.timeLimitSeconds muss eine positive Ganzzahl sein.");
     }
     if (!Number.isInteger(sync.pointsPerSync) || sync.pointsPerSync <= 0) {
       throw new Error("games.sync.pointsPerSync muss eine positive Ganzzahl sein.");

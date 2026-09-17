@@ -722,8 +722,8 @@ class OrderingState:
             raise ValueError("Eine Frage benötigt 3 bis 7 Elemente.")
         if len({item.strip().casefold() for item in items}) != len(items):
             raise ValueError("Die Elemente einer Frage müssen eindeutig sein.")
-        if not isinstance(seconds, int) or isinstance(seconds, bool) or not 5 <= seconds <= 600:
-            raise ValueError("timeLimitSeconds muss zwischen 5 und 600 liegen.")
+        if not isinstance(seconds, int) or isinstance(seconds, bool) or seconds <= 0:
+            raise ValueError("timeLimitSeconds muss eine positive Ganzzahl sein.")
         if not isinstance(points, int) or isinstance(points, bool) or points <= 0:
             raise ValueError("pointsPerCorrect muss positiv sein.")
         if scoring_mode not in {"relative", "exact"}:

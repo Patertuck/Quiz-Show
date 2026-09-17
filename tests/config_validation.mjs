@@ -61,6 +61,25 @@ test("accepts relative and exact ordering scoring modes and rejects unknown mode
   );
 });
 
+test("accepts unbounded positive timers and rejects invalid durations", () => {
+  const large = 1_000_000;
+  assert.equal(validateConfig(config({
+    ordering: { ...ordering, questions: [{ ...ordering.questions[0], timeLimitSeconds: large }] },
+    listing: { ...listing, questions: [{ ...listing.questions[0], timeLimitSeconds: large }] },
+    sync: { ...sync, timeLimitSeconds: large }
+  })).games.sync.timeLimitSeconds, large);
+
+  for (const invalid of [0, -1, 1.5, true, undefined]) {
+    assert.throws(() => validateConfig(config({
+      ordering: { ...ordering, questions: [{ ...ordering.questions[0], timeLimitSeconds: invalid }] }
+    })), /positive Ganzzahl/);
+    assert.throws(() => validateConfig(config({
+      listing: { ...listing, questions: [{ ...listing.questions[0], timeLimitSeconds: invalid }] }
+    })), /positive Ganzzahl/);
+    assert.throws(() => validateConfig(config({ sync: { ...sync, timeLimitSeconds: invalid } })), /positive Ganzzahl/);
+  }
+});
+
 test("allows jeopardy audio fields to be omitted or used as the only medium", () => {
   const audioOnly = {
     values: [100],

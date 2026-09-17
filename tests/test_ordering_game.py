@@ -56,6 +56,15 @@ class OrderingStateTests(unittest.TestCase):
         self.assertEqual([250, 0], snapshot["roundPoints"])
         self.assertEqual([250, 0], [award["points"] for award in state.awards()["awards"]])
 
+    def test_timer_accepts_any_positive_integer(self):
+        state = self.make_state()
+        state.start({**QUESTION, "timeLimitSeconds": 1_000_000})
+        self.assertEqual(1_000_000, state.snapshot("host")["round"]["timeLimitSeconds"])
+        for invalid in (0, -1, 1.5, True, None):
+            fresh = self.make_state()
+            with self.assertRaisesRegex(ValueError, "positive Ganzzahl"):
+                fresh.start({**QUESTION, "timeLimitSeconds": invalid})
+
     def test_correct_relative_order_receives_maximum(self):
         state = self.make_state()
         state.start({**QUESTION, "scoringMode": "relative"})

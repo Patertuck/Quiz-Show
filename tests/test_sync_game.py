@@ -92,6 +92,17 @@ class SyncStateTest(unittest.TestCase):
         self.assertEqual(payload["state"]["selfParticipantId"], anna)
         self.assertNotIn("selfParticipantId", self.state.snapshot("player", "device-0001"))
 
+    def test_timer_accepts_any_positive_integer(self):
+        question = self.state._validate_question({
+            "id": "q1", "prompt": "Wer?", "timeLimitSeconds": 1_000_000, "pointsPerSync": 100,
+        })
+        self.assertEqual(1_000_000, question["timeLimitSeconds"])
+        for invalid in (0, -1, 1.5, True, None):
+            with self.assertRaisesRegex(ValueError, "positive Ganzzahl"):
+                self.state._validate_question({
+                    "id": "q1", "prompt": "Wer?", "timeLimitSeconds": invalid, "pointsPerSync": 100,
+                })
+
     def test_account_cannot_be_reconnected_through_another_team(self):
         anna = self.register("device-0001", 0, "Anna")
         with self.assertRaisesRegex(ValueError, "gehört nicht"):

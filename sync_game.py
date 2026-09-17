@@ -207,8 +207,8 @@ class SyncState:
             raise ValueError("Die Frage gehört nicht zur Sync-Up-Konfiguration.")
         if not isinstance(prompt, str) or not prompt.strip():
             raise ValueError("Der Prompt darf nicht leer sein.")
-        if not isinstance(seconds, int) or isinstance(seconds, bool) or not 1 <= seconds <= 60:
-            raise ValueError("timeLimitSeconds muss zwischen 1 und 60 liegen.")
+        if not isinstance(seconds, int) or isinstance(seconds, bool) or seconds <= 0:
+            raise ValueError("timeLimitSeconds muss eine positive Ganzzahl sein.")
         if not isinstance(points, int) or isinstance(points, bool) or points <= 0:
             raise ValueError("pointsPerSync muss eine positive Ganzzahl sein.")
         return {

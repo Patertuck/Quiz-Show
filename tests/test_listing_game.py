@@ -93,6 +93,15 @@ class ListingStateTests(unittest.TestCase):
         self.assertEqual("listing:", awards["awardId"][:8])
         self.assertEqual([300, 200], [item["points"] for item in awards["awards"]])
 
+    def test_timer_accepts_any_positive_integer(self):
+        state = self.make_state()
+        state.start({**QUESTION, "timeLimitSeconds": 1_000_000})
+        self.assertEqual(1_000_000, state.snapshot("host")["round"]["timeLimitSeconds"])
+        for invalid in (0, -1, 1.5, True, None):
+            fresh = self.make_state()
+            with self.assertRaisesRegex(ValueError, "positive Ganzzahl"):
+                fresh.start({**QUESTION, "timeLimitSeconds": invalid})
+
     def test_every_item_is_sent_to_manual_review(self):
         state = self.make_state()
         state.start(QUESTION)

@@ -108,8 +108,8 @@ class ListingState:
         seconds = question.get("timeLimitSeconds")
         maximum = question.get("maxItems")
         points = question.get("placementPoints")
-        if not isinstance(seconds, int) or isinstance(seconds, bool) or not 5 <= seconds <= 600:
-            raise ValueError("timeLimitSeconds muss zwischen 5 und 600 liegen.")
+        if not isinstance(seconds, int) or isinstance(seconds, bool) or seconds <= 0:
+            raise ValueError("timeLimitSeconds muss eine positive Ganzzahl sein.")
         if not isinstance(maximum, int) or isinstance(maximum, bool) or not 1 <= maximum <= 50:
             raise ValueError("maxItems muss zwischen 1 und 50 liegen.")
         if (not isinstance(points, list) or not points
