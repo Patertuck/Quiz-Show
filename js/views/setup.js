@@ -3,6 +3,7 @@ import { state, startRuntime, resumeRuntime, saveState, deleteSavedState } from 
 import { renderScoreboard } from "../scoreboard.js";
 import { publishTeamLobby } from "../presentation-host.js";
 import { hostFetch, slotUrl } from "../slot-api.js";
+import { confirmAction } from "../confirm-dialog.js";
 
 async function post(path, payload) {
   const response = await hostFetch(path, {
@@ -104,7 +105,7 @@ export async function mount(root, { navigate }) {
     addButton.disabled = lobby.phase !== "open" || lobby.teams.length >= lobby.maxTeams;
     startButton.disabled = busy || lobby.phase !== "open" || !lobby.teams.length;
     resumeButton.disabled = editingActiveGame ? false : startButton.disabled;
-    newButton.disabled = startButton.disabled;
+    newButton.disabled = busy || !lobby.teams.length || (!editingActiveGame && lobby.phase !== "open");
   }
 
   addButton.addEventListener("click", () => {
@@ -122,6 +123,9 @@ export async function mount(root, { navigate }) {
     busy = true;
     render();
     try {
+      if (mode === "new" && lobby.phase === "locked") {
+        lobby = await post("/api/team-lobby/control", { action: "unlock" });
+      }
       for (const input of list.querySelectorAll(".team-name-editor")) {
         const team = lobby.teams.find((item) => item.id === input.dataset.teamId);
         if (team && input.value.trim() !== team.name) {
@@ -153,13 +157,21 @@ export async function mount(root, { navigate }) {
 
   startButton.addEventListener("click", () => begin("new"));
   resumeButton.addEventListener("click", () => editingActiveGame ? navigate("hub") : begin("resume"));
-  newButton.addEventListener("click", () => begin("new"));
+  newButton.addEventListener("click", async () => {
+    const confirmed = await confirmAction({
+      title: "Neues Spiel starten?",
+      message: "Der aktuelle Spielstand und alle bisherigen Runden werden gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
+      confirmLabel: "Neues Spiel starten",
+      cancelLabel: "Abbrechen"
+    });
+    if (confirmed) await begin("new");
+  });
   if (editingActiveGame) {
     startButton.hidden = true;
     resumeButton.hidden = false;
     resumeButton.disabled = false;
-    resumeButton.textContent = "Zurück zur Spielauswahl";
-    newButton.hidden = true;
+    resumeButton.textContent = "Spiel fortsetzen";
+    newButton.hidden = false;
     message.textContent = "Während des laufenden Spiels ist die Teamliste gesperrt.";
   } else if (compatible) {
     startButton.hidden = true;
