@@ -120,7 +120,7 @@ class OrderingStateTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Zeigt die Punkte"):
             state.control({"action": "confirm-distribution"})
 
-    def test_round_can_be_cancelled_until_answer_reveal_begins(self):
+    def test_round_can_be_cancelled_until_points_are_distributed(self):
         state = self.make_state()
         state.start(QUESTION)
         state.control({"action": "cancel"})
@@ -134,7 +134,16 @@ class OrderingStateTests(unittest.TestCase):
         state.start(QUESTION)
         state.control({"action": "lock"})
         state.control({"action": "reveal", "slot": 0})
-        with self.assertRaisesRegex(ValueError, "nicht abgebrochen"):
+        state.control({"action": "cancel"})
+        self.assertIsNone(state.snapshot("host")["round"])
+
+        state.start(QUESTION)
+        state.control({"action": "lock"})
+        for slot in range(len(QUESTION["items"])):
+            state.control({"action": "reveal", "slot": slot})
+        state.control({"action": "reveal-points"})
+        state.control({"action": "confirm-distribution"})
+        with self.assertRaisesRegex(ValueError, "verteilten Punkten"):
             state.control({"action": "cancel"})
 
 

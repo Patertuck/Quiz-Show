@@ -265,7 +265,7 @@ function renderResults(round) {
   } else {
     if (round.pointsRevealed) actions.append(button("Punkte verteilen", "primary-button", distribute));
     else actions.append(button("Punkte anzeigen", "primary-button", () => request("reveal-points"), !allRevealed));
-    actions.append(button("Runde abbrechen", "danger-button", confirmCancel, round.revealed.length > 0));
+    actions.append(button("Runde abbrechen", "danger-button", confirmCancel));
   }
   const footer = document.createElement("div"); footer.className = "ordering-results-footer";
   if (mapItems.length) footer.append(mapActions);
@@ -292,8 +292,16 @@ async function confirmCancel(trigger) {
     confirmLabel: "Runde abbrechen",
     cancelLabel: "Runde fortsetzen"
   });
-  if (confirmed) await request("cancel");
-  else trigger.disabled = false;
+  if (!confirmed) {
+    trigger.disabled = false;
+    return;
+  }
+  const snapshot = await request("cancel");
+  selectedQuestion = null;
+  selectedPreviewItems = [];
+  visibleMapItem = null;
+  render(snapshot);
+  await publishOrdering(questionSelection(null), null);
 }
 
 function render(snapshot) {

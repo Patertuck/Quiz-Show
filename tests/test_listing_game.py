@@ -215,6 +215,17 @@ class ListingStateTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "verteilten Punkten"):
             state.control({"action": "cancel"})
 
+    def test_review_can_be_cancelled(self):
+        state = self.make_state()
+        state.start(QUESTION)
+        self.submit(state, 0, ["Hund"])
+        state.control({"action": "lock"})
+        wait_until(state, "review")
+
+        state.control({"action": "cancel"})
+
+        self.assertIsNone(state.snapshot("host")["round"])
+
     def test_completed_question_can_be_reopened(self):
         state = self.make_state()
         state.completed.append("pets")

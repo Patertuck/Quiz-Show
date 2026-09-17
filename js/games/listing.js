@@ -179,8 +179,14 @@ async function confirmCancel(trigger) {
     confirmLabel: "Runde abbrechen",
     cancelLabel: "Runde fortsetzen"
   });
-  if (confirmed) await request("cancel");
-  else trigger.disabled = false;
+  if (!confirmed) {
+    trigger.disabled = false;
+    return;
+  }
+  const snapshot = await request("cancel");
+  selectedQuestion = null;
+  render(snapshot);
+  await publishListing(questionSelection(null));
 }
 
 function renderReview(round) {
@@ -211,7 +217,8 @@ function renderReview(round) {
   navigation.append(
     button("← Zurück", "secondary-button", () => request("navigate", { index: review.index - 1 }), review.index === 0),
     button("Weiter →", "secondary-button", () => request("navigate", { index: review.index + 1 }), review.index + 1 >= review.total),
-    button("Prüfung abschliessen", "primary-button", () => request("finish-review"), review.decidedCount < review.total)
+    button("Prüfung abschliessen", "primary-button", () => request("finish-review"), review.decidedCount < review.total),
+    button("Runde abbrechen", "danger-button", confirmCancel)
   );
   panel.append(progress, team, answer, decisions, navigation);
   content.replaceChildren(panel);

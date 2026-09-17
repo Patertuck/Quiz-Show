@@ -793,8 +793,8 @@ class OrderingState:
                         raise ValueError("Die Runde ist bereits gesperrt.")
                     self.round["phase"] = "locked"
                 elif action == "cancel":
-                    if self.round["revealed"]:
-                        raise ValueError("Eine Runde kann nicht abgebrochen werden, nachdem das Aufdecken begonnen hat.")
+                    if self.round["phase"] == "distributed":
+                        raise ValueError("Eine Runde mit verteilten Punkten kann nicht mehr abgebrochen werden.")
                     self.round = None
                 elif action == "reveal":
                     slot = payload.get("slot")
