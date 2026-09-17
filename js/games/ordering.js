@@ -3,6 +3,7 @@ import { state, applyAward, saveState } from "../store.js";
 import { renderScoreboard } from "../scoreboard.js";
 import { hostFetch, slotUrl } from "../slot-api.js";
 import { confirmAction } from "../confirm-dialog.js";
+import { scheduleTextFit } from "../fit-text.js";
 
 let root;
 let content;
@@ -10,6 +11,7 @@ let statusLine;
 let orderingState;
 let events;
 let ticker;
+let resultFitObserver;
 let selectedQuestion = null;
 let selectedPreviewItems = [];
 let visibleMapItem = null;
@@ -48,6 +50,12 @@ function itemText(itemId, round) {
 
 function remaining(round) {
   return Math.max(0, Math.ceil((round.deadlineAt - Date.now()) / 1000));
+}
+
+function fitResultText(scope = content) {
+  scope?.querySelectorAll(".ordering-result-cell").forEach((cell) => {
+    scheduleTextFit(cell, ".ordering-cell-text", { maxHeightRatio: 0.28 });
+  });
 }
 
 function shuffled(items) {
@@ -195,7 +203,9 @@ function teamColumn(round, teamIndex) {
     const revealed = round.revealed.includes(slot);
     if (revealed && round.scoringMode === "exact") cell.classList.add(id === correct[slot] ? "correct" : "wrong");
     if (revealed && round.scoringMode === "relative") cell.classList.add("relative-revealed");
-    const label = document.createElement("span"); label.textContent = itemText(id, round);
+    const label = document.createElement("span");
+    label.className = "ordering-cell-text";
+    label.textContent = itemText(id, round);
     cell.append(label);
     if (revealed && round.scoringMode === "relative" && round.pointsRevealed) {
       const points = document.createElement("strong");
@@ -212,13 +222,8 @@ function teamColumn(round, teamIndex) {
 
 function renderResults(round) {
   const allRevealed = round.revealed.length === round.correctItems.length;
-  setStatus(round.phase === "distributed"
-    ? "Punkte wurden verteilt."
-    : round.pointsRevealed
-      ? "Die Punkte sind sichtbar und können verteilt werden."
-      : allRevealed
-        ? "Alle Antworten wurden aufgedeckt. Jetzt könnt ihr die Punkte anzeigen."
-        : "Klickt auf die Antwortfelder, um sie in beliebiger Reihenfolge aufzudecken.");
+  setStatus();
+  const layout = document.createElement("div"); layout.className = "ordering-results-layout";
   const board = document.createElement("div"); board.className = "ordering-results";
   const split = Math.ceil(orderingState.teams.length / 2);
   const left = document.createElement("div"); left.className = "ordering-result-side";
@@ -229,8 +234,13 @@ function renderResults(round) {
   const title = document.createElement("h2"); title.textContent = "Richtige Reihenfolge"; solution.append(title);
   round.correctItems.forEach((item, slot) => {
     const revealed = round.revealed.includes(slot);
-    solution.append(button(revealed ? item.text : `Position ${slot + 1} aufdecken`, `ordering-result-cell solution-cell${revealed ? " revealed" : ""}`,
-      () => request("reveal", { slot }), revealed || round.phase === "distributed"));
+    const control = button("", `ordering-result-cell solution-cell${revealed ? " revealed" : ""}`,
+      () => request("reveal", { slot }), revealed || round.phase === "distributed");
+    const label = document.createElement("span");
+    label.className = "ordering-cell-text";
+    label.textContent = revealed ? item.text : `Position ${slot + 1} aufdecken`;
+    control.append(label);
+    solution.append(control);
   });
   board.append(left, solution, right);
   const mapQuestion = selectedQuestion || state.config.games.ordering.questions.find((item) => item.id === round.questionId);
@@ -257,7 +267,12 @@ function renderResults(round) {
     else actions.append(button("Punkte anzeigen", "primary-button", () => request("reveal-points"), !allRevealed));
     actions.append(button("Runde abbrechen", "danger-button", confirmCancel, round.revealed.length > 0));
   }
-  content.replaceChildren(board, ...(mapItems.length ? [mapActions] : []), actions);
+  const footer = document.createElement("div"); footer.className = "ordering-results-footer";
+  if (mapItems.length) footer.append(mapActions);
+  footer.append(actions);
+  layout.append(board, footer);
+  content.replaceChildren(layout);
+  fitResultText();
 }
 
 async function distribute() {
@@ -316,9 +331,12 @@ export async function mount(element) {
     const timer = content.querySelector(".ordering-timer");
     if (timer) timer.textContent = Math.max(0, Math.ceil((Number(timer.dataset.deadline) - Date.now()) / 1000));
   }, 200);
+  resultFitObserver = new ResizeObserver(() => fitResultText());
+  resultFitObserver.observe(content);
   return () => {
     events?.close();
     clearInterval(ticker);
+    resultFitObserver?.disconnect();
     window.removeEventListener("quiz-score-changed", handleScoreChange);
   };
 }

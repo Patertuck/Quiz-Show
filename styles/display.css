@@ -103,12 +103,14 @@ body { margin: 0; overflow: hidden; background: var(--blue); color: #fff; }
 .display-ordering-heading h1 { margin: 0; font-size: clamp(1.2rem, 3vw, 2.3rem); }
 .display-ordering-heading p { margin: .15rem 0; font-size: clamp(.8rem, 1.5vw, 1.15rem); }
 .display-ordering-results { display: grid; width: 100%; min-height: 0; grid-template-columns: 1fr minmax(9rem, 15rem) 1fr; gap: .5rem; }
-.display-ordering-side { display: flex; min-width: 0; gap: .4rem; }
-.display-ordering-column { display: grid; min-width: 0; flex: 1 1 0; grid-template-rows: 2.4rem repeat(var(--ordering-count, 1), minmax(0, 1fr)); gap: .25rem; }
+.display-ordering-side { display: flex; min-width: 0; min-height: 0; gap: .4rem; overflow: hidden; }
+.display-ordering-column { display: grid; min-width: 0; min-height: 0; overflow: hidden; flex: 1 1 0; grid-template-rows: minmax(1.5rem, 2.4rem) repeat(var(--ordering-count, 1), minmax(0, 1fr)); gap: .25rem; }
 .display-ordering-column h2 { display: flex; min-width: 0; margin: 0; align-items: center; justify-content: space-between; gap: .25rem; overflow: hidden; font-size: clamp(.6rem, 1.2vw, .95rem); }
 .display-ordering-column h2 span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .display-ordering-column h2 strong { color: #ffe16d; }
 .display-ordering-cell { position: relative; display: grid; min-height: 0; padding: .2rem; place-items: center; border-radius: .35rem; background: #f7effb; color: #301441; font-size: clamp(.55rem, 1.1vw, .9rem); font-weight: bold; text-align: center; overflow-wrap: anywhere; }
+.display-ordering-cell { overflow: hidden; }
+.display-ordering-cell-text { display: block; width: 100%; min-width: 0; line-height: 1.15; overflow-wrap: anywhere; }
 .display-ordering-cell.correct { background: #3ea568; color: #fff; }
 .display-ordering-cell.wrong { background: #ba3d54; color: #fff; }
 .display-ordering-cell.relative-revealed { background: #eee1a1; }

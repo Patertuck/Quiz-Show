@@ -315,7 +315,7 @@ function ordering() {
         ? round.scoringMode === "relative" ? " relative-revealed" : correct ? " correct" : " wrong"
         : "";
       const cell = element("div", `display-ordering-cell${resultClass}`);
-      cell.append(element("span", "", itemNames.get(id)));
+      cell.append(element("span", "display-ordering-cell-text", itemNames.get(id)));
       if (revealed && round.scoringMode === "relative" && round.pointsRevealed) {
         const value = round.rowPoints[teamIndex][slot];
         cell.append(element("strong", `display-ordering-row-points${value === 0 ? " zero" : ""}`, `+${value}`));
@@ -327,7 +327,11 @@ function ordering() {
   const solution = element("section", "display-ordering-column display-ordering-solution");
   solution.style.setProperty("--ordering-count", round.revealedItems.length);
   solution.append(element("h2", "", "Richtige Reihenfolge"));
-  round.revealedItems.forEach((item, slot) => solution.append(element("div", `display-ordering-cell${item ? " revealed" : " hidden-answer"}`, item?.text || `Antwort ${slot + 1}`)));
+  round.revealedItems.forEach((item, slot) => {
+    const cell = element("div", `display-ordering-cell${item ? " revealed" : " hidden-answer"}`);
+    cell.append(element("span", "display-ordering-cell-text", item?.text || `Antwort ${slot + 1}`));
+    solution.append(cell);
+  });
   board.append(left, solution, right);
   if (presentation.orderingMap && round.phase !== "active") {
     const overlay = element("section", "display-ordering-map");
@@ -338,6 +342,9 @@ function ordering() {
     screen.append(heading, overlay);
   } else {
     screen.append(heading, board);
+    board.querySelectorAll(".display-ordering-cell").forEach((cell) => {
+      scheduleTextFit(cell, ".display-ordering-cell-text", { maxHeightRatio: 0.28 });
+    });
   }
   return screen;
 }
@@ -980,7 +987,12 @@ function updateBuzzerBanner() {
   scheduleTextFit(root.querySelector(".display-question-content"));
 }
 
-window.addEventListener("resize", () => scheduleTextFit(root.querySelector(".display-question-content")));
+window.addEventListener("resize", () => {
+  scheduleTextFit(root.querySelector(".display-question-content"));
+  root.querySelectorAll(".display-ordering-cell").forEach((cell) => {
+    scheduleTextFit(cell, ".display-ordering-cell-text", { maxHeightRatio: 0.28 });
+  });
+});
 
 async function initialState(path) {
   const response = await fetch(path, { cache: "no-store" });
