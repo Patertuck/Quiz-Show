@@ -155,6 +155,20 @@ class OrderingStateTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "verteilten Punkten"):
             state.control({"action": "cancel"})
 
+    def test_completed_question_can_be_reopened(self):
+        state = self.make_state()
+        state.completed.append(QUESTION["id"])
+
+        state.control({"action": "reopen-question", "questionId": QUESTION["id"]})
+
+        self.assertNotIn(QUESTION["id"], state.snapshot("host")["completedQuestionIds"])
+        state.start(QUESTION)
+
+    def test_only_completed_question_can_be_reopened(self):
+        state = self.make_state()
+        with self.assertRaisesRegex(ValueError, "nicht abgeschlossen"):
+            state.control({"action": "reopen-question", "questionId": QUESTION["id"]})
+
 
 if __name__ == "__main__":
     unittest.main()

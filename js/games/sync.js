@@ -111,13 +111,37 @@ function renderOverview() {
   prompts.className = "sync-question-grid";
   state.config.games.sync.questions.forEach((question) => {
     const complete = syncState.completedQuestionIds.includes(question.id);
-    prompts.append(button(question.prompt, `sync-question-card${complete ? " completed" : ""}`, () => request("prepare", {
-      question: {
-        ...question,
-        timeLimitSeconds: state.config.games.sync.timeLimitSeconds,
-        pointsPerSync: state.config.games.sync.pointsPerSync
+    const card = button(question.prompt, `sync-question-card${complete ? " completed" : ""}`, async (trigger) => {
+      if (complete) {
+        trigger.disabled = false;
+        return;
       }
-    }), complete));
+      await request("prepare", {
+        question: {
+          ...question,
+          timeLimitSeconds: state.config.games.sync.timeLimitSeconds,
+          pointsPerSync: state.config.games.sync.pointsPerSync
+        }
+      });
+    });
+    if (complete) {
+      card.title = "Bereits abgeschlossen · mit Rechtsklick erneut freischalten";
+      card.setAttribute("aria-disabled", "true");
+      card.setAttribute("aria-label", `${question.prompt}, abgeschlossen. Mit Rechtsklick erneut freischalten.`);
+      card.addEventListener("contextmenu", async (event) => {
+        event.preventDefault();
+        try {
+          syncState = await request("reopen-question", { questionId: question.id });
+          renderOverview();
+          statusLine.textContent = "Der Prompt kann erneut gespielt werden.";
+          await publishSync();
+        } catch (error) {
+          console.error(error);
+          statusLine.textContent = error.message;
+        }
+      });
+    }
+    prompts.append(card);
   });
   const actions = document.createElement("div");
   actions.className = "sync-actions";

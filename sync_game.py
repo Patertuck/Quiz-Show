@@ -283,6 +283,13 @@ class SyncState:
                 self.roster_locked = False
             elif action == "reset-game":
                 self._reset_game_unlocked()
+            elif action == "reopen-question":
+                if self.round:
+                    raise ValueError("Beendet zuerst die aktuelle Sync-Up-Runde.")
+                question_id = payload.get("questionId")
+                if not isinstance(question_id, str) or question_id not in self.completed:
+                    raise ValueError("Dieser Sync-Up-Prompt ist nicht abgeschlossen.")
+                self.completed.remove(question_id)
             elif action == "seed-test-players":
                 if self.roster_locked:
                     raise ValueError("Entsperrt zuerst die Teilnehmerliste.")

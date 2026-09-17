@@ -102,8 +102,11 @@ function renderOverview() {
   grid.className = "listing-question-grid";
   state.config.games.listing.questions.forEach((question) => {
     const complete = listingState.completedQuestionIds.includes(question.id);
-    const card = button(question.displayCategory, `listing-question-card${complete ? " completed" : ""}`, async () => {
-      if (complete) return;
+    const card = button(question.displayCategory, `listing-question-card${complete ? " completed" : ""}`, async (trigger) => {
+      if (complete) {
+        trigger.disabled = false;
+        return;
+      }
       selectedQuestion = question;
       renderPreview();
       await publishListing(questionSelection(question.id));

@@ -234,6 +234,17 @@ class SyncStateTest(unittest.TestCase):
         result = self.expire()
         self.assertEqual([item["points"] for item in result["round"]["results"]], [100, 100, 100])
 
+    def test_completed_prompt_can_be_reopened(self):
+        self.state.completed.append("q1")
+
+        self.state.control({"action": "reopen-question", "questionId": "q1"})
+
+        self.assertNotIn("q1", self.state.snapshot("host")["completedQuestionIds"])
+
+    def test_only_completed_prompt_can_be_reopened(self):
+        with self.assertRaisesRegex(ValueError, "nicht abgeschlossen"):
+            self.state.control({"action": "reopen-question", "questionId": "q1"})
+
 
 if __name__ == "__main__":
     unittest.main()

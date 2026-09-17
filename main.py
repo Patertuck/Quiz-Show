@@ -786,9 +786,16 @@ class OrderingState:
         else:
             with self.condition:
                 self._expire_unlocked()
-                if not self.round:
+                if not self.round and action != "reopen-question":
                     raise ValueError("Es gibt keine aktuelle Order-Up-Runde.")
-                if action == "lock":
+                if action == "reopen-question":
+                    if self.round:
+                        raise ValueError("Beendet zuerst die aktuelle Order-Up-Runde.")
+                    question_id = payload.get("questionId")
+                    if not isinstance(question_id, str) or question_id not in self.completed:
+                        raise ValueError("Diese Order-Up-Frage ist nicht abgeschlossen.")
+                    self.completed.remove(question_id)
+                elif action == "lock":
                     if self.round["phase"] != "active":
                         raise ValueError("Die Runde ist bereits gesperrt.")
                     self.round["phase"] = "locked"

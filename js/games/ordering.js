@@ -129,14 +129,34 @@ function renderOverview() {
   grid.className = "ordering-question-grid";
   state.config.games.ordering.questions.forEach((question) => {
     const complete = orderingState.completedQuestionIds.includes(question.id);
-    const card = button(question.title, "ordering-question-card", async () => {
+    const card = button(question.title, `ordering-question-card${complete ? " completed" : ""}`, async (trigger) => {
+      if (complete) {
+        trigger.disabled = false;
+        return;
+      }
       selectedQuestion = question;
       selectedPreviewItems = shuffled(question.items);
       visibleMapItem = null;
       renderPreview();
       publishQuestionSelection(question.id);
-    }, complete);
-    if (complete) card.title = "Bereits abgeschlossen";
+    });
+    if (complete) {
+      card.title = "Bereits abgeschlossen · mit Rechtsklick erneut freischalten";
+      card.setAttribute("aria-disabled", "true");
+      card.setAttribute("aria-label", `${question.title}, abgeschlossen. Mit Rechtsklick erneut freischalten.`);
+      card.addEventListener("contextmenu", async (event) => {
+        event.preventDefault();
+        try {
+          orderingState = await request("reopen-question", { questionId: question.id });
+          renderOverview();
+          setStatus(`${question.title} kann erneut gespielt werden.`);
+          await publishOrdering(questionSelection(null), null);
+        } catch (error) {
+          console.error(error);
+          setStatus(error.message);
+        }
+      });
+    }
     if (!complete) {
       card.addEventListener("pointerenter", () => publishQuestionSelection(question.id));
       card.addEventListener("pointerleave", () => publishQuestionSelection(null));

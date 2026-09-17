@@ -11,7 +11,7 @@
 .sync-roster-person.connected::before { content: "●"; color: #65e99a; }
 .sync-question-grid { display: grid; min-height: 0; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: clamp(.35rem, 1vh, .8rem); align-content: center; }
 .sync-question-card { min-height: clamp(3.2rem, 10vh, 7rem); padding: clamp(.4rem, 1.2vh, 1rem); border: 2px solid #ffffff44; border-radius: clamp(.55rem, 1.5vh, 1rem); background: linear-gradient(145deg, #293eaa, #171f65); color: #fff; font-size: clamp(.72rem, 1.7vh, 1.1rem); font-weight: 800; }
-.sync-question-card.completed { opacity: .4; }
+.sync-question-card.completed { cursor: context-menu; opacity: .4; }
 .sync-overview { display: grid; min-height: 0; gap: clamp(.4rem, 1.5vh, 1.2rem); }
 .sync-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: clamp(.35rem, 1vh, .75rem); }
 .sync-actions button { padding-block: clamp(.4rem, 1vh, .75rem); font-size: clamp(.75rem, 1.7vh, 1rem); }
