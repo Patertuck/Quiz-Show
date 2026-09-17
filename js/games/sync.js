@@ -22,6 +22,29 @@ async function request(action, extra = {}) {
   return payload;
 }
 
+function timerControl(seconds) {
+  const label = document.createElement("label");
+  label.className = "sync-time-control";
+  label.append("Zeit (Sekunden)");
+  const input = document.createElement("input");
+  input.type = "number";
+  input.min = "1";
+  input.step = "1";
+  input.required = true;
+  input.value = String(seconds);
+  label.append(input);
+  return { label, input };
+}
+
+function timerSeconds(input) {
+  const seconds = input.valueAsNumber;
+  if (!Number.isInteger(seconds) || seconds <= 0) {
+    input.focus();
+    throw new Error("Die Zeit muss eine positive Ganzzahl sein.");
+  }
+  return seconds;
+}
+
 function button(label, className, onClick, disabled = false) {
   const item = document.createElement("button");
   item.type = "button";
@@ -111,15 +134,16 @@ function renderPrepared(round) {
   panel.className = "sync-prompt-panel";
   const prompt = document.createElement("h2");
   prompt.textContent = round.prompt;
+  const timer = timerControl(round.timeLimitSeconds);
   const actions = document.createElement("div");
   actions.className = "sync-actions";
   actions.append(
-    button("Timer starten", "primary-button", () => request("start")),
+    button("Timer starten", "primary-button", () => request("start", {
+      timeLimitSeconds: timerSeconds(timer.input)
+    })),
     button("Abbrechen", "danger-button", confirmCancel)
   );
-  panel.append(prompt, Object.assign(document.createElement("div"), {
-    className: "sync-host-timer", textContent: String(round.timeLimitSeconds)
-  }), actions);
+  panel.append(prompt, timer.label, actions);
   content.replaceChildren(panel);
 }
 

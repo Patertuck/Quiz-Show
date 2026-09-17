@@ -55,6 +55,29 @@ function setStatus(message = "") {
   statusLine.textContent = message;
 }
 
+function timerControl(seconds) {
+  const label = document.createElement("label");
+  label.className = "listing-time-control";
+  label.append("Zeit (Sekunden)");
+  const input = document.createElement("input");
+  input.type = "number";
+  input.min = "1";
+  input.step = "1";
+  input.required = true;
+  input.value = String(seconds);
+  label.append(input);
+  return { label, input };
+}
+
+function timerSeconds(input) {
+  const seconds = input.valueAsNumber;
+  if (!Number.isInteger(seconds) || seconds <= 0) {
+    input.focus();
+    throw new Error("Die Zeit muss eine positive Ganzzahl sein.");
+  }
+  return seconds;
+}
+
 function button(label, className, onClick, disabled = false) {
   const element = document.createElement("button");
   element.type = "button";
@@ -122,7 +145,8 @@ function renderPreview() {
   prompt.className = "listing-preview-prompt";
   prompt.textContent = question.prompt;
   const details = document.createElement("p");
-  details.textContent = `${question.timeLimitSeconds} Sekunden · maximal ${question.maxItems} Einträge · Platzierungspunkte ${question.placementPoints.join(" / ")}`;
+  details.textContent = `Maximal ${question.maxItems} Einträge · Platzierungspunkte ${question.placementPoints.join(" / ")}`;
+  const timer = timerControl(question.timeLimitSeconds);
   const rule = document.createElement("details");
   const summary = document.createElement("summary");
   summary.textContent = "Private Prüfregel";
@@ -132,14 +156,16 @@ function renderPreview() {
   const actions = document.createElement("div");
   actions.className = "listing-actions";
   actions.append(
-    button("Starten", "primary-button", () => request("start", { question })),
+    button("Starten", "primary-button", () => request("start", {
+      question: { ...question, timeLimitSeconds: timerSeconds(timer.input) }
+    })),
     button("Zurück", "secondary-button", async () => {
       selectedQuestion = null;
       renderOverview();
       await publishListing(questionSelection(null));
     })
   );
-  preview.append(title, prompt, details, rule, actions);
+  preview.append(title, prompt, details, timer.label, rule, actions);
   content.replaceChildren(preview);
 }
 

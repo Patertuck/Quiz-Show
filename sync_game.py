@@ -319,6 +319,10 @@ class SyncState:
             elif action == "start":
                 if not self.round or self.round["phase"] != "prepared":
                     raise ValueError("Bereitet zuerst einen Prompt vor.")
+                seconds = payload.get("timeLimitSeconds")
+                if not isinstance(seconds, int) or isinstance(seconds, bool) or seconds <= 0:
+                    raise ValueError("timeLimitSeconds muss eine positive Ganzzahl sein.")
+                self.round["timeLimitSeconds"] = seconds
                 self.round["phase"] = "active"
                 self.round["deadlineAt"] = int(time.time() * 1000) + self.round["timeLimitSeconds"] * 1000
             elif action == "vote-test-players":

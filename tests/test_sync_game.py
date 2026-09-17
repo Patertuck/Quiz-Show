@@ -30,7 +30,7 @@ class SyncStateTest(unittest.TestCase):
         self.state.control({"action": "prepare", "question": {
             "id": question_id, "prompt": "Wer?", "timeLimitSeconds": 5, "pointsPerSync": 100,
         }})
-        self.state.control({"action": "start"})
+        self.state.control({"action": "start", "timeLimitSeconds": 5})
         return self.state.snapshot("host")["round"]["id"]
 
     def expire(self):
@@ -102,6 +102,21 @@ class SyncStateTest(unittest.TestCase):
                 self.state._validate_question({
                     "id": "q1", "prompt": "Wer?", "timeLimitSeconds": invalid, "pointsPerSync": 100,
                 })
+
+    def test_start_can_override_prepared_timer(self):
+        self.register("device-0001", 0, "Anna")
+        self.register("device-0002", 1, "Beat")
+        self.register("device-0003", 2, "Clara")
+        self.state.control({"action": "lock-roster"})
+        self.state.control({"action": "prepare", "question": {
+            "id": "q1", "prompt": "Wer?", "timeLimitSeconds": 5, "pointsPerSync": 100,
+        }})
+        with self.assertRaisesRegex(ValueError, "positive Ganzzahl"):
+            self.state.control({"action": "start", "timeLimitSeconds": 0})
+        self.state.control({"action": "start", "timeLimitSeconds": 123})
+        round_state = self.state.snapshot("host")["round"]
+        self.assertEqual(123, round_state["timeLimitSeconds"])
+        self.assertEqual("active", round_state["phase"])
 
     def test_account_cannot_be_reconnected_through_another_team(self):
         anna = self.register("device-0001", 0, "Anna")
@@ -199,7 +214,7 @@ class SyncStateTest(unittest.TestCase):
         loaded.control({"action": "prepare", "question": {
             "id": "q2", "prompt": "Wer noch?", "timeLimitSeconds": 5, "pointsPerSync": 100,
         }})
-        loaded.control({"action": "start"})
+        loaded.control({"action": "start", "timeLimitSeconds": 5})
         self.assertNotEqual(round_id, loaded.snapshot()["round"]["id"])
 
     def test_host_can_seed_and_vote_test_players(self):

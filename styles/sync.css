@@ -19,6 +19,8 @@
 .sync-prompt-panel h2, .sync-result-prompt { max-width: 18ch; margin: 0 auto; color: #fff; font-size: clamp(1.4rem, min(6vw, 6.5vh), 4.6rem); line-height: 1.08; text-align: center; overflow-wrap: anywhere; }
 .sync-result-prompt { font-size: clamp(1.5rem, 5.5vh, 4.5rem); }
 .sync-host-timer { display: grid; width: clamp(4rem, min(11vw, 15vh), 8rem); aspect-ratio: 1; place-items: center; border: clamp(.22rem, .7vh, .35rem) solid var(--yellow); border-radius: 50%; color: var(--yellow); font-size: clamp(2rem, min(6vw, 7vh), 4rem); font-weight: 900; }
+.sync-time-control { display: grid; gap: .35rem; color: var(--yellow); font-weight: 800; }
+.sync-time-control input { width: clamp(6rem, 12vw, 8rem); padding: .5rem .7rem; border: clamp(.18rem, .5vh, .3rem) solid var(--yellow); border-radius: .65rem; background: #fff; color: #111d65; font-size: clamp(1.5rem, min(4vw, 5vh), 3rem); font-variant-numeric: tabular-nums; font-weight: 900; text-align: center; }
 .sync-result-team.synced { border-color: #60ef96; background: linear-gradient(145deg, #197347, #0d462c); box-shadow: 0 0 2rem #43ec7c66; }
 .sync-result-team:not(.synced) { border-color: #ff7887; background: linear-gradient(145deg, #92283b, #551426); box-shadow: 0 0 1.7rem #ff405055; }
 .sync-result-points { display: block; margin: 0 0 clamp(.15rem, .6vh, .55rem); color: var(--yellow); font-size: clamp(.9rem, 2.5vh, 1.7rem); text-align: center; }

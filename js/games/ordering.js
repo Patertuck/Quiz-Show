@@ -52,6 +52,29 @@ function remaining(round) {
   return Math.max(0, Math.ceil((round.deadlineAt - Date.now()) / 1000));
 }
 
+function timerControl(seconds) {
+  const label = document.createElement("label");
+  label.className = "ordering-time-control";
+  label.append("Zeit (Sekunden)");
+  const input = document.createElement("input");
+  input.type = "number";
+  input.min = "1";
+  input.step = "1";
+  input.required = true;
+  input.value = String(seconds);
+  label.append(input);
+  return { label, input };
+}
+
+function timerSeconds(input) {
+  const seconds = input.valueAsNumber;
+  if (!Number.isInteger(seconds) || seconds <= 0) {
+    input.focus();
+    throw new Error("Die Zeit muss eine positive Ganzzahl sein.");
+  }
+  return seconds;
+}
+
 function fitResultText(scope = content) {
   scope?.querySelectorAll(".ordering-result-cell").forEach((cell) => {
     scheduleTextFit(cell, ".ordering-cell-text", { maxHeightRatio: 0.28 });
@@ -137,13 +160,16 @@ function renderPreview() {
   const title = document.createElement("h2"); title.textContent = question.title;
   const prompt = document.createElement("p"); prompt.textContent = question.prompt;
   const unit = scoringMode === "relative" ? "richtigem Paar" : "richtiger Position";
-  const details = document.createElement("p"); details.textContent = `${question.items.length} Elemente · ${question.timeLimitSeconds} Sekunden · ${points} Punkte pro ${unit} · maximal ${maximum} Punkte`;
+  const details = document.createElement("p"); details.textContent = `${question.items.length} Elemente · ${points} Punkte pro ${unit} · maximal ${maximum} Punkte`;
+  const timer = timerControl(question.timeLimitSeconds);
   const list = document.createElement("ol");
   question.items.forEach((text) => { const item = document.createElement("li"); item.textContent = text; list.append(item); });
-  preview.append(title, prompt, details, list);
+  preview.append(title, prompt, details, timer.label, list);
   const actions = document.createElement("div"); actions.className = "ordering-actions";
   actions.append(
-    button("Starten", "primary-button", () => request("start", { question: { ...question, pointsPerCorrect: points, scoringMode } })),
+    button("Starten", "primary-button", () => request("start", {
+      question: { ...question, timeLimitSeconds: timerSeconds(timer.input), pointsPerCorrect: points, scoringMode }
+    })),
     button("Zurück", "secondary-button", async () => {
       selectedQuestion = null;
       selectedPreviewItems = [];

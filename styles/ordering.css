@@ -13,6 +13,8 @@
 .ordering-preview { width: min(38rem, 90%); padding: 1rem 1.4rem; border: 1px solid #ffffff3d; border-radius: .7rem; background: #1e0a2d99; }
 .ordering-preview h2, .ordering-preview p { text-align: center; }
 .ordering-preview li { margin: .25rem 0; }
+.ordering-time-control { display: flex; align-items: center; justify-content: center; gap: .65rem; margin: clamp(.35rem, 1vh, .7rem) 0; font-weight: 800; }
+.ordering-time-control input { width: 7rem; padding: .45rem .6rem; border: 2px solid #f5d96f; border-radius: .55rem; background: #fff; color: #291138; font: inherit; font-variant-numeric: tabular-nums; text-align: center; }
 .ordering-timer { display: grid; width: clamp(5rem, 8vw, 7rem); aspect-ratio: 1; place-items: center; border: .3rem solid #f6d76b; border-radius: 50%; background: #210d35; font-size: clamp(2rem, 5vw, 4rem); font-weight: bold; }
 .ordering-live-columns { display: flex; width: 100%; min-height: 0; gap: .55rem; justify-content: center; overflow: hidden; }
 .ordering-live-team { flex: 1 1 0; max-width: 18rem; padding: .45rem; border-radius: .6rem; background: #ffffff14; }

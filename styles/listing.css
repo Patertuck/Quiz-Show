@@ -12,6 +12,8 @@
 .listing-preview h2, .listing-live h2, .listing-result-panel h2 { margin: 0 0 clamp(.3rem, 1vh, .7rem); font-size: clamp(1.15rem, 3vh, 1.8rem); }
 .listing-preview p { margin: clamp(.25rem, 1vh, .7rem) 0; }
 .listing-preview-prompt { font-size: clamp(1rem, 2.4vh, 1.35rem); }
+.listing-time-control { display: flex; align-items: center; justify-content: center; gap: .65rem; margin: clamp(.35rem, 1vh, .7rem) 0; font-weight: 800; }
+.listing-time-control input { width: 7rem; padding: .45rem .6rem; border: 2px solid var(--yellow); border-radius: .55rem; background: #fff; color: #062b3d; font: inherit; font-variant-numeric: tabular-nums; text-align: center; }
 .listing-preview details { margin: clamp(.4rem, 1vh, .8rem) 0; padding: clamp(.45rem, 1.2vh, .7rem); border-radius: .6rem; background: #ffffff12; text-align: left; }
 .listing-preview details p { max-height: 4.2em; overflow: hidden; font-size: clamp(.72rem, 1.6vh, .95rem); }
 .listing-actions, .listing-decision-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: clamp(.35rem, 1vh, .7rem); margin-top: clamp(.45rem, 1.3vh, 1rem); }
