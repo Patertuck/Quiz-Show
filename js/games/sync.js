@@ -10,6 +10,7 @@ let statusLine;
 let syncState;
 let events;
 let ticker;
+let rulesButton;
 
 async function request(action, extra = {}) {
   const response = await hostFetch("/api/sync/control", {
@@ -268,6 +269,7 @@ async function distribute() {
 
 function render(snapshot) {
   syncState = snapshot;
+  rulesButton.hidden = Boolean(syncState.round);
   root.querySelector(".sync-heading").hidden = false;
   if (syncState.round?.phase === "prepared") renderPrepared(syncState.round);
   else if (syncState.round?.phase === "active") renderActive(syncState.round);
@@ -276,10 +278,12 @@ function render(snapshot) {
   else renderOverview();
 }
 
-export async function mount(element) {
+export async function mount(element, { showRules } = {}) {
   root = element;
   content = root.querySelector("#sync-content");
   statusLine = root.querySelector("#sync-status");
+  rulesButton = root.querySelector("#sync-rules-button");
+  rulesButton.addEventListener("click", () => showRules().catch((error) => { statusLine.textContent = error.message; }));
   await request("configure", {
     teams: state.teams.map((team) => team.name),
     questionIds: state.config.games.sync.questions.map((question) => question.id)

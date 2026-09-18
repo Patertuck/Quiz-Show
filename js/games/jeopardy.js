@@ -5,7 +5,7 @@ import { commandJeopardyAudio, publishJeopardy } from "../presentation-host.js";
 import { scheduleTextFit } from "../fit-text.js";
 import { hostFetch } from "../slot-api.js";
 
-export async function mount(root) {
+export async function mount(root, { showRules } = {}) {
   const boardView = root.querySelector("#jeopardy-board-view");
   const questionView = root.querySelector("#jeopardy-question-view");
   const board = root.querySelector("#board");
@@ -20,7 +20,9 @@ export async function mount(root) {
   const buzzerStatus = root.querySelector("#buzzer-host-status");
   const buzzOrder = root.querySelector("#buzz-order");
   const buzzerControl = root.querySelector("#buzzer-control-button");
+  const rulesButton = root.querySelector("#jeopardy-rules-button");
   let buzzerState = null;
+  rulesButton.addEventListener("click", () => showRules().catch((error) => window.alert(error.message)));
   root.querySelector("#jeopardy-title").textContent = state.config.title;
   await publishJeopardy();
 
@@ -284,6 +286,7 @@ export async function mount(root) {
     revealButton.textContent = answerRevealed ? "Frage nochmals anzeigen" : "Antwort anzeigen";
     boardView.hidden = true;
     questionView.hidden = false;
+    rulesButton.hidden = true;
     fitQuestionText();
   }
 
@@ -316,6 +319,7 @@ export async function mount(root) {
     updateScoreControls();
     questionView.hidden = true;
     boardView.hidden = false;
+    rulesButton.hidden = false;
     requestAnimationFrame(fitBoard);
     saveState().catch(() => undefined);
     publishJeopardy().catch(() => undefined);

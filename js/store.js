@@ -14,7 +14,8 @@ export const state = {
   revision: 0,
   appliedAwards: new Set(),
   scoreHistory: [],
-  scoreHistoryGame: null
+  scoreHistoryGame: null,
+  shownRuleGameIds: new Set()
 };
 
 const SCORE_HISTORY_GAMES = new Set(["jeopardy", "ordering", "listing", "sync"]);
@@ -203,7 +204,7 @@ export function validateConfig(config) {
 }
 
 function validateSavedState(saved) {
-  if (!saved || typeof saved !== "object" || ![1, 2, 3, 4].includes(saved.version)) throw new Error("Das gespeicherte Spiel hat ein nicht unterstütztes Format.");
+  if (!saved || typeof saved !== "object" || ![1, 2, 3, 4, 5].includes(saved.version)) throw new Error("Das gespeicherte Spiel hat ein nicht unterstütztes Format.");
   if (typeof saved.gameStarted !== "boolean") throw new Error("Im gespeicherten Spiel fehlen erforderliche Felder.");
   if (!Number.isInteger(saved.revision) || saved.revision < 1) throw new Error("Das gespeicherte Spiel hat eine ungültige Revision.");
   if (!Array.isArray(saved.teams) || !saved.teams.length) throw new Error("Das gespeicherte Spiel muss mindestens ein Team enthalten.");
@@ -241,6 +242,7 @@ function validateSavedState(saved) {
     scoreHistory: saved.scoreHistory.map(({ scores }) => ({ scores, game: null })),
     scoreHistoryGame: null
   };
+  if (saved.version === 4) saved = { ...saved, version: 5, shownRuleGameIds: [] };
   if (!Array.isArray(saved.scoreHistory) || !saved.scoreHistory.length
       || saved.scoreHistory.some((entry) => !entry || !Array.isArray(entry.scores)
         || entry.scores.length !== saved.teams.length
@@ -251,6 +253,11 @@ function validateSavedState(saved) {
   if (saved.scoreHistoryGame !== null
       && (!SCORE_HISTORY_GAMES.has(saved.scoreHistoryGame) || !hasConfiguredGame(state.config, saved.scoreHistoryGame))) {
     throw new Error("Das gespeicherte Spiel enthält einen ungültigen Spielkontext.");
+  }
+  if (!Array.isArray(saved.shownRuleGameIds)
+      || saved.shownRuleGameIds.length !== new Set(saved.shownRuleGameIds).size
+      || saved.shownRuleGameIds.some((gameId) => !SCORE_HISTORY_GAMES.has(gameId) || !hasConfiguredGame(state.config, gameId))) {
+    throw new Error("Das gespeicherte Spiel enthält ungültige Regelanzeigen.");
   }
   if (!saved.scoreHistory.at(-1).scores.every((score, index) => score === saved.teams[index].score)) {
     throw new Error("Der letzte Punkteverlauf stimmt nicht mit dem aktuellen Punktestand überein.");
@@ -301,7 +308,7 @@ export async function loadApplicationData(configUrl) {
 
 export function stateSnapshot() {
   return {
-    version: 4,
+    version: 5,
     updatedAt: new Date().toISOString(),
     revision: ++state.revision,
     gameStarted: state.gameStarted,
@@ -310,7 +317,8 @@ export function stateSnapshot() {
     activeQuestion: state.activeQuestion ? { ...state.activeQuestion } : null,
     appliedAwards: Array.from(state.appliedAwards).sort(),
     scoreHistory: state.scoreHistory.map(({ scores, game }) => ({ scores: [...scores], game })),
-    scoreHistoryGame: state.scoreHistoryGame
+    scoreHistoryGame: state.scoreHistoryGame,
+    shownRuleGameIds: Array.from(state.shownRuleGameIds).sort()
   };
 }
 
@@ -349,6 +357,7 @@ export function startRuntime(teams) {
   state.appliedAwards = new Set();
   state.scoreHistory = [{ scores: state.teams.map(({ score }) => score), game: null }];
   state.scoreHistoryGame = null;
+  state.shownRuleGameIds = new Set();
 }
 
 export function resumeRuntime(teams) {
@@ -362,6 +371,18 @@ export function resumeRuntime(teams) {
   state.appliedAwards = new Set(saved.appliedAwards || []);
   state.scoreHistory = saved.scoreHistory.map(({ scores, game }) => ({ scores: [...scores], game }));
   state.scoreHistoryGame = saved.scoreHistoryGame;
+  state.shownRuleGameIds = new Set(saved.shownRuleGameIds);
+}
+
+export function hasShownGameRules(gameId) {
+  return state.shownRuleGameIds.has(gameId);
+}
+
+export function markGameRulesShown(gameId) {
+  if (!SCORE_HISTORY_GAMES.has(gameId) || !hasConfiguredGame(state.config, gameId)) {
+    throw new Error("Die Regeln gehören zu keinem verfügbaren Spiel.");
+  }
+  state.shownRuleGameIds.add(gameId);
 }
 
 export function setScoreHistoryGame(game) {

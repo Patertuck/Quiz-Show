@@ -1,4 +1,4 @@
-import { state, loadApplicationData, loadQuizLibrary, stateSnapshot, resumeRuntime, saveState, setScoreHistoryGame } from "./store.js";
+import { state, loadApplicationData, loadQuizLibrary, stateSnapshot, resumeRuntime, saveState, setScoreHistoryGame, hasShownGameRules, markGameRulesShown } from "./store.js";
 import { initializeScoreboard, renderScoreboard, setScoreboard, updateScoreControls } from "./scoreboard.js";
 import { initializeHostControls } from "./host-controls.js";
 import * as setup from "./views/setup.js";
@@ -12,6 +12,7 @@ import * as sync from "./games/sync.js";
 import * as victory from "./views/victory.js";
 import { GAME_CATALOG, hasConfiguredGame } from "./game-catalog.js";
 import { hostFetch, setActiveInstanceName } from "./slot-api.js";
+import { buildGameRules, renderGameRules } from "./game-rules.js";
 
 const app = document.querySelector("#app");
 const scoreboardElement = document.querySelector("#scoreboard");
@@ -82,6 +83,35 @@ function renderError(error) {
   app.querySelector(".error-message").textContent = error.message;
 }
 
+async function showGameRules(gameId, automatic = false) {
+  ++navigationId;
+  if (cleanup) {
+    cleanup();
+    cleanup = undefined;
+  }
+  setScoreboard("hidden");
+  const model = buildGameRules(gameId, state.config);
+  app.replaceChildren(renderGameRules(model, {
+    actionLabel: automatic ? "Spiel starten" : "Zurück zum Spiel",
+    onBack: () => navigate("hub"),
+    onAction: async (trigger) => {
+      trigger.disabled = true;
+      const wasShown = hasShownGameRules(gameId);
+      try {
+        if (automatic && !wasShown) {
+          markGameRulesShown(gameId);
+          await saveState();
+        }
+        await renderRoute();
+      } catch (error) {
+        if (automatic && !wasShown) state.shownRuleGameIds.delete(gameId);
+        window.alert(`Die Spielregeln konnten nicht bestätigt werden: ${error.message}`);
+        trigger.disabled = false;
+      }
+    }
+  }));
+}
+
 async function renderRoute() {
   const thisNavigation = ++navigationId;
   let name = routeName();
@@ -115,10 +145,17 @@ async function renderRoute() {
     hostControls.hidden = route.hostControls === "hidden";
     hostControls.classList.toggle("audio-only", route.hostControls === "audio");
     hostControls.classList.toggle("on-victory", name === "victory");
+    if (route.gameId && !hasShownGameRules(route.gameId)) {
+      await showGameRules(route.gameId, true);
+      return;
+    }
     const template = await templateFor(route.template);
     if (thisNavigation !== navigationId) return;
     app.innerHTML = template;
-    const result = await route.controller.mount(app, { navigate });
+    const result = await route.controller.mount(app, {
+      navigate,
+      showRules: () => showGameRules(route.gameId, false)
+    });
     if (thisNavigation !== navigationId) {
       if (typeof result === "function") result();
       return;

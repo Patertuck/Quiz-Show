@@ -20,6 +20,14 @@ def saved_state(version=3):
             {"scores": [300, 0]},
             {"scores": [300, -100]},
         ]
+    if version >= 4:
+        state["scoreHistory"] = [
+            {"scores": [0, 0], "game": None},
+            {"scores": [300, -100], "game": "jeopardy"},
+        ]
+        state["scoreHistoryGame"] = "jeopardy"
+    if version >= 5:
+        state["shownRuleGameIds"] = ["jeopardy", "listing"]
     return state
 
 
@@ -32,6 +40,22 @@ class SavedScoreHistoryTests(unittest.TestCase):
         clean = main.validate_state(saved_state(version=2))
         self.assertEqual(3, clean["version"])
         self.assertEqual([{"scores": [300, -100]}], clean["scoreHistory"])
+
+    def test_migrates_version_four_with_no_rules_shown(self):
+        clean = main.validate_state(saved_state(version=4))
+        self.assertEqual(5, clean["version"])
+        self.assertEqual([], clean["shownRuleGameIds"])
+
+    def test_accepts_unique_rule_game_ids(self):
+        clean = main.validate_state(saved_state(version=5))
+        self.assertEqual(["jeopardy", "listing"], clean["shownRuleGameIds"])
+
+    def test_rejects_duplicate_or_unknown_rule_game_ids(self):
+        for game_ids in (["listing", "listing"], ["unknown"]):
+            state = saved_state(version=5)
+            state["shownRuleGameIds"] = game_ids
+            with self.subTest(game_ids=game_ids), self.assertRaisesRegex(ValueError, "shownRuleGameIds"):
+                main.validate_state(state)
 
     def test_rejects_history_with_wrong_team_count(self):
         state = saved_state()

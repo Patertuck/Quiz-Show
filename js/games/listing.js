@@ -13,6 +13,7 @@ let events;
 let ticker;
 let resultFitObserver;
 let selectedQuestion = null;
+let rulesButton;
 
 function fitResultItems(scope = content) {
   scope?.querySelectorAll(".listing-result-item").forEach((card) => {
@@ -379,6 +380,7 @@ async function distribute() {
 function render(snapshot) {
   listingState = snapshot;
   const round = snapshot.round;
+  rulesButton.hidden = Boolean(round);
   if (!round && selectedQuestion) renderPreview();
   else if (!round) renderOverview();
   else if (round.phase === "active") renderActive(round);
@@ -386,10 +388,12 @@ function render(snapshot) {
   else renderResults(round);
 }
 
-export async function mount(element) {
+export async function mount(element, { showRules } = {}) {
   root = element;
   content = root.querySelector("#listing-content");
   statusLine = root.querySelector("#listing-status");
+  rulesButton = root.querySelector("#listing-rules-button");
+  rulesButton.addEventListener("click", () => showRules().catch((error) => setStatus(error.message)));
   await request("configure", {
     teams: state.teams.map((team) => team.name),
     questionIds: state.config.games.listing.questions.map((question) => question.id)

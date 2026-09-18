@@ -15,6 +15,7 @@ let resultFitObserver;
 let selectedQuestion = null;
 let selectedPreviewItems = [];
 let visibleMapItem = null;
+let rulesButton;
 
 async function request(action, extra = {}) {
   const response = await hostFetch("/api/ordering/control", {
@@ -353,16 +354,19 @@ async function confirmCancel(trigger) {
 function render(snapshot) {
   orderingState = snapshot;
   const round = snapshot.round;
+  rulesButton.hidden = Boolean(round);
   if (!round && selectedQuestion) renderPreview();
   else if (!round) renderOverview();
   else if (round.phase === "active") renderActive(round);
   else renderResults(round);
 }
 
-export async function mount(element) {
+export async function mount(element, { showRules } = {}) {
   root = element;
   content = root.querySelector("#ordering-content");
   statusLine = root.querySelector("#ordering-status");
+  rulesButton = root.querySelector("#ordering-rules-button");
+  rulesButton.addEventListener("click", () => showRules().catch((error) => setStatus(error.message)));
   await request("configure", {
     teams: state.teams.map((team) => team.name),
     questionIds: state.config.games.ordering.questions.map((question) => question.id)

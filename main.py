@@ -279,7 +279,7 @@ def validate_state(state: object) -> dict:
     """Validate the stable portion of the browser-to-server state contract."""
     if not isinstance(state, dict):
         raise ValueError("State must be a JSON object.")
-    if state.get("version") not in {1, 2, 3, 4}:
+    if state.get("version") not in {1, 2, 3, 4, 5}:
         raise ValueError("Unsupported state version.")
     if not isinstance(state.get("updatedAt"), str) or not state["updatedAt"]:
         raise ValueError("updatedAt must be a non-empty string.")
@@ -339,6 +339,14 @@ def validate_state(state: object) -> dict:
     if state["version"] >= 4 and state.get("scoreHistoryGame") not in {
             None, "jeopardy", "ordering", "listing", "sync"}:
         raise ValueError("scoreHistoryGame must be a valid game or null.")
+    if state["version"] == 4:
+        state = {**state, "version": 5, "shownRuleGameIds": []}
+    if state["version"] >= 5:
+        shown_rules = state.get("shownRuleGameIds")
+        if (not isinstance(shown_rules, list)
+                or any(not isinstance(game, str) or game not in HUB_GAME_IDS for game in shown_rules)
+                or len(shown_rules) != len(set(shown_rules))):
+            raise ValueError("shownRuleGameIds must contain unique valid game ids.")
     if any(score != teams[index]["score"] for index, score in enumerate(history[-1]["scores"])):
         raise ValueError("The final scoreHistory entry must match the current team scores.")
     return state

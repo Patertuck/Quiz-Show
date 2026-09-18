@@ -1,0 +1,35 @@
+.game-rules-screen { display: grid; width: 100%; min-height: 100vh; min-height: 100dvh; place-items: center; padding: clamp(1rem, 3vh, 2.5rem); overflow: auto; background: radial-gradient(circle at 50% 0%, #314bc4, #18267e 55%, #0b1248); color: #fff; }
+.game-rules-panel { display: grid; width: min(68rem, 100%); gap: clamp(.6rem, 1.5vh, 1.1rem); justify-items: center; padding: clamp(1.2rem, 3vw, 2.5rem); border: 2px solid #ffffff3d; border-radius: 1.35rem; background: #080e3dcc; box-shadow: 0 1.2rem 3rem #02051d99; text-align: center; }
+.game-rules-eyebrow { margin: 0; color: #fff45c; font-weight: 900; letter-spacing: .13em; text-transform: uppercase; }
+.game-rules-panel h1 { margin: 0; color: #fff45c; font-size: clamp(2.2rem, 7vh, 5rem); line-height: 1; }
+.game-rules-summary { max-width: 52rem; margin: 0; font-size: clamp(1rem, 2.6vh, 1.65rem); font-weight: 700; line-height: 1.35; }
+.game-rules-steps { display: grid; width: min(52rem, 100%); gap: .55rem; margin: 0; padding-left: 2rem; text-align: left; }
+.game-rules-steps li { padding-left: .35rem; font-size: clamp(.9rem, 2.1vh, 1.25rem); line-height: 1.35; }
+.game-rules-steps li::marker { color: #fff45c; font-weight: 900; }
+.game-rules-graphic { display: flex; min-height: clamp(5rem, 14vh, 8rem); align-items: center; justify-content: center; gap: clamp(.4rem, 1.5vw, 1rem); }
+.rules-tile, .rules-order-card { display: grid; min-width: clamp(3.2rem, 8vw, 5.5rem); min-height: clamp(3.2rem, 8vh, 5rem); place-items: center; border: 3px solid #f4d75d; border-radius: .65rem; background: #263cb0; color: #f4d75d; font-size: clamp(1.2rem, 3.8vh, 2.4rem); font-weight: 900; box-shadow: 0 .45rem 1rem #0007; }
+.rules-buzzer { display: grid; width: clamp(4.5rem, 11vh, 7rem); aspect-ratio: 1; place-items: center; border: .45rem solid #f7b4ba; border-radius: 50%; background: #c52f45; font-size: clamp(.8rem, 2.2vh, 1.25rem); font-weight: 900; }
+.rules-order-card.correct { border-color: #6ee4a0; background: #176a4a; color: #fff; }
+.rules-ordering-example { display: grid; justify-items: center; gap: .45rem; }
+.rules-ordering-cards { display: flex; gap: .5rem; }
+.rules-ordering-explanation { max-width: 46rem; color: #dce2ff; font-size: clamp(.8rem, 1.9vh, 1.05rem); }
+.rules-ordering-calculation { color: #fff45c; font-size: clamp(.9rem, 2.3vh, 1.3rem); font-weight: 900; }
+.rules-order-arrow, .rules-sync-arrow { color: #fff45c; font-size: clamp(2rem, 6vh, 4rem); font-weight: 900; }
+.game-rules-graphic.podium { display: grid; gap: .35rem; }
+.rules-graphic-label { color: #b8c4ff; }
+.rules-podium { display: flex; max-width: min(90vw, 60rem); align-items: end; justify-content: center; gap: .35rem; overflow-x: auto; }
+.rules-podium-place { display: grid; width: clamp(4.5rem, 10vw, 7.5rem); place-items: center; padding: .5rem .25rem; border-radius: .5rem .5rem 0 0; background: #6a78c9; }
+.rules-podium-place span { font-size: 1.3rem; font-weight: 900; }
+.rules-podium-place strong { color: #fff45c; font-size: clamp(1rem, 2.5vh, 1.5rem); }
+.rules-podium-place.place-1 { min-height: 6rem; background: #92751c; order: 2; }
+.rules-podium-place.place-2 { min-height: 4.8rem; background: #67718e; order: 1; }
+.rules-podium-place.place-3 { min-height: 3.8rem; background: #7e5134; order: 3; }
+.rules-podium-place:nth-child(n+4) { min-height: 3rem; order: 4; }
+.game-rules-graphic small { color: #cbd2f5; }
+.rules-sync-votes { display: flex; gap: .5rem; color: #8db1ff; font-size: clamp(2rem, 6vh, 4rem); }
+.rules-sync-result { display: grid; width: clamp(5rem, 12vh, 8rem); aspect-ratio: 1; place-items: center; border: .35rem solid #79e8a6; border-radius: 50%; background: #176a4a; color: #fff45c; font-size: clamp(1.2rem, 3.5vh, 2.2rem); }
+.game-rules-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: .75rem; }
+.game-rules-actions .secondary-button { border-color: #aebaff; }
+.game-rules-button { position: absolute; z-index: 5; top: .75rem; right: .75rem; padding: .55rem 1rem; border: 2px solid #ffffff55; background: #ffffff18; color: #fff; font-weight: 800; }
+.game-rules-button:hover, .game-rules-button:focus-visible { border-color: #fff45c; background: #ffffff2b; outline: none; }
+@media (max-height: 650px) { .game-rules-panel { gap: .4rem; padding-block: .75rem; } .game-rules-graphic { min-height: 3.5rem; } .game-rules-steps { gap: .25rem; } }
