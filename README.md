@@ -1,5 +1,16 @@
 # Quizshow starten
 
+## Installation
+
+Benötigt wird Python 3.11 oder neuer. Erstellt einmalig eine virtuelle Umgebung und installiert die Anwendung mitsamt Testabhängigkeiten:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -e ".[test]"
+```
+
+Verwendet danach für Start und Tests den Python-Interpreter aus `.venv`.
+
 ## Fragen konfigurieren
 
 Wiederverwendbare Quiz-Varianten und ihre spielbaren Instanzen liegen getrennt unter `quiz-data`. Namen dürfen nur Kleinbuchstaben, Zahlen und Bindestriche enthalten. Eine Variante enthält die Fragen und Medien; mehrere Instanzen können dieselbe Variante verwenden:
@@ -65,7 +76,7 @@ Varianten werden nicht gegen bestehende Instanzen geprüft: Wer Fragen oder Medi
 Der normale Start bleibt unverändert:
 
 ```powershell
-python main.py
+.\.venv\Scripts\python.exe main.py
 ```
 
 Die Spielleitung öffnet sich lokal. Handys verwenden den QR-Code in der Spielleitung und müssen sich normalerweise im selben WLAN befinden.

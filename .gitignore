@@ -6,3 +6,4 @@ quiz-data/variations/*
 __pycache__/
 .venv/
 .idea/
+*.egg-info/
