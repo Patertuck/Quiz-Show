@@ -33,17 +33,22 @@ class ApplicationContainer:
         )
         session_clock = clock or SystemClock()
         active_name = library.active_instance_name()
+        state_store = InstanceStateStore(library.active_state_path())
+        persisted_session = state_store.read_session()
+        session_service = SessionService(
+            session_clock,
+            persisted_session or (None if active_name is None else QuizSession.empty(active_name)),
+            state_store,
+        )
+        session_service.expire_due_round()
         return cls(
             settings=resolved,
             quiz_library=library,
-            state_store=InstanceStateStore(library.active_state_path()),
+            state_store=state_store,
             connections=ConnectionRegistry(),
             clock=session_clock,
             exports=ExportService(),
-            session=SessionService(
-                session_clock,
-                None if active_name is None else QuizSession.empty(active_name),
-            ),
+            session=session_service,
         )
 
     async def close(self) -> None:

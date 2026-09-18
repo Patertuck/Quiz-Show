@@ -157,7 +157,10 @@ class QuizLibrary:
         results = directory / "results"
         state_file = directory / "state.json"
         try:
-            has_state = state_file.is_file() and InstanceStateStore.load_file(state_file)["game"] is not None
+            saved = InstanceStateStore.load_file(state_file) if state_file.is_file() else None
+            has_state = bool(saved and (
+                saved.get("game") is not None if saved.get("version") == 1 else saved.get("session") is not None
+            ))
         except ValueError:
             # Keep Resume available so activation can report the corrupt save.
             has_state = True

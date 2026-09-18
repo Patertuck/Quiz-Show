@@ -81,6 +81,33 @@ class AuthoritativeSessionTests(unittest.TestCase):
                                   instance_name=session.instance_name, expected_revision=session.revision)
         self.assertEqual(session.revision + 1, updated.revision)
 
+    def test_service_does_not_publish_candidate_when_persistence_fails(self):
+        class FailingRepository:
+            def write_session(self, _session):
+                raise OSError("disk full")
+
+        session = self.started()
+        service = SessionService(FixedClock(), session, FailingRepository())
+        with self.assertRaisesRegex(OSError, "disk full"):
+            service.execute(AdjustScore(type="adjust-score", team_index=0, amount=100),
+                            instance_name=session.instance_name, expected_revision=session.revision)
+
+        self.assertEqual(0, service.snapshot(ClientRole.HOST)["teams"][0]["score"])
+        self.assertEqual(session.revision, service.snapshot(ClientRole.HOST)["revision"])
+
+    def test_restored_expired_round_moves_to_review(self):
+        session = self.started()
+        session = apply_command(session, SetRoundPhase(
+            type="set-round-phase", game="sync", phase=SessionPhase.ACTIVE,
+            deadline_at=1_700_000_000.0,
+        ), 1_600_000_000.0)
+        service = SessionService(FixedClock(), session)
+
+        self.assertTrue(service.expire_due_round())
+        restored = service.snapshot(ClientRole.HOST)
+        self.assertEqual("review", restored["phase"])
+        self.assertNotIn("sync", restored["timer_deadlines"])
+
     def test_role_projections_remove_private_game_data(self):
         session = self.started()
         session = apply_command(session, ReplaceGameState(type="replace-game-state", game="sync", state={
