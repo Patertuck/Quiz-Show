@@ -1,7 +1,6 @@
 import { animateScoreDistribution } from "./display-score-animation.js";
 import { gameDefinition } from "./game-catalog.js";
 import qrcode from "../assets/vendor/qrcode.js";
-import { startLivePolling, usesQuickTunnelPolling } from "./live-state.js";
 import { scheduleTextFit } from "./fit-text.js";
 import { createScoreHistoryChart } from "./score-history-chart.js";
 import {
@@ -51,7 +50,6 @@ const animatedOrderingRounds = new Set();
 const animatedListingRounds = new Set();
 const animatedSyncRounds = new Set();
 const standbyLogoRetryDelay = 2000;
-const usePollingTransport = usesQuickTunnelPolling();
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -1005,18 +1003,7 @@ function setDisplayConnection(connected) {
   connection.classList.toggle("connected", connected);
 }
 
-function receiveLiveSnapshot(snapshot) {
-  receivePresentation(snapshot.presentation);
-  receiveBuzzerState(snapshot.buzzer, !buzzerInitialized);
-  orderingState = snapshot.ordering;
-  listingState = snapshot.listing;
-  syncState = snapshot.sync;
-  receiveTeamLobbyState(snapshot.teamLobby);
-  if (!displayScoreAnimationActive) render();
-}
-
 function syncGameEventSource() {
-  if (usePollingTransport) return;
   const nextScreen = ["jeopardy-board", "jeopardy-question"].includes(presentation?.screen)
     ? "jeopardy"
     : ["team-lobby", "ordering", "listing", "sync"].includes(presentation?.screen) ? presentation.screen : null;
@@ -1056,25 +1043,20 @@ function syncGameEventSource() {
   }
 }
 
-if (usePollingTransport) {
-  startLivePolling({ onSnapshot: receiveLiveSnapshot, onConnectionChange: setDisplayConnection });
-} else {
-  const presentationEvents = new EventSource("/api/presentation/events");
-  presentationEvents.addEventListener("open", () => {
-    initialState("/api/presentation/state")
-      .then(receivePresentation)
-      .then(() => setDisplayConnection(true))
-      .catch(() => setDisplayConnection(false));
-  });
-  presentationEvents.addEventListener("state", (event) => {
-    receivePresentation(JSON.parse(event.data));
-    setDisplayConnection(true);
-  });
-  presentationEvents.addEventListener("error", () => setDisplayConnection(false));
+const presentationEvents = new EventSource("/api/presentation/events");
+presentationEvents.addEventListener("open", () => {
+  initialState("/api/presentation/state")
+    .then(receivePresentation)
+    .then(() => setDisplayConnection(true))
+    .catch(() => setDisplayConnection(false));
+});
+presentationEvents.addEventListener("state", (event) => {
+  receivePresentation(JSON.parse(event.data));
+  setDisplayConnection(true);
+});
+presentationEvents.addEventListener("error", () => setDisplayConnection(false));
 
-}
-
-if (!usePollingTransport) Promise.all([
+Promise.all([
   initialState("/api/presentation/state"),
   initialState("/api/buzzer/state"),
   initialState("/api/ordering/state?role=public"),

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import contextlib
-import argparse
 import base64
 import csv
 import hashlib
@@ -18,7 +17,6 @@ import secrets
 import shutil
 import socket
 import socketserver
-import subprocess
 import sys
 import threading
 import time
@@ -52,9 +50,6 @@ MAX_FINAL_EXPORT_PNG_BYTES = 8_000_000
 FINAL_EXPORT_LOCK = threading.Lock()
 PRESENTATION_SCREENS = {"standby", "team-lobby", "hub", "jeopardy-board", "jeopardy-question", "ordering", "listing", "sync", "victory", "score-history"}
 HUB_GAME_IDS = {"jeopardy", "ordering", "listing", "sync"}
-QUICK_TUNNEL_PATTERN = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com", re.IGNORECASE)
-PUBLIC_URL_LOCK = threading.Lock()
-PUBLIC_BASE_URL: str | None = None
 
 FINAL_EXPORT_GAME_LABELS = {
     "jeopardy": "Jeopardy",
@@ -136,18 +131,6 @@ def save_final_export(payload: dict, state: dict, directory: Path) -> tuple[Path
     return target, True
 
 
-def set_public_base_url(url: str | None) -> None:
-    """Publish or clear the temporary external origin used by join links."""
-    global PUBLIC_BASE_URL
-    with PUBLIC_URL_LOCK:
-        PUBLIC_BASE_URL = url.rstrip("/") if url else None
-
-
-def get_public_base_url() -> str | None:
-    with PUBLIC_URL_LOCK:
-        return PUBLIC_BASE_URL
-
-
 def find_lan_address() -> str:
     override = os.environ.get("QUIZ_HOST_IP", "").strip()
     if override:
@@ -182,97 +165,15 @@ JOIN_URL = f"http://{LAN_ADDRESS}:{PORT}/player"
 def current_join_info() -> dict:
     """Re-evaluate the address after a Wi-Fi or hotspot change."""
     address = find_lan_address()
-    public_base = get_public_base_url()
-    base = public_base or f"http://{address}:{PORT}"
+    base = f"http://{address}:{PORT}"
     return {
-        "mode": "public" if public_base else "local",
+        "mode": "local",
         "joinUrl": f"{base}/player",
         "displayUrl": f"{base}/display",
         "localUrl": f"http://127.0.0.1:{PORT}/player",
         "localDisplayUrl": f"http://127.0.0.1:{PORT}/display",
         "lanAvailable": address != "127.0.0.1",
     }
-
-
-class QuickTunnel:
-    """Manage a Cloudflare Quick Tunnel without making it part of local mode."""
-
-    def __init__(self, executable: str = "cloudflared") -> None:
-        self.executable = executable
-        self.process: subprocess.Popen[str] | None = None
-        self.url: str | None = None
-        self._url_ready = threading.Event()
-        self._reader: threading.Thread | None = None
-
-    def start(self, timeout: float = 30.0) -> str:
-        command = [
-            self.executable, "tunnel", "--url", f"http://127.0.0.1:{PORT}",
-            "--no-autoupdate",
-        ]
-        try:
-            self.process = subprocess.Popen(
-                command,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                bufsize=1,
-            )
-        except FileNotFoundError as error:
-            raise RuntimeError(
-                "cloudflared was not found. Install it with "
-                "'winget install --id Cloudflare.cloudflared' and try again."
-            ) from error
-        except OSError as error:
-            raise RuntimeError(f"cloudflared could not be started: {error}") from error
-
-        self._reader = threading.Thread(target=self._read_output, name="cloudflared-output", daemon=True)
-        self._reader.start()
-        deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline:
-            if self._url_ready.wait(0.1):
-                if self.process.poll() is not None:
-                    break
-                return self.url  # type: ignore[return-value]
-            if self.process.poll() is not None:
-                break
-        self.stop()
-        raise RuntimeError(
-            "Cloudflare did not provide a public URL. Check the internet connection and try again."
-        )
-
-    def _read_output(self) -> None:
-        assert self.process is not None and self.process.stdout is not None
-        for line in self.process.stdout:
-            clean = line.rstrip()
-            if clean:
-                print(f"[cloudflared] {clean}")
-            match = QUICK_TUNNEL_PATTERN.search(line)
-            if match and self.url is None:
-                self.url = match.group(0).rstrip("/")
-                self._url_ready.set()
-        if self.url:
-            clear_public_base_url(self.url)
-            print("Public tunnel stopped; the quiz is still available locally.")
-
-    def stop(self) -> None:
-        if self.process is None or self.process.poll() is not None:
-            return
-        self.process.terminate()
-        try:
-            self.process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            self.process.kill()
-            self.process.wait(timeout=5)
-
-
-def clear_public_base_url(expected_url: str) -> None:
-    """Clear a tunnel URL only if it is still the active tunnel."""
-    with PUBLIC_URL_LOCK:
-        global PUBLIC_BASE_URL
-        if PUBLIC_BASE_URL == expected_url.rstrip("/"):
-            PUBLIC_BASE_URL = None
 
 
 def validate_state(state: object) -> dict:
@@ -1309,29 +1210,6 @@ class PresentationState:
 PRESENTATION = PresentationState()
 
 
-def live_state_snapshot(team_index: int | None = None, device_id: str | None = None,
-                        client_id: str | None = None) -> dict:
-    """Return one polling snapshot with the same role filtering as the SSE endpoints."""
-    valid_client = client_id if isinstance(client_id, str) and 8 <= len(client_id) <= 100 else None
-    valid_device = device_id if isinstance(device_id, str) and 8 <= len(device_id) <= 100 else None
-    valid_team = team_index if isinstance(team_index, int) and 0 <= team_index < len(ORDERING.teams) else None
-    if valid_client and valid_team is not None:
-        ORDERING.touch_poll_connection(valid_client, valid_team)
-        LISTING.touch_poll_connection(valid_client, valid_team)
-    if valid_client and valid_device:
-        SYNC.touch_poll_connection(valid_client, valid_device)
-    team_role = "team" if valid_team is not None else "public"
-    sync_role = "player" if valid_device else "public"
-    return {
-        "presentation": PRESENTATION.snapshot(),
-        "teamLobby": TEAM_LOBBY.snapshot("player", valid_device) if valid_device else TEAM_LOBBY.snapshot(),
-        "buzzer": BUZZER.snapshot(),
-        "ordering": ORDERING.snapshot(team_role, valid_team),
-        "listing": LISTING.snapshot(team_role, valid_team),
-        "sync": SYNC.snapshot(sync_role, valid_device),
-    }
-
-
 def load_current_state() -> dict | None:
     value = INSTANCE_STATE.read("game")
     if value is None:
@@ -1494,16 +1372,6 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
             requested_instance = parse_qs(urlsplit(self.path).query).get("instance", [None])[0]
             if requested_instance is not None and not self.require_active_instance():
                 return
-        if self.request_path == "/api/live-state":
-            query = parse_qs(urlsplit(self.path).query)
-            device_id = query.get("deviceId", [None])[0]
-            client_id = query.get("clientId", [None])[0]
-            try:
-                team_index = int(query.get("teamIndex", [""])[0])
-            except ValueError:
-                team_index = None
-            self.send_json(200, live_state_snapshot(team_index, device_id, client_id))
-            return
         if self.request_path == "/api/team-lobby/state":
             query = parse_qs(urlsplit(self.path).query)
             device_id = query.get("deviceId", [None])[0]
@@ -1731,7 +1599,7 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
             allowed = {
                 "/player", "/player.html", "/styles/player.css", "/js/player.js",
                 "/display", "/display.html", "/styles/display.css", "/styles/sync.css", "/js/display.js",
-                "/js/display-score-animation.js", "/js/display-sounds.js", "/js/score-history-chart.js", "/js/live-state.js", "/js/fit-text.js",
+                "/js/display-score-animation.js", "/js/display-sounds.js", "/js/score-history-chart.js", "/js/fit-text.js",
                 "/js/game-catalog.js",
             }
             if self.request_path not in allowed and not self.request_path.startswith("/assets/"):
@@ -1757,7 +1625,7 @@ class QuizRequestHandler(http.server.SimpleHTTPRequestHandler):
         allowed = {
             "/player", "/player.html", "/styles/player.css", "/js/player.js",
             "/display", "/display.html", "/styles/display.css", "/styles/sync.css", "/js/display.js",
-            "/js/display-score-animation.js", "/js/display-sounds.js", "/js/score-history-chart.js", "/js/live-state.js", "/js/fit-text.js",
+            "/js/display-score-animation.js", "/js/display-sounds.js", "/js/score-history-chart.js", "/js/fit-text.js",
             "/js/game-catalog.js",
         }
         if not self.is_host and self.request_path not in allowed and not self.request_path.startswith("/assets/"):
@@ -2034,34 +1902,16 @@ class LocalQuizServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
         super().handle_error(request, client_address)
 
 
-def parse_arguments() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run the quiz show server.")
-    parser.add_argument(
-        "--public",
-        action="store_true",
-        help="share player and display views through a temporary Cloudflare Quick Tunnel",
-    )
-    return parser.parse_args()
-
-
 def main() -> None:
-    arguments = parse_arguments()
     BUZZER.sync_teams(load_current_state())
     server: LocalQuizServer | None = None
-    tunnel: QuickTunnel | None = None
     try:
         with LocalQuizServer((BIND_HOST, PORT), QuizRequestHandler) as server:
-            if arguments.public:
-                tunnel = QuickTunnel()
-                public_url = tunnel.start()
-                set_public_base_url(public_url)
             print(f"Quiz show running at {HOST_URL}")
             join_info = current_join_info()
             print(f"Player view available at {join_info['joinUrl']}")
             print(f"Audience display available at {join_info['displayUrl']}")
-            if arguments.public:
-                print("Only the player and audience views are public; host controls remain local.")
-            elif LAN_ADDRESS == "127.0.0.1":
+            if LAN_ADDRESS == "127.0.0.1":
                 print("Warning: no LAN address was found. Set QUIZ_HOST_IP to this computer's Wi-Fi IPv4 address.")
             print("Press Ctrl+C to stop the server.")
             threading.Timer(0.4, webbrowser.open, args=(HOST_URL,)).start()
@@ -2076,9 +1926,6 @@ def main() -> None:
     except KeyboardInterrupt:
         print("\nQuiz show stopped.")
     finally:
-        set_public_base_url(None)
-        if tunnel is not None:
-            tunnel.stop()
         if server is not None:
             with contextlib.suppress(Exception):
                 server.server_close()

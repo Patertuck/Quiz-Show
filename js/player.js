@@ -1,5 +1,3 @@
-import { startLivePolling, usesQuickTunnelPolling } from "./live-state.js";
-
 const waitingStep = document.querySelector("#waiting-step");
 const waitingLogo = document.querySelector(".player-waiting-logo");
 const waitingTitle = document.querySelector("#waiting-title");
@@ -75,7 +73,6 @@ const newDeviceId = () => crypto.randomUUID?.()
   || Array.from(crypto.getRandomValues(new Uint32Array(4)), (value) => value.toString(16).padStart(8, "0")).join("");
 const deviceId = localStorage.getItem("quiz-buzzer-device") || newDeviceId();
 localStorage.setItem("quiz-buzzer-device", deviceId);
-const usePollingTransport = usesQuickTunnelPolling();
 
 function savedSelection() {
   try { return JSON.parse(localStorage.getItem("quiz-buzzer-team")); }
@@ -508,7 +505,6 @@ function receiveOrderingState(nextState, shouldRender = true) {
 }
 
 function connectOrderingEvents() {
-  if (usePollingTransport) return;
   orderingEvents?.close();
   const query = selectedTeamIndex === null ? "" : `?teamIndex=${selectedTeamIndex}`;
   orderingEvents = new EventSource(`/api/ordering/events${query}`);
@@ -651,7 +647,6 @@ function renderListingPreview() {
 }
 
 function connectListingEvents() {
-  if (usePollingTransport) return;
   listingEvents?.close();
   const query = selectedTeamIndex === null ? "" : `?teamIndex=${selectedTeamIndex}`;
   listingEvents = new EventSource(`/api/listing/events${query}`);
@@ -794,7 +789,6 @@ async function saveSyncVote(selectedParticipantId) {
 }
 
 function connectSyncEvents() {
-  if (usePollingTransport) return;
   syncEvents?.close();
   syncEvents = new EventSource(`/api/sync/events?deviceId=${encodeURIComponent(deviceId)}`);
   syncEvents.addEventListener("state", (event) => {
@@ -823,14 +817,13 @@ function closeGameEvents() {
 }
 
 function connectGameEvents() {
-  if (usePollingTransport) return;
   if (!orderingEvents) connectOrderingEvents();
   if (!listingEvents) connectListingEvents();
   if (!syncEvents) connectSyncEvents();
 }
 
 function connectTeamLobbyEvents() {
-  if (usePollingTransport || teamLobbyEvents) return;
+  if (teamLobbyEvents) return;
   teamLobbyEvents = new EventSource(`/api/team-lobby/events?deviceId=${encodeURIComponent(deviceId)}`);
   teamLobbyEvents.addEventListener("state", (event) => {
     teamLobbyState = JSON.parse(event.data);
@@ -851,7 +844,6 @@ function closeCoreGameEvents() {
 }
 
 function connectCoreGameEvents() {
-  if (usePollingTransport) return;
   if (!buzzerEvents) {
     buzzerEvents = new EventSource("/api/buzzer/events");
     buzzerEvents.addEventListener("state", (event) => {
@@ -871,7 +863,6 @@ function connectCoreGameEvents() {
 }
 
 function reconcileLiveStreams() {
-  if (usePollingTransport) return;
   const lobbyActive = teamLobbyState?.phase === "open";
   if (lobbyActive || !teamLobbyState) {
     closeGameEvents();
@@ -981,23 +972,7 @@ function setPlayerConnection(connected) {
   connectionStatus.classList.toggle("connected", connected);
 }
 
-if (usePollingTransport) {
-  startLivePolling({
-    query: () => ({ clientId: deviceId, deviceId, teamIndex: selectedTeamIndex }),
-    onConnectionChange: setPlayerConnection,
-    onSnapshot: (snapshot) => {
-      currentState = snapshot.buzzer;
-      teamLobbyState = snapshot.teamLobby;
-      presentationState = snapshot.presentation;
-      receiveOrderingState(snapshot.ordering, false);
-      listingState = snapshot.listing;
-      syncState = snapshot.sync;
-      render();
-    }
-  });
-} else {
-  connectTeamLobbyEvents();
-}
+connectTeamLobbyEvents();
 
 async function loadPresentationState() {
   const response = await fetch("/api/presentation/state", { cache: "no-store" });
@@ -1006,7 +981,7 @@ async function loadPresentationState() {
   render();
 }
 
-if (!usePollingTransport) Promise.all([loadState(), loadPresentationState(), loadTeamLobbyState()]).catch(() => {
+Promise.all([loadState(), loadPresentationState(), loadTeamLobbyState()]).catch(() => {
   connectionStatus.textContent = "Offline";
   waitingStatus.hidden = false;
   waitingStatus.textContent = "Die Quiz-Spielleitung konnte nicht erreicht werden. Prüft die WLAN-Verbindung.";

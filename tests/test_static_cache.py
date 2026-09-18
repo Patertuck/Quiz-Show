@@ -41,7 +41,7 @@ class StaticCacheTests(unittest.TestCase):
         self.assertEqual("no-cache, max-age=0, must-revalidate", headers["Cache-Control"])
 
     def test_api_responses_remain_no_store(self):
-        status, headers, _body = self.request("/api/live-state")
+        status, headers, _body = self.request("/api/presentation/state")
         self.assertEqual(200, status)
         self.assertEqual("no-store", headers["Cache-Control"])
 

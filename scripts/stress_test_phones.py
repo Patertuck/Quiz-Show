@@ -3,8 +3,7 @@
 
 Examples:
   python scripts/stress_test_phones.py
-  python scripts/stress_test_phones.py --phones 15 --duration 10 --transport sse
-  python scripts/stress_test_phones.py --base-url https://example.trycloudflare.com --transport polling
+  python scripts/stress_test_phones.py --phones 15 --duration 10
 """
 
 from __future__ import annotations
@@ -32,9 +31,6 @@ SSE_PATHS = (
     "/api/sync/events?deviceId={device}",
     "/api/team-lobby/events?deviceId={device}",
 )
-EXPECTED_SNAPSHOT_KEYS = {"presentation", "teamLobby", "buzzer", "ordering", "listing", "sync"}
-
-
 def percentile(values: list[float], percentage: float) -> float:
     if not values:
         return 0.0
@@ -54,8 +50,8 @@ def request_json(url: str, timeout: float) -> tuple[dict, float]:
 
 
 def discover_team_count(base_url: str, timeout: float) -> int:
-    payload, _latency = request_json(f"{base_url}/api/live-state", timeout)
-    teams = payload.get("buzzer", {}).get("teams", [])
+    payload, _latency = request_json(f"{base_url}/api/buzzer/state", timeout)
+    teams = payload.get("teams", [])
     return max(1, len(teams))
 
 
@@ -88,44 +84,6 @@ def start_local_server(base_url: str, timeout: float) -> subprocess.Popen | None
     process.terminate()
     process.wait(timeout=2)
     return None
-
-
-def run_polling(args: argparse.Namespace, team_count: int) -> tuple[int, int, list[float], list[str]]:
-    barrier = threading.Barrier(args.phones)
-
-    def phone(phone_index: int) -> tuple[int, int, list[float], list[str]]:
-        successes = 0
-        failures = 0
-        latencies: list[float] = []
-        errors: list[str] = []
-        device = f"stress-device-{phone_index:04d}"
-        client = f"stress-client-{phone_index:04d}"
-        team = phone_index % team_count
-        parameters = urllib.parse.urlencode({"teamIndex": team, "deviceId": device, "clientId": client})
-        barrier.wait()
-        deadline = time.monotonic() + args.duration
-        while time.monotonic() < deadline:
-            try:
-                payload, latency = request_json(f"{args.base_url}/api/live-state?{parameters}", args.timeout)
-                missing = EXPECTED_SNAPSHOT_KEYS.difference(payload)
-                if missing:
-                    raise RuntimeError(f"snapshot missing {', '.join(sorted(missing))}")
-                successes += 1
-                latencies.append(latency)
-            except Exception as error:  # noqa: BLE001 - the report must include all client failures
-                failures += 1
-                errors.append(f"phone {phone_index + 1}: {error}")
-            time.sleep(args.interval)
-        return successes, failures, latencies, errors
-
-    with concurrent.futures.ThreadPoolExecutor(max_workers=args.phones) as executor:
-        results = list(executor.map(phone, range(args.phones)))
-    return (
-        sum(item[0] for item in results),
-        sum(item[1] for item in results),
-        [latency for item in results for latency in item[2]],
-        [error for item in results for error in item[3]],
-    )
 
 
 def run_sse(args: argparse.Namespace, team_count: int) -> tuple[int, int, list[float], list[str]]:
@@ -187,14 +145,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--base-url", default="http://127.0.0.1:8000", help="Quiz server URL (default: %(default)s)")
     parser.add_argument("--phones", type=int, default=15, help="Number of virtual phones (default: %(default)s)")
     parser.add_argument("--duration", type=float, default=10, help="Seconds to keep clients connected (default: %(default)s)")
-    parser.add_argument("--transport", choices=("sse", "polling"), default="sse", help="Player live transport (default: %(default)s)")
-    parser.add_argument("--interval", type=float, default=0.75, help="Polling interval in seconds (default: %(default)s)")
     parser.add_argument("--timeout", type=float, default=5, help="Connection timeout in seconds (default: %(default)s)")
     parser.add_argument("--no-auto-start", action="store_true", help="Do not start a missing local server automatically")
     args = parser.parse_args()
     args.base_url = args.base_url.rstrip("/")
-    if args.phones < 1 or args.duration <= 0 or args.interval <= 0 or args.timeout <= 0:
-        parser.error("phones, duration, interval, and timeout must be positive")
+    if args.phones < 1 or args.duration <= 0 or args.timeout <= 0:
+        parser.error("phones, duration, and timeout must be positive")
     return args
 
 
@@ -212,16 +168,11 @@ def main() -> int:
             return 2
         team_count = discover_team_count(args.base_url, args.timeout)
     try:
-        print(f"Simulating {args.phones} phones via {args.transport} for {args.duration:g}s ({team_count} teams) …")
+        print(f"Simulating {args.phones} phones via SSE for {args.duration:g}s ({team_count} teams) …")
         started = time.perf_counter()
-        if args.transport == "sse":
-            successes, failures, latencies, errors = run_sse(args, team_count)
-            expected = args.phones * len(SSE_PATHS)
-            unit = "streams"
-        else:
-            successes, failures, latencies, errors = run_polling(args, team_count)
-            expected = successes + failures
-            unit = "requests"
+        successes, failures, latencies, errors = run_sse(args, team_count)
+        expected = args.phones * len(SSE_PATHS)
+        unit = "streams"
         elapsed = time.perf_counter() - started
         print(f"Completed in {elapsed:.2f}s: {successes}/{expected} successful {unit}, {failures} failures")
         if latencies:
