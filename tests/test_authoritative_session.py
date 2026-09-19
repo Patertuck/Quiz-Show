@@ -9,6 +9,7 @@ from quizshow.domain.commands import (
     MarkRulesShown,
     Navigate,
     ReplaceGameState,
+    SetPresentation,
     SetRoundPhase,
     StartSession,
     apply_command,
@@ -132,6 +133,14 @@ class AuthoritativeSessionTests(unittest.TestCase):
                 instance_name="broken", teams=[Team(name="Rot", score=10)],
                 score_history=[{"scores": [0]}],
             )
+
+    def test_presentation_is_owned_and_versioned_by_the_session(self):
+        original = self.started()
+        updated = apply_command(original, SetPresentation(
+            type="set-presentation", presentation={"screen": "hub", "title": "Finale"},
+        ), 1_800_000_001.0)
+        self.assertEqual("hub", updated.presentation["screen"])
+        self.assertEqual(original.revision + 1, updated.revision)
 
 
 class BackendQuizConfigTests(unittest.TestCase):

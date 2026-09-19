@@ -63,6 +63,7 @@ class QuizSession(BaseModel):
     shown_rule_game_ids: set[str] = Field(default_factory=set)
     used_tiles: set[str] = Field(default_factory=set)
     active_question: dict[str, Any] | None = None
+    presentation: dict[str, Any] = Field(default_factory=dict)
     applied_awards: set[str] = Field(default_factory=set)
     lobby: dict[str, Any] = Field(default_factory=dict)
     buzzer: dict[str, Any] = Field(default_factory=dict)
@@ -93,4 +94,3 @@ class QuizSession(BaseModel):
     @classmethod
     def empty(cls, instance_name: str) -> "QuizSession":
         return cls(instance_name=instance_name)
-

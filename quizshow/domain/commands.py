@@ -52,8 +52,13 @@ class ReplaceGameState(CommandModel):
     state: dict[str, Any]
 
 
+class SetPresentation(CommandModel):
+    type: Literal["set-presentation"]
+    presentation: dict[str, Any]
+
+
 Command = Annotated[
-    StartSession | Navigate | SetRoundPhase | AdjustScore | MarkRulesShown | ReplaceGameState,
+    StartSession | Navigate | SetRoundPhase | AdjustScore | MarkRulesShown | ReplaceGameState | SetPresentation,
     Field(discriminator="type"),
 ]
 
@@ -102,10 +107,11 @@ def apply_command(session: QuizSession, command: CommandModel, now: float) -> Qu
         next_session.shown_rule_game_ids.add(command.game)
     elif isinstance(command, ReplaceGameState):
         next_session.games[command.game] = command.state.copy()
+    elif isinstance(command, SetPresentation):
+        next_session.presentation = command.presentation.copy()
     else:  # pragma: no cover - the discriminated command union prevents this
         raise TypeError("unsupported command")
 
     next_session.revision += 1
     next_session.updated_at = datetime.fromtimestamp(now, UTC)
     return QuizSession.model_validate(next_session.model_dump())
-
