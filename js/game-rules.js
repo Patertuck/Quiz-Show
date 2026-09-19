@@ -1,3 +1,5 @@
+import { formatInteger } from "./format-number.js";
+
 const GAME_TITLES = {
   jeopardy: "Jeopardy",
   ordering: "Order Up",
@@ -6,7 +8,7 @@ const GAME_TITLES = {
 };
 
 function formatPoints(value) {
-  return `${value.toLocaleString("de-CH")} Punkte`;
+  return `${formatInteger(value)} Punkte`;
 }
 
 export function buildGameRules(gameId, config) {
@@ -96,9 +98,9 @@ function renderGraphic(graphic) {
   area.setAttribute("aria-hidden", "true");
   if (graphic.kind === "jeopardy") {
     area.append(
-      element("span", "rules-tile", graphic.values[0].toLocaleString("de-CH")),
+      element("span", "rules-tile", formatInteger(graphic.values[0])),
       element("span", "rules-buzzer", "BUZZ"),
-      element("span", "rules-tile", graphic.values[1].toLocaleString("de-CH"))
+      element("span", "rules-tile", formatInteger(graphic.values[1]))
     );
   } else if (graphic.kind === "ordering") {
     if (graphic.scoringMode === "relative") {
@@ -109,7 +111,7 @@ function renderGraphic(graphic) {
         element("strong", "rules-graphic-label", "Richtig wäre: 1 · 2 · 3 · 4 · 5"),
         cards,
         element("span", "rules-ordering-explanation", "In 1 · 3 · 2 · 5 · 4 sind nur die Paare 3/2 und 5/4 vertauscht."),
-        element("span", "rules-ordering-calculation", `8 von 10 Paaren richtig × ${graphic.pointsPerCorrect.toLocaleString("de-CH")} = ${(graphic.pointsPerCorrect * 8).toLocaleString("de-CH")} Punkte`)
+        element("span", "rules-ordering-calculation", `8 von 10 Paaren richtig × ${formatInteger(graphic.pointsPerCorrect)} = ${formatInteger(graphic.pointsPerCorrect * 8)} Punkte`)
       );
       area.append(example);
     } else {
@@ -122,7 +124,7 @@ function renderGraphic(graphic) {
     const podium = element("div", "rules-podium");
     graphic.points.forEach((points, index) => {
       const place = element("div", `rules-podium-place place-${index + 1}`);
-      place.append(element("span", "", `${index + 1}.`), element("strong", "", points.toLocaleString("de-CH")));
+      place.append(element("span", "", `${index + 1}.`), element("strong", "", formatInteger(points)));
       podium.append(place);
     });
     area.append(podium);
@@ -130,7 +132,7 @@ function renderGraphic(graphic) {
   } else if (graphic.kind === "sync") {
     const votes = element("div", "rules-sync-votes");
     ["●", "●", "●"].forEach((value) => votes.append(element("span", "", value)));
-    area.append(votes, element("span", "rules-sync-arrow", "→"), element("strong", "rules-sync-result", `+${graphic.points.toLocaleString("de-CH")}`));
+    area.append(votes, element("span", "rules-sync-arrow", "→"), element("strong", "rules-sync-result", `+${formatInteger(graphic.points)}`));
   }
   return area;
 }

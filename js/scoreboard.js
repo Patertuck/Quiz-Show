@@ -1,4 +1,5 @@
 import { state, recordScoreHistory, saveState } from "./store.js";
+import { formatInteger } from "./format-number.js";
 
 let container;
 let scoreDialog;
@@ -61,7 +62,7 @@ export function renderScoreboard() {
     const score = document.createElement("output");
     score.className = "score";
     score.id = `team-score-${index}`;
-    score.textContent = team.score.toLocaleString();
+    score.textContent = formatInteger(team.score);
     score.setAttribute("aria-label", `Punktestand von ${team.name}`);
     const add = scoreButton("add", index, () => changeScore(index, state.activeValue));
 
@@ -98,7 +99,7 @@ function updateTeamScore(teamIndex, nextScore, source) {
   const amount = nextScore - team.score;
   team.score = nextScore;
   recordScoreHistory();
-  container.querySelector(`#team-score-${teamIndex}`).textContent = team.score.toLocaleString("de-CH");
+  container.querySelector(`#team-score-${teamIndex}`).textContent = formatInteger(team.score);
   updateStandings();
   saveState().catch(() => undefined);
   window.dispatchEvent(new CustomEvent("quiz-score-changed", { detail: { teamIndex, amount, source } }));
@@ -128,9 +129,9 @@ export function updateScoreControls() {
     const isAdd = button.dataset.action === "add";
     const sign = isAdd ? "+" : "−";
     button.disabled = !active;
-    button.textContent = active ? `${sign}${state.activeValue.toLocaleString()}` : sign;
+    button.textContent = active ? `${sign}${formatInteger(state.activeValue)}` : sign;
     button.setAttribute("aria-label", active
-      ? `${state.activeValue} Punkte bei ${team.name} ${isAdd ? "hinzufügen" : "abziehen"}`
+      ? `${formatInteger(state.activeValue)} Punkte bei ${team.name} ${isAdd ? "hinzufügen" : "abziehen"}`
       : `Keine aktive Frage; Punktevergabe für ${team.name} nicht verfügbar`);
   });
 }

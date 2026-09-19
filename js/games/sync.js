@@ -5,6 +5,7 @@ import { hostFetch } from "../slot-api.js";
 import { confirmAction } from "../confirm-dialog.js";
 import { subscribeHostState } from "../host/live-state.js";
 import { isGameSnapshot } from "./control-state.js";
+import { formatInteger } from "../format-number.js";
 
 let root;
 let content;
@@ -205,7 +206,7 @@ function resultTeams(round) {
     title.textContent = syncState.teams[result.teamIndex];
     const points = document.createElement("strong");
     points.className = "sync-result-points";
-    points.textContent = `+${result.points}`;
+    points.textContent = `+${formatInteger(result.points)}`;
     card.dataset.teamIndex = result.teamIndex;
     card.append(title, points);
     result.votes.forEach((vote) => {

@@ -1,4 +1,5 @@
 import { state, saveState } from "../store.js";
+import { formatInteger } from "../format-number.js";
 import { publishScoreHistory, publishVictory } from "../presentation-host.js";
 import { createScoreHistoryChart } from "../score-history-chart.js";
 import { exportFinalResults } from "../final-export.js";
@@ -38,7 +39,7 @@ export async function mount(root) {
     row.firstElementChild.append(document.createTextNode(names));
     const score = document.createElement("span");
     score.className = "standing-score";
-    score.textContent = ` ${teams[0].score.toLocaleString("de-CH")} Punkte`;
+    score.textContent = ` ${formatInteger(teams[0].score)} Punkte`;
     row.append(score);
     reveals.append(row);
     steps.push(row);
@@ -59,7 +60,7 @@ export async function mount(root) {
     names.textContent = teams.map((team) => team.name).join(" & ");
     const score = document.createElement("div");
     score.className = "podium-score";
-    score.textContent = `${teams[0].score.toLocaleString("de-CH")} Punkte`;
+    score.textContent = `${formatInteger(teams[0].score)} Punkte`;
     place.append(number, names, score);
     podium.append(place);
     steps.push(place);

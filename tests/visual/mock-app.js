@@ -17,13 +17,13 @@ export async function mockLiveSocket(page, snapshot) {
 }
 
 export async function mockHost(page, { ordering = orderingBase, listing = listingBase, sync = syncLobby,
-  activeQuestion = null, lobby = teamLobby } = {}) {
+  activeQuestion = null, lobby = teamLobby, hostTeams = teams } = {}) {
   const saved = {
     version: 5, updatedAt: "2026-01-01T12:00:00Z", revision: 5, gameStarted: true,
-    teams, usedTiles: ["5:4"], activeQuestion, appliedAwards: [],
+    teams: hostTeams, usedTiles: ["5:4"], activeQuestion, appliedAwards: [],
     scoreHistory: [
-      { scores: teams.map(() => 0), game: null },
-      { scores: teams.map(({ score }) => score), game: "jeopardy" }
+      { scores: hostTeams.map(() => 0), game: null },
+      { scores: hostTeams.map(({ score }) => score), game: "jeopardy" }
     ],
     scoreHistoryGame: "jeopardy", shownRuleGameIds: ["jeopardy", "ordering", "listing", "sync"]
   };
@@ -35,7 +35,7 @@ export async function mockHost(page, { ordering = orderingBase, listing = listin
       hasState: true, hasResults: index % 2 === 0, updatedAt: `2026-01-0${index + 1}T12:00:00Z`
     }))
   };
-  const snapshot = liveSnapshot({ ...basePresentation, screen: "hub", games: Object.keys(config.games), highlightedGame: null }, {
+  const snapshot = liveSnapshot({ ...basePresentation, teams: hostTeams, screen: "hub", games: Object.keys(config.games), highlightedGame: null }, {
     ordering, listing, sync, teamLobby: lobby
   });
   await mockLiveSocket(page, snapshot);

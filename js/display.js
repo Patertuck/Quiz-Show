@@ -2,6 +2,7 @@ import { animateScoreDistribution } from "./display-score-animation.js";
 import { gameDefinition } from "./game-catalog.js";
 import qrcode from "../assets/vendor/qrcode.js";
 import { scheduleTextFit } from "./fit-text.js";
+import { formatInteger } from "./format-number.js";
 import { createScoreHistoryChart } from "./score-history-chart.js";
 import { element, retryingLogo } from "./display/dom.js";
 import { connectDisplaySession } from "./display/live-session.js";
@@ -77,7 +78,7 @@ function scoreboard(teams) {
     const rank = 1 + teams.filter((candidate) => candidate.score > team.score).length;
     const card = element("section", `display-team rank-${rank}`);
     card.dataset.teamIndex = teamIndex;
-    card.append(element("div", "display-team-name", team.name), element("div", "display-team-score", team.score.toLocaleString()));
+    card.append(element("div", "display-team-name", team.name), element("div", "display-team-score", formatInteger(team.score)));
     board.append(card);
   });
   return board;
@@ -172,7 +173,7 @@ function jeopardyBoard() {
     board.append(element(
       "div",
       `display-tile${used.has(tileId) ? " used" : ""}${highlightedTile === tileId ? " highlighted" : ""}`,
-      value.toLocaleString()
+      formatInteger(value)
     ));
   }));
   screen.append(board);
@@ -195,7 +196,7 @@ function jeopardyQuestion() {
   content.append(element(
     "div",
     "display-question-value",
-    `±${presentation.question.value.toLocaleString("de-CH")} Punkte`
+    `±${formatInteger(presentation.question.value)} Punkte`
   ));
   if (presentation.question.answerRevealed) {
     const answer = element("div", "display-media answer answer-only");
@@ -280,7 +281,7 @@ function ordering() {
     column.dataset.teamIndex = teamIndex;
     column.style.setProperty("--ordering-count", round.teamOrders[teamIndex].length);
     const title = element("h2");
-    title.append(element("span", "", name), element("strong", "", round.pointsRevealed ? `+${round.roundPoints[teamIndex]}` : ""));
+    title.append(element("span", "", name), element("strong", "", round.pointsRevealed ? `+${formatInteger(round.roundPoints[teamIndex])}` : ""));
     column.append(title);
     round.teamOrders[teamIndex].forEach((id, slot) => {
       const revealed = round.revealed.includes(slot);
@@ -295,7 +296,7 @@ function ordering() {
         cell.append(element(
           "strong",
           `display-ordering-row-points${value === 0 ? " zero" : ""}${round.phase === "distributed" ? " settled" : ""}`,
-          `+${value}`
+          `+${formatInteger(value)}`
         ));
       }
       column.append(cell);
@@ -409,7 +410,7 @@ function listing() {
     }
     content.append(heading, items, element(
       "p", "display-listing-team-count",
-      `${result.acceptedCount} Punkte`
+      `${formatInteger(result.acceptedCount)} Punkte`
     ));
     screen.append(content);
     return screen;
@@ -424,7 +425,7 @@ function listing() {
       element("strong", "display-listing-place", `${result.place}.`),
       element("span", "display-listing-result-team", listingState.teams[result.teamIndex]),
       element("span", "display-listing-count", `${result.acceptedCount} gültig`),
-      element("strong", "display-listing-points", `+${result.points}`)
+      element("strong", "display-listing-points", `+${formatInteger(result.points)}`)
     );
     rows.append(row);
   });
@@ -626,7 +627,7 @@ function sync() {
     card.dataset.teamIndex = result.teamIndex;
     card.append(
       element("h2", "", syncState.teams[result.teamIndex]),
-      element("strong", "sync-result-points", `+${result.points}`)
+      element("strong", "sync-result-points", `+${formatInteger(result.points)}`)
     );
     result.votes.forEach((vote) => {
       const voter = syncState.participants.find((person) => person.id === vote.participantId)?.name || "?";
@@ -664,14 +665,14 @@ function victory() {
   presentation.steps.forEach((step, index) => {
     if (step.kind === "standing") {
       const row = element("div", `display-standing${index < presentation.revealedCount ? " revealed" : ""}`);
-      row.append(document.createTextNode(`Platz ${step.rank}: ${step.names} `), element("span", "display-standing-score", `${step.score.toLocaleString("de-CH")} Punkte`));
+      row.append(document.createTextNode(`Platz ${step.rank}: ${step.names} `), element("span", "display-standing-score", `${formatInteger(step.score)} Punkte`));
       standings.append(row);
     } else {
       const place = element("section", `display-podium-place rank-${step.rank}${index < presentation.revealedCount ? " revealed" : ""}`);
       place.append(
         element("div", "display-podium-rank", String(step.rank)),
         element("div", "display-podium-names", step.names),
-        element("div", "display-podium-score", `${step.score.toLocaleString("de-CH")} Punkte`)
+        element("div", "display-podium-score", `${formatInteger(step.score)} Punkte`)
       );
       podium.append(place);
     }

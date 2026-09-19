@@ -1,3 +1,5 @@
+import { formatInteger } from "./format-number.js";
+
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 export const SCORE_HISTORY_COLORS = [
@@ -90,7 +92,7 @@ export function createScoreHistoryChart(teams, history) {
     const y = yAt(value);
     svg.append(svgElement("line", { class: `score-history-grid${value === 0 ? " zero" : ""}`, x1: left, x2: right, y1: y, y2: y }));
     const label = svgElement("text", { class: "score-history-y-label", x: left - 18, y: y + 7, "text-anchor": "end" });
-    label.textContent = value.toLocaleString("de-CH");
+    label.textContent = formatInteger(value);
     svg.append(label);
   }
 
@@ -131,7 +133,7 @@ export function createScoreHistoryChart(teams, history) {
       if (index > 0) point.style.setProperty("--score-history-point-duration", `${Math.max(40, stepDuration * 0.18)}ms`);
       const pointTitle = svgElement("title");
       const gameLabel = index ? SCORE_HISTORY_GAME_LABELS[entry.game || "legacy"] : "Start";
-      pointTitle.textContent = `${team.name}: ${entry.scores[teamIndex].toLocaleString("de-CH")} Punkte · ${gameLabel}`;
+      pointTitle.textContent = `${team.name}: ${formatInteger(entry.scores[teamIndex])} Punkte · ${gameLabel}`;
       point.append(pointTitle);
       svg.append(point);
     });

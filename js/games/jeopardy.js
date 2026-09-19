@@ -3,6 +3,7 @@ import { updateScoreControls } from "../scoreboard.js";
 import { connectToBuzzer, controlBuzzer } from "../buzzer-client.js";
 import { commandJeopardyAudio, publishJeopardy } from "../presentation-host.js";
 import { scheduleTextFit } from "../fit-text.js";
+import { formatInteger } from "../format-number.js";
 import { hostFetch } from "../slot-api.js";
 
 export async function mount(root, { showRules } = {}) {
@@ -149,10 +150,10 @@ export async function mount(root, { showRules } = {}) {
       const tile = document.createElement("button");
       tile.type = "button";
       tile.className = "tile";
-      tile.textContent = value.toLocaleString();
+      tile.textContent = formatInteger(value);
       tile.dataset.row = rowIndex;
       tile.dataset.category = categoryIndex;
-      tile.dataset.availableLabel = `${category.name} für ${value} Punkte`;
+      tile.dataset.availableLabel = `${category.name} für ${formatInteger(value)} Punkte`;
       setTileUsed(tile, state.usedTiles.has(`${categoryIndex}:${rowIndex}`));
       const tileId = `${categoryIndex}:${rowIndex}`;
       const publishTileHighlight = (highlighted) => {
@@ -275,7 +276,7 @@ export async function mount(root, { showRules } = {}) {
     const { categoryIndex, rowIndex, answerRevealed } = state.activeQuestion;
     const category = state.config.games.jeopardy.categories[categoryIndex];
     const item = category.questions[rowIndex];
-    questionValue.textContent = `±${state.config.games.jeopardy.values[rowIndex].toLocaleString("de-CH")} Punkte`;
+    questionValue.textContent = `±${formatInteger(state.config.games.jeopardy.values[rowIndex])} Punkte`;
     renderMedia(questionContent, item.question, item.questionImage);
     renderMedia(answerContent, item.answer, item.answerImage);
     renderAudioControls(item, answerRevealed);

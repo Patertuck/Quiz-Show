@@ -1,4 +1,5 @@
 import { SCORE_HISTORY_COLORS } from "./score-history-chart.js";
+import { formatInteger } from "./format-number.js";
 import { hostFetch } from "./slot-api.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -90,7 +91,7 @@ function createPodiumSvg(teams) {
     const fontSize = Math.min(25, standingHeight * 0.42);
     svg.append(svgNode("rect", { x, y, width: standingWidth, height: standingHeight, rx: 11, fill: "#080f35", "fill-opacity": 0.72, stroke: "#ffffff", "stroke-opacity": 0.3, "stroke-width": 2 }));
     svg.append(svgNode("text", { x: x + 18, y: y + standingHeight * 0.64, fill: "#ffffff", "font-family": "Arial, sans-serif", "font-size": fontSize, "font-weight": 700 }, `Platz ${rank}: ${members.map(({ name }) => name).join(" & ")}`));
-    svg.append(svgNode("text", { x: x + standingWidth - 18, y: y + standingHeight * 0.64, fill: "#fff45c", "font-family": "Arial, sans-serif", "font-size": fontSize, "font-weight": 800, "text-anchor": "end" }, `${members[0].score.toLocaleString("de-CH")} Punkte`));
+    svg.append(svgNode("text", { x: x + standingWidth - 18, y: y + standingHeight * 0.64, fill: "#fff45c", "font-family": "Arial, sans-serif", "font-size": fontSize, "font-weight": 800, "text-anchor": "end" }, `${formatInteger(members[0].score)} Punkte`));
   });
 
   const bottom = 1016;
@@ -117,7 +118,7 @@ function createPodiumSvg(teams) {
     appendWrappedText(svg, members.map(({ name }) => name).join(" & "), placeX + placeWidth / 2, y + 176, 27, {
       fill: "#10194f", "font-family": "Arial, sans-serif", "font-size": 32, "font-weight": 900, "text-anchor": "middle"
     });
-    svg.append(svgNode("text", { x: placeX + placeWidth / 2, y: bottom - 34, fill: "#593800", "font-family": "Arial, sans-serif", "font-size": 27, "font-weight": 800, "text-anchor": "middle" }, `${members[0].score.toLocaleString("de-CH")} Punkte`));
+    svg.append(svgNode("text", { x: placeX + placeWidth / 2, y: bottom - 34, fill: "#593800", "font-family": "Arial, sans-serif", "font-size": 27, "font-weight": 800, "text-anchor": "middle" }, `${formatInteger(members[0].score)} Punkte`));
     placeX += placeWidth + placeGap;
   });
   return svg;
@@ -164,7 +165,7 @@ function createHistorySvg(teams, history) {
   for (let value = yMin; value <= yMax + tickStep / 2; value += tickStep) {
     const y = yAt(value);
     svg.append(svgNode("line", { x1: left, x2: right, y1: y, y2: y, stroke: "#ffffff", "stroke-opacity": value === 0 ? 0.45 : 0.16, "stroke-width": value === 0 ? 4 : 2 }));
-    svg.append(svgNode("text", { x: left - 24, y: y + 9, fill: "#ffffff", "font-family": "Arial, sans-serif", "font-size": 27, "font-weight": 700, "text-anchor": "end" }, value.toLocaleString("de-CH")));
+    svg.append(svgNode("text", { x: left - 24, y: y + 9, fill: "#ffffff", "font-family": "Arial, sans-serif", "font-size": 27, "font-weight": 700, "text-anchor": "end" }, formatInteger(value)));
   }
   const labelEvery = Math.max(1, Math.ceil(history.length / 14));
   history.forEach((entry, index) => {

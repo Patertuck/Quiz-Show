@@ -2,6 +2,7 @@ import { publishListing } from "../presentation-host.js";
 import { state, applyAward, saveState } from "../store.js";
 import { renderScoreboard } from "../scoreboard.js";
 import { scheduleTextFit } from "../fit-text.js";
+import { formatInteger } from "../format-number.js";
 import { hostFetch } from "../slot-api.js";
 import { confirmAction } from "../confirm-dialog.js";
 import { subscribeHostState } from "../host/live-state.js";
@@ -270,7 +271,7 @@ function resultTable(round) {
     const count = document.createElement("span");
     count.textContent = `${result.acceptedCount} gültig`;
     const points = document.createElement("strong");
-    points.textContent = `+${result.points}`;
+    points.textContent = `+${formatInteger(result.points)}`;
     row.append(place, name, count, points);
     table.append(row);
   });
@@ -329,7 +330,7 @@ function renderTeamResult(round) {
   const title = document.createElement("h2");
   title.textContent = listingState.teams[result.teamIndex];
   const count = document.createElement("span");
-  count.textContent = `${result.acceptedCount} Punkte`;
+  count.textContent = `${formatInteger(result.acceptedCount)} Punkte`;
   heading.append(place, title, count);
   const actions = document.createElement("div");
   actions.className = "listing-actions";

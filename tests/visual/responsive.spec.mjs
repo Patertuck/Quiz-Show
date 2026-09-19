@@ -123,3 +123,18 @@ for (const viewport of [
     });
   }
 }
+
+test("host scoreboard uses apostrophe grouping", async ({ page }) => {
+  const hostTeams = teamNames.map((name, index) => ({ name, score: index ? 0 : 1_000 }));
+  await mockHost(page, { hostTeams });
+  await page.goto("/#/hub");
+  await expect(page.locator("#team-score-0")).toHaveText("1'000");
+});
+
+test("display scoreboard uses apostrophe grouping", async ({ page }) => {
+  const displayTeams = teamNames.map((name, index) => ({ name, score: index ? 0 : 1_000 }));
+  const presentation = displayPresentation("hub", { teams: displayTeams, games: gameList, highlightedGame: null });
+  await mockLiveSocket(page, { session: {}, presentation, teamLobby, buzzer, ordering: orderingBase, listing: listingBase, sync: syncLobby });
+  await page.goto("/display.html");
+  await expect(page.locator(".display-team-score").first()).toHaveText("1'000");
+});

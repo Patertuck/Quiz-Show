@@ -1,4 +1,5 @@
 import { playPointSound } from "./display-sounds.js";
+import { formatInteger } from "./format-number.js";
 
 function reducedMotion() {
   return matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -6,7 +7,7 @@ function reducedMotion() {
 
 function countScore(output, from, to, duration = 420) {
   if (!output || reducedMotion()) {
-    if (output) output.textContent = to.toLocaleString("de-CH");
+    if (output) output.textContent = formatInteger(to);
     return Promise.resolve();
   }
   return new Promise((resolve) => {
@@ -14,7 +15,7 @@ function countScore(output, from, to, duration = 420) {
     const step = (now) => {
       const progress = Math.min(1, (now - started) / duration);
       const eased = 1 - ((1 - progress) ** 3);
-      output.textContent = Math.round(from + ((to - from) * eased)).toLocaleString("de-CH");
+      output.textContent = formatInteger(Math.round(from + ((to - from) * eased)));
       if (progress < 1) requestAnimationFrame(step);
       else resolve();
     };
@@ -37,8 +38,8 @@ async function animateAward(root, origin, award) {
     const badge = document.createElement("div");
     badge.className = `display-points-flight${deducted ? " deducted" : ""}`;
     badge.textContent = deducted
-      ? `−${Math.abs(award.points).toLocaleString("de-CH")}`
-      : `+${award.points.toLocaleString("de-CH")}`;
+      ? `−${formatInteger(Math.abs(award.points))}`
+      : `+${formatInteger(award.points)}`;
     badge.style.left = `${start.left + start.width / 2}px`;
     badge.style.top = `${start.top + start.height / 2}px`;
     document.body.append(badge);
@@ -68,7 +69,7 @@ async function animateAward(root, origin, award) {
 export async function animateScoreDistribution({ root, awards, origins = [] }) {
   awards.forEach(({ teamIndex, oldScore }) => {
     const output = root.querySelector(`.display-team[data-team-index="${teamIndex}"] .display-team-score`);
-    if (output) output.textContent = oldScore.toLocaleString("de-CH");
+    if (output) output.textContent = formatInteger(oldScore);
   });
   for (const award of awards) await animateAward(root, origins[award.teamIndex] || null, award);
 }

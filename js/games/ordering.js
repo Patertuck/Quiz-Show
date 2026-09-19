@@ -4,6 +4,7 @@ import { renderScoreboard } from "../scoreboard.js";
 import { hostFetch } from "../slot-api.js";
 import { confirmAction } from "../confirm-dialog.js";
 import { scheduleTextFit } from "../fit-text.js";
+import { formatInteger } from "../format-number.js";
 import { subscribeHostState } from "../host/live-state.js";
 import { isGameSnapshot } from "./control-state.js";
 
@@ -185,7 +186,7 @@ function renderPreview() {
   const title = document.createElement("h2"); title.textContent = question.title;
   const prompt = document.createElement("p"); prompt.textContent = question.prompt;
   const unit = scoringMode === "relative" ? "richtigem Paar" : "richtiger Position";
-  const details = document.createElement("p"); details.textContent = `${question.items.length} Elemente · ${points} Punkte pro ${unit} · maximal ${maximum} Punkte`;
+  const details = document.createElement("p"); details.textContent = `${question.items.length} Elemente · ${formatInteger(points)} Punkte pro ${unit} · maximal ${formatInteger(maximum)} Punkte`;
   const timer = timerControl(question.timeLimitSeconds);
   const list = document.createElement("ol");
   question.items.forEach((text) => { const item = document.createElement("li"); item.textContent = text; list.append(item); });
@@ -248,7 +249,7 @@ function teamColumn(round, teamIndex) {
   const heading = document.createElement("h2");
   heading.innerHTML = `<span></span><strong></strong>`;
   heading.querySelector("span").textContent = orderingState.teams[teamIndex];
-  heading.querySelector("strong").textContent = round.pointsRevealed ? `+${round.roundPoints[teamIndex]}` : "";
+  heading.querySelector("strong").textContent = round.pointsRevealed ? `+${formatInteger(round.roundPoints[teamIndex])}` : "";
   column.append(heading);
   const correct = round.correctItems.map((item) => item.id);
   round.teamOrders[teamIndex].forEach((id, slot) => {
@@ -266,7 +267,7 @@ function teamColumn(round, teamIndex) {
       points.className = `ordering-row-points${round.phase === "distributed" ? " settled" : ""}`;
       const value = round.rowPoints[teamIndex][slot];
       if (value === 0) points.classList.add("zero");
-      points.textContent = `+${value}`;
+      points.textContent = `+${formatInteger(value)}`;
       cell.append(points);
     }
     column.append(cell);

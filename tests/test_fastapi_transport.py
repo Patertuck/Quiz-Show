@@ -83,6 +83,12 @@ class FastApiTransportTests(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertEqual(200, self.request("GET", path, base_url="http://192.168.1.20").status_code)
 
+    def test_lan_clients_can_load_shared_display_number_formatter(self):
+        response = self.request("GET", "/js/format-number.js", base_url="http://192.168.1.20")
+
+        self.assertEqual(200, response.status_code)
+        self.assertIn("javascript", response.headers["Content-Type"])
+
 
 if __name__ == "__main__":
     unittest.main()
