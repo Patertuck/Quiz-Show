@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import Depends, FastAPI
 from pydantic import BaseModel
@@ -13,7 +14,7 @@ from .dependencies import get_container
 from .errors import install_exception_handlers
 from .http_routes import install_http_routes
 from .logging import install_request_logging
-from .realtime import install_realtime
+from .realtime import install_realtime, run_deadline_coordinator
 from .settings import Settings
 
 
@@ -33,9 +34,14 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.container = container or ApplicationContainer.build(settings)
+        app.state.deadline_changed = asyncio.Event()
+        deadline_task = asyncio.create_task(run_deadline_coordinator(app))
         try:
             yield
         finally:
+            deadline_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await deadline_task
             await app.state.container.close()
 
     app = FastAPI(title="Quizshow", version="0.1.0", lifespan=lifespan)

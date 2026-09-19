@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import time
 import uuid
 from typing import Any
 
@@ -56,6 +58,22 @@ async def _broadcast(app: FastAPI) -> None:
     await container.connections.broadcast(lambda role, device, team: live_snapshot(container, role, device, team))
 
 
+async def run_deadline_coordinator(app: FastAPI) -> None:
+    """Broadcast once when the nearest server-owned game timer expires."""
+    changed: asyncio.Event = app.state.deadline_changed
+    while True:
+        changed.clear()
+        deadline_ms = legacy_game_services().next_deadline_ms()
+        if deadline_ms is None:
+            await changed.wait()
+            continue
+        delay = max(0.0, deadline_ms / 1000 - time.time())
+        try:
+            await asyncio.wait_for(changed.wait(), timeout=delay)
+        except TimeoutError:
+            await _broadcast(app)
+
+
 def install_realtime(app: FastAPI) -> None:
     @app.middleware("http")
     async def publish_mutations(request: Request, call_next):
@@ -63,6 +81,7 @@ def install_realtime(app: FastAPI) -> None:
         if request.method in {"POST", "PUT", "PATCH", "DELETE"} and request.url.path.startswith("/api/"):
             if response.status_code < 500:
                 await _broadcast(request.app)
+                request.app.state.deadline_changed.set()
         return response
 
     @app.post("/api/host/commands", response_model=CommandAccepted)

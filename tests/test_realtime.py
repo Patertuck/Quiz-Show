@@ -1,7 +1,11 @@
+import asyncio
 import tempfile
+import time
 import unittest
 import warnings
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="starlette.testclient")
 from starlette.testclient import TestClient
@@ -10,6 +14,7 @@ from quizshow.app import create_app
 from quizshow.container import ApplicationContainer
 from quizshow.domain.session import QuizSession
 from quizshow.settings import Settings
+from quizshow.realtime import run_deadline_coordinator
 
 
 class RealtimeTests(unittest.TestCase):
@@ -87,6 +92,37 @@ class RealtimeTests(unittest.TestCase):
         self.assertEqual("ordering", replacement_snapshot["active_game"])
         self.assertEqual("active", replacement_snapshot["phase"])
         self.assertEqual(2, replacement_snapshot["revision"])
+
+    def test_deadline_coordinator_broadcasts_without_a_client_command(self):
+        class Deadlines:
+            calls = 0
+
+            def next_deadline_ms(self):
+                self.calls += 1
+                return int(time.time() * 1000) + 20 if self.calls == 1 else None
+
+        app = SimpleNamespace(state=SimpleNamespace(deadline_changed=asyncio.Event()))
+
+        async def exercise():
+            broadcast_calls = []
+            called = asyncio.Event()
+
+            async def broadcast(current_app):
+                broadcast_calls.append(current_app)
+                called.set()
+
+            with patch("quizshow.realtime.legacy_game_services", return_value=Deadlines()), \
+                    patch("quizshow.realtime._broadcast", broadcast):
+                task = asyncio.create_task(run_deadline_coordinator(app))
+                try:
+                    await asyncio.wait_for(called.wait(), timeout=0.5)
+                finally:
+                    task.cancel()
+                    with self.assertRaises(asyncio.CancelledError):
+                        await task
+            self.assertEqual([app], broadcast_calls)
+
+        asyncio.run(exercise())
 
 
 if __name__ == "__main__":

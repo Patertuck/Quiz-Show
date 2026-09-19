@@ -24,6 +24,7 @@ class ConnectionRegistry:
     def __init__(self) -> None:
         self._connections: dict[str, tuple[Any, str, str | None, int | None]] = {}
         self._lock = asyncio.Lock()
+        self._send_lock = asyncio.Lock()
 
     async def add(self, connection_id: str, connection: Any, *, role: str = "public",
                   device_id: str | None = None, team_index: int | None = None) -> None:
@@ -51,21 +52,32 @@ class ConnectionRegistry:
                 await result
 
     async def broadcast(self, snapshot_factory) -> None:
-        async with self._lock:
-            clients = tuple(self._connections.items())
-        stale = []
-        for connection_id, (connection, role, device_id, team_index) in clients:
-            try:
-                await connection.send_json({
-                    "type": "snapshot",
-                    "data": snapshot_factory(role, device_id, team_index),
-                })
-            except Exception:
-                stale.append(connection_id)
-        if stale:
+        stale: list[tuple[str, Any]] = []
+        async with self._send_lock:
             async with self._lock:
-                for connection_id in stale:
-                    self._connections.pop(connection_id, None)
+                clients = tuple(self._connections.items())
+            for connection_id, (connection, role, device_id, team_index) in clients:
+                try:
+                    await connection.send_json({
+                        "type": "snapshot",
+                        "data": snapshot_factory(role, device_id, team_index),
+                    })
+                except Exception:
+                    stale.append((connection_id, connection))
+            if stale:
+                async with self._lock:
+                    for connection_id, _connection in stale:
+                        self._connections.pop(connection_id, None)
+        for _connection_id, connection in stale:
+            close = getattr(connection, "close", None)
+            if close is None:
+                continue
+            try:
+                result = close()
+                if hasattr(result, "__await__"):
+                    await result
+            except Exception:
+                pass
 
 
 @dataclass(slots=True)

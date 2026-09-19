@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
 
 import { createHostRoutes } from "../js/host/routes.js";
+import { isGameSnapshot } from "../js/games/control-state.js";
 
 
 test("host routes use one consistent controller contract", () => {
@@ -34,7 +35,19 @@ test("host routes use one consistent controller contract", () => {
 
 test("Sync Up renders control responses without creating a WebSocket mutation loop", async () => {
   const source = await readFile(new URL("../js/games/sync.js", import.meta.url), "utf8");
-  assert.match(source, /if \(isSyncSnapshot\(payload\)\) render\(payload\)/);
+  assert.match(source, /if \(isGameSnapshot\(payload\)\) render\(payload\)/);
   const subscription = source.match(/subscribeHostState\("sync",[\s\S]*?\n  \}\);/)?.[0] || "";
   assert.doesNotMatch(subscription, /publishSync/);
+});
+
+test("game control responses distinguish snapshots from awards", () => {
+  assert.equal(isGameSnapshot({ teams: ["Rot"], completedQuestionIds: [], round: null }), true);
+  assert.equal(isGameSnapshot({ awardId: "round-1", awards: [] }), false);
+});
+
+test("all timed host games render successful control snapshots immediately", async () => {
+  for (const game of ["ordering", "listing", "sync"]) {
+    const source = await readFile(new URL(`../js/games/${game}.js`, import.meta.url), "utf8");
+    assert.match(source, /if \(isGameSnapshot\(payload\)\) render\(payload\)/, game);
+  }
 });

@@ -63,6 +63,14 @@ class GameServices:
             raise ValueError(f"Unknown player command: {command_type}") from error
         return operation(payload)
 
+    def next_deadline_ms(self) -> int | None:
+        deadlines = [
+            deadline
+            for service in (self.ordering, self.listing, self.sync)
+            if (deadline := service.active_deadline_ms()) is not None
+        ]
+        return min(deadlines, default=None)
+
 
 def legacy_game_services() -> GameServices:
     import main

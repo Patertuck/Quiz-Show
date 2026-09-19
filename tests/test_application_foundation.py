@@ -60,6 +60,54 @@ class ApplicationFoundationTests(unittest.TestCase):
         asyncio.run(exercise())
         self.assertTrue(connection.closed)
 
+    def test_registry_serializes_overlapping_broadcasts(self):
+        class Connection:
+            active = 0
+            maximum_active = 0
+            messages = 0
+
+            async def send_json(self, _message):
+                self.active += 1
+                self.maximum_active = max(self.maximum_active, self.active)
+                await asyncio.sleep(0.01)
+                self.messages += 1
+                self.active -= 1
+
+        container = ApplicationContainer.build(self.settings)
+        connection = Connection()
+
+        async def exercise():
+            await container.connections.add("host", connection, role="host")
+            await asyncio.gather(
+                container.connections.broadcast(lambda *_args: {"revision": 1}),
+                container.connections.broadcast(lambda *_args: {"revision": 2}),
+            )
+
+        asyncio.run(exercise())
+        self.assertEqual(1, connection.maximum_active)
+        self.assertEqual(2, connection.messages)
+
+    def test_registry_closes_failed_connections_so_clients_can_reconnect(self):
+        class Connection:
+            closed = False
+
+            async def send_json(self, _message):
+                raise RuntimeError("socket failed")
+
+            async def close(self):
+                self.closed = True
+
+        container = ApplicationContainer.build(self.settings)
+        connection = Connection()
+
+        async def exercise():
+            await container.connections.add("host", connection, role="host")
+            await container.connections.broadcast(lambda *_args: {})
+            self.assertEqual((), await container.connections.ids())
+
+        asyncio.run(exercise())
+        self.assertTrue(connection.closed)
+
     def test_factory_exposes_health_and_uses_supplied_container(self):
         container = ApplicationContainer.build(self.settings)
         app = create_app(container=container)

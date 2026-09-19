@@ -198,6 +198,12 @@ class ListingState:
                 and int(time.time() * 1000) >= self.round["deadlineAt"]):
             self._begin_review_unlocked()
 
+    def active_deadline_ms(self) -> int | None:
+        with self.condition:
+            if self.round and self.round.get("phase") == "active":
+                return int(self.round["deadlineAt"])
+            return None
+
     def _begin_review_unlocked(self) -> None:
         if not self.round or self.round["phase"] != "active":
             return

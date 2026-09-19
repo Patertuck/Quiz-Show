@@ -493,6 +493,12 @@ class OrderingState:
             self.round["phase"] = "locked"
             self._changed_unlocked()
 
+    def active_deadline_ms(self) -> int | None:
+        with self.condition:
+            if self.round and self.round.get("phase") == "active":
+                return int(self.round["deadlineAt"])
+            return None
+
     def reset(self, persist: bool = True) -> None:
         with self.condition:
             self.teams = []

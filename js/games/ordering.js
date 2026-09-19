@@ -5,6 +5,7 @@ import { hostFetch } from "../slot-api.js";
 import { confirmAction } from "../confirm-dialog.js";
 import { scheduleTextFit } from "../fit-text.js";
 import { subscribeHostState } from "../host/live-state.js";
+import { isGameSnapshot } from "./control-state.js";
 
 let root;
 let content;
@@ -25,6 +26,7 @@ async function request(action, extra = {}) {
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+  if (isGameSnapshot(payload)) render(payload);
   return payload;
 }
 

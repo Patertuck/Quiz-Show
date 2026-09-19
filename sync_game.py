@@ -240,6 +240,12 @@ class SyncState:
             self.completed.append(self.round["questionId"])
         self._changed_unlocked()
 
+    def active_deadline_ms(self) -> int | None:
+        with self.condition:
+            if self.round and self.round.get("phase") == "active":
+                return int(self.round["deadlineAt"])
+            return None
+
     def vote(self, payload: dict) -> tuple[int, dict]:
         device_id = payload.get("deviceId")
         selected_id = payload.get("selectedParticipantId")
