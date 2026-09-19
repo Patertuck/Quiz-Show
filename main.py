@@ -823,9 +823,11 @@ def bind_active_instance() -> None:
 def main() -> None:
     import uvicorn
     from quizshow.app import create_app
+    from quizshow.runtime import require_websocket_runtime
 
     BUZZER.sync_teams(load_current_state())
     try:
+        require_websocket_runtime()
         print(f"Quiz show running at {HOST_URL}")
         join_info = current_join_info()
         print(f"Player view available at {join_info['joinUrl']}")
