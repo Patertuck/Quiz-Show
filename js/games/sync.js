@@ -21,7 +21,14 @@ async function request(action, extra = {}) {
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+  if (isSyncSnapshot(payload)) render(payload);
   return payload;
+}
+
+function isSyncSnapshot(payload) {
+  return payload && Array.isArray(payload.teams)
+    && Array.isArray(payload.participants)
+    && Array.isArray(payload.completedQuestionIds);
 }
 
 function timerControl(seconds) {
@@ -293,7 +300,6 @@ export async function mount(element, { showRules } = {}) {
   render(await hostFetch("/api/sync/state", { cache: "no-store" }).then((response) => response.json()));
   events = subscribeHostState("sync", (snapshot) => {
     render(snapshot);
-    publishSync().catch(() => undefined);
   });
   ticker = setInterval(() => {
     const timer = content.querySelector(".sync-host-timer[data-deadline]");
