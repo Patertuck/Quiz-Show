@@ -346,10 +346,4 @@ class PresentationState:
         with self.condition:
             return self._snapshot_unlocked()
 
-    def wait_for_change(self, version: int, timeout: float = 15) -> dict | None:
-        with self.condition:
-            if self.version == version:
-                self.condition.wait(timeout)
-            return self._snapshot_unlocked() if self.version != version else None
-
 

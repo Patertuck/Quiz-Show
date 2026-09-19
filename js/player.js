@@ -484,9 +484,8 @@ function receiveOrderingState(nextState, shouldRender = true) {
   if (shouldRender) render();
 }
 
-function connectOrderingEvents() {
-  liveConnection?.refresh();
-}
+const refreshLiveConnection = () => liveConnection?.refresh();
+const connectOrderingEvents = refreshLiveConnection;
 
 function focusListingEntry() {
   const round = listingState?.round;
@@ -611,9 +610,7 @@ function renderListingPreview() {
   listingStatus.textContent = "Die Aufgabe ist noch nicht freigegeben.";
 }
 
-function connectListingEvents() {
-  liveConnection?.refresh();
-}
+const connectListingEvents = refreshLiveConnection;
 
 function ownSyncParticipant() { return findOwnSyncParticipant(syncState); }
 
@@ -730,40 +727,10 @@ async function saveSyncVote(selectedParticipantId) {
   }
 }
 
-function connectSyncEvents() {
-  liveConnection?.refresh();
-}
-
-function closeGameEvents() {
-  // The single live connection owns all activity subscriptions.
-}
-
-function connectGameEvents() {
-  liveConnection?.refresh();
-}
-
-function connectTeamLobbyEvents() {
-  liveConnection?.refresh();
-}
-
-function closeCoreGameEvents() {
-  // The single live connection owns all core-game subscriptions.
-}
-
-function connectCoreGameEvents() {
-  liveConnection?.refresh();
-}
+const connectSyncEvents = refreshLiveConnection;
 
 function reconcileLiveStreams() {
-  const lobbyActive = teamLobbyState?.phase === "open";
-  if (lobbyActive || !teamLobbyState) {
-    closeGameEvents();
-    closeCoreGameEvents();
-    connectTeamLobbyEvents();
-  } else {
-    connectCoreGameEvents();
-    connectGameEvents();
-  }
+  refreshLiveConnection();
 }
 
 document.querySelector("#change-team").addEventListener("click", showTeamSelection);
