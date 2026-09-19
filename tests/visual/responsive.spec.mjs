@@ -21,6 +21,7 @@ const hostCases = [
   ["jeopardy-board", "jeopardy", {}],
   ["jeopardy-question", "jeopardy", { activeQuestion: { categoryIndex: 0, rowIndex: 0, answerRevealed: false } }],
   ["ordering-overview", "ordering", { ordering: orderingBase }],
+  ["ordering-preview", "ordering", { ordering: orderingBase }, async (page) => page.locator(".ordering-question-card").first().click()],
   ["ordering-active", "ordering", { ordering: orderingActive }],
   ["ordering-results", "ordering", { ordering: orderingResults }],
   ["listing-overview", "listing", { listing: listingBase }],
@@ -38,7 +39,7 @@ const hostRouteSelectors = {
 };
 
 for (const viewport of desktopViewports) {
-  for (const [name, route, fixture] of hostCases) {
+  for (const [name, route, fixture, prepare] of hostCases) {
     test(`host ${name} fits ${viewport.width}x${viewport.height}`, async ({ page }) => {
       const pageErrors = [];
       page.on("pageerror", (error) => pageErrors.push(error.message));
@@ -46,6 +47,7 @@ for (const viewport of desktopViewports) {
       await mockHost(page, fixture);
       await page.goto(`/#/${route}`);
       await expect(page.locator(hostRouteSelectors[route])).toBeVisible();
+      if (prepare) await prepare(page);
       await expect(page.getByText("Quizfehler", { exact: true })).toHaveCount(0);
       await verify(page, `host-${name}`, {
         allowVerticalScroll: route === "master", screenshot: viewport.width === 1280
@@ -57,6 +59,16 @@ for (const viewport of desktopViewports) {
     });
   }
 }
+
+test("host ordering preview keeps its actions visible at short desktop height", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 500 });
+  await mockHost(page, { ordering: orderingBase });
+  await page.goto("/#/ordering");
+  await page.locator(".ordering-question-card").first().click();
+  await expect(page.getByRole("button", { name: "Starten", exact: true })).toBeInViewport();
+  await expect(page.getByRole("button", { name: "Zurück", exact: true })).toBeInViewport();
+  await expectVisibleControlsUsable(page, 30);
+});
 
 const gameList = Object.keys(config.games);
 const orderingSelection = { ...selection, selectedQuestion: { id: "q-1", title: selection.questions[0].title,

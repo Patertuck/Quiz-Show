@@ -181,7 +181,7 @@ function renderPreview() {
   const maximum = scoringMode === "relative"
     ? question.items.length * (question.items.length - 1) / 2 * points
     : question.items.length * points;
-  setStatus("Der Timer startet, sobald ihr auf «Starten» drückt.");
+  setStatus();
   const preview = document.createElement("section"); preview.className = "ordering-preview";
   const title = document.createElement("h2"); title.textContent = question.title;
   const prompt = document.createElement("p"); prompt.textContent = question.prompt;
