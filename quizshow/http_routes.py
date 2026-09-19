@@ -1,4 +1,4 @@
-"""FastAPI transport for the existing services during their domain migration."""
+"""HTTP routes for quiz resources and game operations."""
 
 from __future__ import annotations
 
@@ -76,7 +76,7 @@ def _role(request: Request, identity_name: str, role_name: str) -> tuple[str, st
     return ("public" if requested == "public" or not _is_host(request) else role_name), None
 
 
-def install_legacy_routes(app: FastAPI) -> None:
+def install_http_routes(app: FastAPI) -> None:
     @app.api_route("/api/{api_path:path}", methods=["GET", "POST", "PUT", "DELETE"])
     async def api(request: Request, api_path: str):
         legacy = _legacy()

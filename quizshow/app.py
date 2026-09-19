@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from .container import ApplicationContainer
 from .dependencies import get_container
 from .errors import install_exception_handlers
-from .legacy_routes import install_legacy_routes
+from .http_routes import install_http_routes
 from .realtime import install_realtime
 from .settings import Settings
 
@@ -48,6 +48,6 @@ def create_app(
         )
 
     install_realtime(app)
-    install_legacy_routes(app)
+    install_http_routes(app)
 
     return app
