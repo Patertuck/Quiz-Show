@@ -13,7 +13,7 @@
 .ordering-question-card:not(:disabled):not(.completed):hover, .ordering-question-card:not(:disabled):not(.completed):focus-visible { border-color: #ffe16d; outline: none; filter: brightness(1.15); transform: translateY(-.3rem) scale(1.025); box-shadow: 0 .8rem 1.8rem #17052299, 0 0 1.4rem #ffe16d88; }
 .ordering-question-card:disabled, .ordering-question-card.completed { border-color: #796486; background: #35283d; color: #a99daf; }
 .ordering-question-card.completed { cursor: context-menu; }
-.ordering-preview { width: min(38rem, 90%); max-height: 100%; align-self: center; padding: 1rem 1.4rem; overflow-y: auto; border: 1px solid #ffffff3d; border-radius: .7rem; background: #1e0a2d99; }
+.ordering-preview { width: min(38rem, 90%); align-self: center; padding: 1rem 1.4rem; border: 1px solid #ffffff3d; border-radius: .7rem; background: #1e0a2d99; transform: scale(var(--ordering-preview-scale, 1)); transform-origin: center; }
 .ordering-preview h2, .ordering-preview p { text-align: center; }
 .ordering-preview li { margin: .25rem 0; }
 .ordering-time-control { display: flex; align-items: center; justify-content: center; gap: .65rem; margin: clamp(.35rem, 1vh, .7rem) 0; font-weight: 800; }

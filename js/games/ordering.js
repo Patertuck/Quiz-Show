@@ -16,6 +16,7 @@ let orderingState;
 let events;
 let ticker;
 let resultFitObserver;
+let previewFitFrame;
 let selectedQuestion = null;
 let selectedPreviewItems = [];
 let visibleMapItem = null;
@@ -85,6 +86,24 @@ function fitResultText(scope = content) {
   scope?.querySelectorAll(".ordering-result-cell").forEach((cell) => {
     scheduleTextFit(cell, ".ordering-cell-text", { maxHeightRatio: 0.28 });
   });
+}
+
+function fitPreview() {
+  const preview = content?.querySelector(".ordering-preview");
+  const actions = content?.querySelector(".ordering-preview + .ordering-actions");
+  if (!preview || !actions) return;
+  preview.style.removeProperty("--ordering-preview-scale");
+  const contentTop = content.getBoundingClientRect().top;
+  const actionsTop = actions.getBoundingClientRect().top;
+  const gap = Number.parseFloat(getComputedStyle(content).rowGap) || 0;
+  const availableHeight = Math.max(1, actionsTop - contentTop - gap);
+  const scale = Math.min(1, availableHeight / preview.offsetHeight);
+  preview.style.setProperty("--ordering-preview-scale", scale.toFixed(4));
+}
+
+function schedulePreviewFit() {
+  cancelAnimationFrame(previewFitFrame);
+  previewFitFrame = requestAnimationFrame(fitPreview);
 }
 
 function shuffled(items) {
@@ -205,6 +224,7 @@ function renderPreview() {
     })
   );
   content.replaceChildren(preview, actions);
+  schedulePreviewFit();
 }
 
 function renderActive(round) {
@@ -401,11 +421,15 @@ export async function mount(element, { showRules } = {}) {
     const timer = content.querySelector(".ordering-timer");
     if (timer) timer.textContent = Math.max(0, Math.ceil((Number(timer.dataset.deadline) - Date.now()) / 1000));
   }, 200);
-  resultFitObserver = new ResizeObserver(() => fitResultText());
+  resultFitObserver = new ResizeObserver(() => {
+    fitResultText();
+    schedulePreviewFit();
+  });
   resultFitObserver.observe(content);
   return () => {
     events?.();
     clearInterval(ticker);
+    cancelAnimationFrame(previewFitFrame);
     resultFitObserver?.disconnect();
     window.removeEventListener("quiz-score-changed", handleScoreChange);
   };

@@ -67,6 +67,11 @@ test("host ordering preview keeps its actions visible at short desktop height", 
   await page.locator(".ordering-question-card").first().click();
   await expect(page.getByRole("button", { name: "Starten", exact: true })).toBeInViewport();
   await expect(page.getByRole("button", { name: "Zurück", exact: true })).toBeInViewport();
+  await expect(page.locator(".ordering-preview")).not.toHaveCSS("overflow-y", "auto");
+  expect(await page.locator(".ordering-preview").evaluate((element) => {
+    const transform = getComputedStyle(element).transform;
+    return transform !== "none" && Number(transform.split("(")[1].split(",")[0]) < 1;
+  })).toBe(true);
   await expectVisibleControlsUsable(page, 30);
 });
 
