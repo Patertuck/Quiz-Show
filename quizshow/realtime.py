@@ -3,34 +3,18 @@
 from __future__ import annotations
 
 import uuid
-from typing import Any, Literal
+from typing import Any
 
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 from .container import ApplicationContainer
+from .api_models import CommandAccepted, HostCommandEnvelope, PlayerCommandEnvelope
 from .domain.commands import Command
 from .domain.projections import ClientRole
 from .game_services import legacy_game_services
 from .session_service import StaleSessionError
-
-
-class HostCommandEnvelope(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
-
-    instance_name: str = Field(alias="instanceName", min_length=1)
-    expected_revision: int = Field(alias="expectedRevision", ge=0)
-    command: dict[str, Any]
-
-
-class PlayerCommandEnvelope(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    type: Literal[
-        "team-lobby", "buzz", "ordering", "listing", "sync-register", "sync-reconnect", "sync-vote"
-    ]
-    payload: dict[str, Any]
 
 
 COMMAND_ADAPTER = TypeAdapter(Command)
@@ -81,7 +65,7 @@ def install_realtime(app: FastAPI) -> None:
                 await _broadcast(request.app)
         return response
 
-    @app.post("/api/host/commands")
+    @app.post("/api/host/commands", response_model=CommandAccepted)
     async def host_command(request: Request, envelope: HostCommandEnvelope):
         client = request.client.host if request.client else ""
         if not _host_scope(request.headers, client):
@@ -100,7 +84,7 @@ def install_realtime(app: FastAPI) -> None:
             return JSONResponse({"error": str(error)}, status_code=409)
         except (ValueError, OSError) as error:
             return JSONResponse({"error": str(error)}, status_code=400)
-        return {"accepted": True, "revision": updated.revision}
+        return CommandAccepted(revision=updated.revision)
 
     @app.post("/api/player/commands")
     async def player_command(request: Request, envelope: PlayerCommandEnvelope):
