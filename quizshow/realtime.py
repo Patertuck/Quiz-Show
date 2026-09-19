@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 from .container import ApplicationContainer
 from .domain.commands import Command
 from .domain.projections import ClientRole
+from .game_services import legacy_game_services
 from .session_service import StaleSessionError
 
 
@@ -52,33 +53,17 @@ def _host_scope(headers, client_host: str) -> bool:
 
 def live_snapshot(container: ApplicationContainer, role: str, device_id: str | None,
                   team_index: int | None) -> dict:
+    snapshots = legacy_game_services().snapshots(role, device_id, team_index)
+    session_role = {
+        "host": ClientRole.HOST,
+        "player": ClientRole.PLAYER,
+        "display": ClientRole.DISPLAY,
+    }[role]
     legacy = _legacy()
-    if role == "host":
-        lobby = legacy.TEAM_LOBBY.snapshot("host", None)
-        ordering = legacy.ORDERING.snapshot("host", None)
-        listing = legacy.LISTING.snapshot("host", None)
-        sync = legacy.SYNC.snapshot("host", None)
-        session_role = ClientRole.HOST
-    elif role == "player":
-        lobby = legacy.TEAM_LOBBY.snapshot("player", device_id) if device_id else legacy.TEAM_LOBBY.snapshot()
-        ordering = legacy.ORDERING.snapshot("team", team_index) if team_index is not None else legacy.ORDERING.snapshot("public", None)
-        listing = legacy.LISTING.snapshot("team", team_index) if team_index is not None else legacy.LISTING.snapshot("public", None)
-        sync = legacy.SYNC.snapshot("player", device_id) if device_id else legacy.SYNC.snapshot("public", None)
-        session_role = ClientRole.PLAYER
-    else:
-        lobby = legacy.TEAM_LOBBY.snapshot("public", None)
-        ordering = legacy.ORDERING.snapshot("public", None)
-        listing = legacy.LISTING.snapshot("public", None)
-        sync = legacy.SYNC.snapshot("public", None)
-        session_role = ClientRole.DISPLAY
     return {
         "session": container.session.snapshot(session_role),
         "presentation": legacy.PRESENTATION.snapshot(),
-        "teamLobby": lobby,
-        "buzzer": legacy.BUZZER.snapshot(),
-        "ordering": ordering,
-        "listing": listing,
-        "sync": sync,
+        **snapshots,
     }
 
 
@@ -119,23 +104,8 @@ def install_realtime(app: FastAPI) -> None:
 
     @app.post("/api/player/commands")
     async def player_command(request: Request, envelope: PlayerCommandEnvelope):
-        legacy = _legacy()
         try:
-            if envelope.type == "team-lobby":
-                status, result = legacy.TEAM_LOBBY.player_control(envelope.payload)
-            elif envelope.type == "buzz":
-                status, result = legacy.BUZZER.buzz(envelope.payload)
-            elif envelope.type == "ordering":
-                status, result = legacy.ORDERING.update_order(envelope.payload)
-            elif envelope.type == "listing":
-                status, result = legacy.LISTING.update_submission(envelope.payload)
-            else:
-                operation = {
-                    "sync-register": legacy.SYNC.register,
-                    "sync-reconnect": legacy.SYNC.reconnect,
-                    "sync-vote": legacy.SYNC.vote,
-                }[envelope.type]
-                status, result = operation(envelope.payload)
+            status, result = legacy_game_services().execute_player(envelope.type, envelope.payload)
         except (ValueError, OSError) as error:
             return JSONResponse({"error": str(error)}, status_code=400)
         return JSONResponse(result, status_code=status)
