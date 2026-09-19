@@ -4,10 +4,11 @@ import unittest
 from pathlib import Path
 
 import httpx
+from fastapi import FastAPI
 
 from quizshow.app import create_app
 from quizshow.container import ApplicationContainer
-from quizshow.errors import ApplicationError
+from quizshow.errors import ApplicationError, install_exception_handlers
 from quizshow.settings import Settings
 
 
@@ -75,7 +76,8 @@ class ApplicationFoundationTests(unittest.TestCase):
         self.assertEqual({"status": "ok", "active_instance": None}, response.json())
 
     def test_application_errors_use_stable_json_shape(self):
-        app = create_app(self.settings)
+        app = FastAPI()
+        install_exception_handlers(app)
 
         @app.get("/failure")
         def failure():

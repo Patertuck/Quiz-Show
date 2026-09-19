@@ -1903,19 +1903,20 @@ class LocalQuizServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
 
 
 def main() -> None:
+    import uvicorn
+    from quizshow.app import create_app
+
     BUZZER.sync_teams(load_current_state())
-    server: LocalQuizServer | None = None
     try:
-        with LocalQuizServer((BIND_HOST, PORT), QuizRequestHandler) as server:
-            print(f"Quiz show running at {HOST_URL}")
-            join_info = current_join_info()
-            print(f"Player view available at {join_info['joinUrl']}")
-            print(f"Audience display available at {join_info['displayUrl']}")
-            if LAN_ADDRESS == "127.0.0.1":
-                print("Warning: no LAN address was found. Set QUIZ_HOST_IP to this computer's Wi-Fi IPv4 address.")
-            print("Press Ctrl+C to stop the server.")
-            threading.Timer(0.4, webbrowser.open, args=(HOST_URL,)).start()
-            server.serve_forever()
+        print(f"Quiz show running at {HOST_URL}")
+        join_info = current_join_info()
+        print(f"Player view available at {join_info['joinUrl']}")
+        print(f"Audience display available at {join_info['displayUrl']}")
+        if LAN_ADDRESS == "127.0.0.1":
+            print("Warning: no LAN address was found. Set QUIZ_HOST_IP to this computer's Wi-Fi IPv4 address.")
+        print("Press Ctrl+C to stop the server.")
+        threading.Timer(0.4, webbrowser.open, args=(HOST_URL,)).start()
+        uvicorn.run(create_app(), host=BIND_HOST, port=PORT, log_level="warning")
     except OSError as error:
         raise SystemExit(
             f"Could not start the quiz at {HOST_URL}. "
@@ -1925,10 +1926,6 @@ def main() -> None:
         raise SystemExit(str(error)) from error
     except KeyboardInterrupt:
         print("\nQuiz show stopped.")
-    finally:
-        if server is not None:
-            with contextlib.suppress(Exception):
-                server.server_close()
 
 
 if __name__ == "__main__":
