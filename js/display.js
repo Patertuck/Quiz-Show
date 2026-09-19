@@ -41,8 +41,6 @@ let highlightedLobbyTeamIds = new Set();
 let orderingTicker;
 let listingTicker;
 let syncTicker;
-let activeGameEventSource = null;
-let activeGameEventScreen = null;
 let displayScoreAnimationActive = false;
 const SCREEN_TRANSITION_DURATION_MS = 650;
 let lastRenderedSceneKey = null;
@@ -865,7 +863,6 @@ async function drainPresentationQueue() {
       presentation = nextPresentation;
       setDisplaySoundSettings(presentation.audioSettings);
       syncVictorySounds(previousPresentation, nextPresentation, previousPresentation === null);
-      syncGameEventSource();
       handleJeopardyAudioCommand();
       render();
       if (plan) {
@@ -938,56 +935,9 @@ window.addEventListener("resize", () => {
   });
 });
 
-async function initialState(path) {
-  const response = await fetch(path, { cache: "no-store" });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  return response.json();
-}
-
 function setDisplayConnection(connected) {
   connection.textContent = connected ? "Verbunden" : "Verbindung zur Spielleitung wird wiederhergestellt…";
   connection.classList.toggle("connected", connected);
-}
-
-function syncGameEventSource() {
-  return;
-  const nextScreen = ["jeopardy-board", "jeopardy-question"].includes(presentation?.screen)
-    ? "jeopardy"
-    : ["team-lobby", "ordering", "listing", "sync"].includes(presentation?.screen) ? presentation.screen : null;
-  if (nextScreen === activeGameEventScreen) return;
-  activeGameEventSource?.close();
-  activeGameEventSource = null;
-  activeGameEventScreen = nextScreen;
-  if (nextScreen === "team-lobby") {
-    activeGameEventSource = new EventSource("/api/team-lobby/events?role=public");
-    activeGameEventSource.addEventListener("state", (event) => {
-      receiveTeamLobbyState(JSON.parse(event.data));
-      if (!displayScoreAnimationActive) render();
-    });
-  } else if (nextScreen === "jeopardy") {
-    activeGameEventSource = new EventSource("/api/buzzer/events");
-    activeGameEventSource.addEventListener("state", (event) => {
-      receiveBuzzerState(JSON.parse(event.data));
-    });
-  } else if (nextScreen === "ordering") {
-    activeGameEventSource = new EventSource("/api/ordering/events?role=public");
-    activeGameEventSource.addEventListener("state", (event) => {
-      orderingState = JSON.parse(event.data);
-      if (!displayScoreAnimationActive) render();
-    });
-  } else if (nextScreen === "listing") {
-    activeGameEventSource = new EventSource("/api/listing/events?role=public");
-    activeGameEventSource.addEventListener("state", (event) => {
-      listingState = JSON.parse(event.data);
-      if (!displayScoreAnimationActive) render();
-    });
-  } else if (nextScreen === "sync") {
-    activeGameEventSource = new EventSource("/api/sync/events?role=public");
-    activeGameEventSource.addEventListener("state", (event) => {
-      syncState = JSON.parse(event.data);
-      if (!displayScoreAnimationActive) render();
-    });
-  }
 }
 
 const liveConnection = connectDisplaySession({

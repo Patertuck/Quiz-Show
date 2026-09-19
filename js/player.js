@@ -60,12 +60,6 @@ let syncState = null;
 let teamLobbyState = null;
 let selectedTeamIndex = null;
 let submitting = false;
-let orderingEvents;
-let listingEvents;
-let syncEvents;
-let teamLobbyEvents;
-let buzzerEvents;
-let presentationEvents;
 let liveConnection;
 let editingSyncRegistration = false;
 let orderingTimer;
@@ -491,17 +485,7 @@ function receiveOrderingState(nextState, shouldRender = true) {
 }
 
 function connectOrderingEvents() {
-  if (liveConnection) return liveConnection.refresh();
-  orderingEvents?.close();
-  const query = selectedTeamIndex === null ? "" : `?teamIndex=${selectedTeamIndex}`;
-  orderingEvents = new EventSource(`/api/ordering/events${query}`);
-  orderingEvents.addEventListener("state", (event) => {
-    receiveOrderingState(JSON.parse(event.data));
-  });
-  orderingEvents.addEventListener("error", () => {
-    if (activeDrag) cancelDrag();
-    orderingStatus.textContent = "Verbindung verloren. Verbindung wird wiederhergestellt…";
-  });
+  liveConnection?.refresh();
 }
 
 function focusListingEntry() {
@@ -628,17 +612,7 @@ function renderListingPreview() {
 }
 
 function connectListingEvents() {
-  if (liveConnection) return liveConnection.refresh();
-  listingEvents?.close();
-  const query = selectedTeamIndex === null ? "" : `?teamIndex=${selectedTeamIndex}`;
-  listingEvents = new EventSource(`/api/listing/events${query}`);
-  listingEvents.addEventListener("state", (event) => {
-    listingState = JSON.parse(event.data);
-    render();
-  });
-  listingEvents.addEventListener("error", () => {
-    listingStatus.textContent = "Verbindung verloren. Verbindung wird wiederhergestellt …";
-  });
+  liveConnection?.refresh();
 }
 
 function ownSyncParticipant() { return findOwnSyncParticipant(syncState); }
@@ -757,80 +731,27 @@ async function saveSyncVote(selectedParticipantId) {
 }
 
 function connectSyncEvents() {
-  if (liveConnection) return liveConnection.refresh();
-  syncEvents?.close();
-  syncEvents = new EventSource(`/api/sync/events?deviceId=${encodeURIComponent(deviceId)}`);
-  syncEvents.addEventListener("state", (event) => {
-    syncState = JSON.parse(event.data);
-    render();
-  });
-  syncEvents.addEventListener("error", () => {
-    if (!syncStep.hidden) syncStatus.textContent = "Verbindung verloren. Verbindung wird wiederhergestellt …";
-  });
-}
-
-async function loadState() {
-  const response = await fetch("/api/buzzer/state", { cache: "no-store" });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  currentState = await response.json();
-  render();
+  liveConnection?.refresh();
 }
 
 function closeGameEvents() {
-  orderingEvents?.close();
-  listingEvents?.close();
-  syncEvents?.close();
-  orderingEvents = null;
-  listingEvents = null;
-  syncEvents = null;
+  // The single live connection owns all activity subscriptions.
 }
 
 function connectGameEvents() {
-  if (!orderingEvents) connectOrderingEvents();
-  if (!listingEvents) connectListingEvents();
-  if (!syncEvents) connectSyncEvents();
+  liveConnection?.refresh();
 }
 
 function connectTeamLobbyEvents() {
-  if (liveConnection) return liveConnection.refresh();
-  if (teamLobbyEvents) return;
-  teamLobbyEvents = new EventSource(`/api/team-lobby/events?deviceId=${encodeURIComponent(deviceId)}`);
-  teamLobbyEvents.addEventListener("state", (event) => {
-    teamLobbyState = JSON.parse(event.data);
-    setPlayerConnection(true);
-    render();
-  });
-  teamLobbyEvents.addEventListener("error", () => {
-    setPlayerConnection(false);
-    if (!teamLobbyStep.hidden) teamLobbyStatus.textContent = "Verbindung wird wiederhergestellt …";
-  });
+  liveConnection?.refresh();
 }
 
 function closeCoreGameEvents() {
-  buzzerEvents?.close();
-  presentationEvents?.close();
-  buzzerEvents = null;
-  presentationEvents = null;
+  // The single live connection owns all core-game subscriptions.
 }
 
 function connectCoreGameEvents() {
-  if (liveConnection) return liveConnection.refresh();
-  if (!buzzerEvents) {
-    buzzerEvents = new EventSource("/api/buzzer/events");
-    buzzerEvents.addEventListener("state", (event) => {
-      currentState = JSON.parse(event.data);
-      setPlayerConnection(true);
-      render();
-    });
-    buzzerEvents.addEventListener("error", () => setPlayerConnection(false));
-  }
-  if (!presentationEvents) {
-    presentationEvents = new EventSource("/api/presentation/events");
-    presentationEvents.addEventListener("state", (event) => {
-      presentationState = JSON.parse(event.data);
-      render();
-    });
-  }
+  liveConnection?.refresh();
 }
 
 function reconcileLiveStreams() {
@@ -840,18 +761,9 @@ function reconcileLiveStreams() {
     closeCoreGameEvents();
     connectTeamLobbyEvents();
   } else {
-    teamLobbyEvents?.close();
-    teamLobbyEvents = null;
     connectCoreGameEvents();
     connectGameEvents();
   }
-}
-
-async function loadTeamLobbyState() {
-  const response = await fetch(`/api/team-lobby/state?deviceId=${encodeURIComponent(deviceId)}`, { cache: "no-store" });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  teamLobbyState = await response.json();
-  render();
 }
 
 document.querySelector("#change-team").addEventListener("click", showTeamSelection);
@@ -946,13 +858,6 @@ liveConnection = connectPlayerSession({
     render();
   }
 });
-
-async function loadPresentationState() {
-  const response = await fetch("/api/presentation/state", { cache: "no-store" });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  presentationState = await response.json();
-  render();
-}
 
 orderingTimer = setInterval(() => {
   if (!orderingState?.round || orderingState.round.phase !== "active") return;

@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
-from collections.abc import AsyncIterator
 from pathlib import Path
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 
 
 def _legacy():
@@ -78,29 +76,6 @@ def _role(request: Request, identity_name: str, role_name: str) -> tuple[str, st
     return ("public" if requested == "public" or not _is_host(request) else role_name), None
 
 
-async def _events(request: Request, service, snapshot_args: tuple, *, connect=None, disconnect=None) -> AsyncIterator[bytes]:
-    connected = connect() if connect else None
-    version = -1
-    try:
-        while not await request.is_disconnected():
-            state = await asyncio.to_thread(service.wait_for_change, version, *snapshot_args)
-            if state is None:
-                yield b": heartbeat\n\n"
-            else:
-                version = state["version"]
-                encoded = json.dumps(state, ensure_ascii=False, separators=(",", ":"))
-                yield f"event: state\nid: {version}\ndata: {encoded}\n\n".encode("utf-8")
-    finally:
-        if disconnect:
-            disconnect(connected)
-
-
-def _stream(generator: AsyncIterator[bytes]) -> StreamingResponse:
-    return StreamingResponse(generator, media_type="text/event-stream", headers={
-        "Cache-Control": "no-store", "Connection": "keep-alive",
-    })
-
-
 def install_legacy_routes(app: FastAPI) -> None:
     @app.api_route("/api/{api_path:path}", methods=["GET", "POST", "PUT", "DELETE"])
     async def api(request: Request, api_path: str):
@@ -116,41 +91,19 @@ def install_legacy_routes(app: FastAPI) -> None:
             if path == "/api/team-lobby/state":
                 role, device = _role(request, "deviceId", "host")
                 return _json(200, legacy.TEAM_LOBBY.snapshot(role, device))
-            if path == "/api/team-lobby/events":
-                role, device = _role(request, "deviceId", "host")
-                return _stream(_events(request, legacy.TEAM_LOBBY, (role, device)))
             if path == "/api/sync/state":
                 role, device = _role(request, "deviceId", "host")
                 return _json(200, legacy.SYNC.snapshot(role, device))
-            if path == "/api/sync/events":
-                role, device = _role(request, "deviceId", "host")
-                return _stream(_events(
-                    request, legacy.SYNC, (role, device),
-                    connect=(lambda: legacy.SYNC.connect(device)) if role == "player" else None,
-                    disconnect=legacy.SYNC.disconnect if role == "player" else None,
-                ))
             if path in {"/api/listing/state", "/api/ordering/state"}:
                 role, team = _role(request, "teamIndex", "host")
                 service = legacy.LISTING if "listing" in path else legacy.ORDERING
                 return _json(200, service.snapshot(role, team))
-            if path in {"/api/listing/events", "/api/ordering/events"}:
-                role, team = _role(request, "teamIndex", "host")
-                service = legacy.LISTING if "listing" in path else legacy.ORDERING
-                return _stream(_events(
-                    request, service, (role, team),
-                    connect=(lambda: service.connect(team)) if role == "team" else None,
-                    disconnect=(lambda _connected: service.disconnect(team)) if role == "team" else None,
-                ))
             if path == "/api/presentation/state":
                 return _json(200, legacy.PRESENTATION.snapshot())
-            if path == "/api/presentation/events":
-                return _stream(_events(request, legacy.PRESENTATION, ()))
             if path == "/api/buzzer/info":
                 return _json(200, legacy.current_join_info())
             if path == "/api/buzzer/state":
                 return _json(200, legacy.BUZZER.snapshot())
-            if path == "/api/buzzer/events":
-                return _stream(_events(request, legacy.BUZZER, ()))
             if path == "/api/quiz-library":
                 snapshot = legacy.QUIZ_LIBRARY.snapshot()
                 snapshot["activeConfigUrl"] = legacy.QUIZ_LIBRARY.active_config_url()
