@@ -37,3 +37,12 @@ export function scoreChanges(currentPresentation, nextPresentation) {
     newScore: team.score
   }));
 }
+
+export function manualScoreChanges(currentPresentation, nextPresentation) {
+  const adjustment = nextPresentation?.scoreAdjustment;
+  if (!currentPresentation || !adjustment || adjustment.id === currentPresentation.scoreAdjustment?.id) return [];
+  const changes = scoreChanges(currentPresentation, nextPresentation).filter(({ points }) => points !== 0);
+  if (changes.length !== 1) return [];
+  const [change] = changes;
+  return change.teamIndex === adjustment.teamIndex && change.points === adjustment.amount ? changes : [];
+}

@@ -82,6 +82,23 @@ def validate_presentation(payload: object) -> dict:
         "screen": payload["screen"], "title": title, "teams": clean_teams,
         "logos": validate_presentation_logos(payload.get("logos")),
     }
+    score_adjustment = payload.get("scoreAdjustment")
+    if score_adjustment is not None:
+        if (not isinstance(score_adjustment, dict)
+                or not isinstance(score_adjustment.get("id"), str)
+                or not score_adjustment["id"].strip()
+                or not isinstance(score_adjustment.get("teamIndex"), int)
+                or isinstance(score_adjustment.get("teamIndex"), bool)
+                or not 0 <= score_adjustment["teamIndex"] < len(clean_teams)
+                or not isinstance(score_adjustment.get("amount"), int)
+                or isinstance(score_adjustment.get("amount"), bool)
+                or score_adjustment["amount"] == 0):
+            raise ValueError("Presentation scoreAdjustment is invalid.")
+        clean["scoreAdjustment"] = {
+            "id": score_adjustment["id"],
+            "teamIndex": score_adjustment["teamIndex"],
+            "amount": score_adjustment["amount"],
+        }
     audio_settings = payload.get("audioSettings")
     if audio_settings is None:
         clean["audioSettings"] = {
@@ -345,5 +362,4 @@ class PresentationState:
     def snapshot(self) -> dict:
         with self.condition:
             return self._snapshot_unlocked()
-
 

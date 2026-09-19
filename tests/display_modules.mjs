@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { displaySceneKey, scoreChanges } from "../js/display/scene.js";
+import { displaySceneKey, manualScoreChanges, scoreChanges } from "../js/display/scene.js";
 
 test("display scene keys describe the meaningful activity phase", () => {
   assert.equal(displaySceneKey({ screen: "ordering" }, { ordering: { round: { id: 4, phase: "active" } } }), "ordering:4:active");
@@ -17,4 +17,18 @@ test("score changes retain old and new values", () => {
     { teamIndex: 0, points: 5, oldScore: 10, newScore: 15 },
     { teamIndex: 1, points: -3, oldScore: 4, newScore: 1 }
   ]);
+});
+
+test("manual score changes animate only the matching adjustment", () => {
+  const current = { teams: [{ score: 10 }, { score: 4 }] };
+  const next = {
+    teams: [{ score: 10 }, { score: -1 }],
+    scoreAdjustment: { id: "manual-1", teamIndex: 1, amount: -5 }
+  };
+  assert.deepEqual(manualScoreChanges(current, next), [
+    { teamIndex: 1, points: -5, oldScore: 4, newScore: -1 }
+  ]);
+  assert.deepEqual(manualScoreChanges(current, { ...next, scoreAdjustment: { ...next.scoreAdjustment, amount: 5 } }), []);
+  assert.deepEqual(manualScoreChanges({ ...current, scoreAdjustment: next.scoreAdjustment }, next), []);
+  assert.deepEqual(manualScoreChanges(null, next), []);
 });

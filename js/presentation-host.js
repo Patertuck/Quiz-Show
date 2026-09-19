@@ -75,6 +75,17 @@ export function publishPresentation(snapshot) {
   return publishChain;
 }
 
+export function publishManualScoreAdjustment({ teamIndex, amount }) {
+  if (!latestPresentation || !Number.isInteger(teamIndex) || !Number.isInteger(amount) || amount === 0) {
+    return Promise.resolve();
+  }
+  return publishPresentation({
+    ...latestPresentation,
+    teams: teams(),
+    scoreAdjustment: { id: crypto.randomUUID(), teamIndex, amount }
+  });
+}
+
 export function publishStandby() {
   return publishPresentation(base("standby"));
 }

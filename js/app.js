@@ -15,12 +15,19 @@ import { hostFetch, setActiveInstanceName } from "./slot-api.js";
 import { buildGameRules, renderGameRules } from "./game-rules.js";
 import { createHostRoutes } from "./host/routes.js";
 import { loadTemplate } from "./host/templates.js";
+import { publishManualScoreAdjustment } from "./presentation-host.js";
 
 const app = document.querySelector("#app");
 const scoreboardElement = document.querySelector("#scoreboard");
 const hostControls = document.querySelector("#host-controls");
 initializeScoreboard(scoreboardElement);
 initializeHostControls({ navigate, requestEndGame });
+window.addEventListener("quiz-score-changed", (event) => {
+  if (event.detail?.source !== "manual") return;
+  publishManualScoreAdjustment(event.detail).catch((error) => {
+    console.error("Could not show the manual score adjustment on the audience display:", error);
+  });
+});
 
 const routes = createHostRoutes({
   setup, master, start, hub, victory,

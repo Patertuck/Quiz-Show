@@ -106,8 +106,8 @@ export async function mount(root, { showRules } = {}) {
   });
 
   async function handleScoreChange(event) {
-    publishJeopardy().catch(() => undefined);
     if (event.detail.source === "manual") return;
+    publishJeopardy().catch(() => undefined);
     const round = currentRound();
     if (!round?.open || round.activeTeamIndex !== event.detail.teamIndex) return;
     try {

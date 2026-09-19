@@ -5,7 +5,7 @@ import { scheduleTextFit } from "./fit-text.js";
 import { createScoreHistoryChart } from "./score-history-chart.js";
 import { element, retryingLogo } from "./display/dom.js";
 import { connectDisplaySession } from "./display/live-session.js";
-import { displaySceneKey, scoreChanges as calculateScoreChanges } from "./display/scene.js";
+import { displaySceneKey, manualScoreChanges, scoreChanges as calculateScoreChanges } from "./display/scene.js";
 import {
   playBuzzerSound,
   playWinnerCheer,
@@ -785,6 +785,11 @@ function scoreChanges(nextPresentation) {
   return calculateScoreChanges(presentation, nextPresentation);
 }
 
+function manualScoreAnimationPlan(nextPresentation) {
+  const awards = manualScoreChanges(presentation, nextPresentation);
+  return awards.length ? { awards, origins: [] } : null;
+}
+
 function orderingAnimationPlan(nextPresentation) {
   const round = orderingState?.round;
   if (!presentation || presentation.screen !== "ordering" || nextPresentation.screen !== "ordering"
@@ -844,7 +849,8 @@ function jeopardyAnimationPlan(nextPresentation) {
 }
 
 function audienceAnimationPlan(nextPresentation) {
-  return jeopardyAnimationPlan(nextPresentation)
+  return manualScoreAnimationPlan(nextPresentation)
+    || jeopardyAnimationPlan(nextPresentation)
     || orderingAnimationPlan(nextPresentation)
     || listingAnimationPlan(nextPresentation)
     || syncAnimationPlan(nextPresentation);

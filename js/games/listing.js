@@ -411,7 +411,9 @@ export async function mount(element, { showRules } = {}) {
   });
   resultFitObserver = new ResizeObserver(() => fitResultItems());
   resultFitObserver.observe(content);
-  const scoreListener = () => publishListing(questionSelection()).catch(() => undefined);
+  const scoreListener = (event) => {
+    if (event.detail?.source !== "manual") publishListing(questionSelection()).catch(() => undefined);
+  };
   window.addEventListener("quiz-score-changed", scoreListener);
   ticker = setInterval(() => {
     const timer = content.querySelector(".listing-timer");

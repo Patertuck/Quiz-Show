@@ -384,7 +384,11 @@ export async function mount(element, { showRules } = {}) {
     render(snapshot);
     if (!snapshot.round) publishOrdering(questionSelection()).catch(() => undefined);
   });
-  const handleScoreChange = () => publishOrdering(questionSelection(), orderingMap()).catch(() => undefined);
+  const handleScoreChange = (event) => {
+    if (event.detail?.source !== "manual") {
+      publishOrdering(questionSelection(), orderingMap()).catch(() => undefined);
+    }
+  };
   window.addEventListener("quiz-score-changed", handleScoreChange);
   ticker = setInterval(() => {
     const timer = content.querySelector(".ordering-timer");
