@@ -12,6 +12,7 @@ from .container import ApplicationContainer
 from .dependencies import get_container
 from .errors import install_exception_handlers
 from .legacy_routes import install_legacy_routes
+from .realtime import install_realtime
 from .settings import Settings
 
 
@@ -46,6 +47,7 @@ def create_app(
             active_instance=current.quiz_library.active_instance_name(),
         )
 
+    install_realtime(app)
     install_legacy_routes(app)
 
     return app

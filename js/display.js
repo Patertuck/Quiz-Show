@@ -3,6 +3,7 @@ import { gameDefinition } from "./game-catalog.js";
 import qrcode from "../assets/vendor/qrcode.js";
 import { scheduleTextFit } from "./fit-text.js";
 import { createScoreHistoryChart } from "./score-history-chart.js";
+import { createLiveConnection } from "./live-client.js";
 import {
   playBuzzerSound,
   playWinnerCheer,
@@ -1004,6 +1005,7 @@ function setDisplayConnection(connected) {
 }
 
 function syncGameEventSource() {
+  return;
   const nextScreen = ["jeopardy-board", "jeopardy-question"].includes(presentation?.screen)
     ? "jeopardy"
     : ["team-lobby", "ordering", "listing", "sync"].includes(presentation?.screen) ? presentation.screen : null;
@@ -1043,38 +1045,19 @@ function syncGameEventSource() {
   }
 }
 
-const presentationEvents = new EventSource("/api/presentation/events");
-presentationEvents.addEventListener("open", () => {
-  initialState("/api/presentation/state")
-    .then(receivePresentation)
-    .then(() => setDisplayConnection(true))
-    .catch(() => setDisplayConnection(false));
-});
-presentationEvents.addEventListener("state", (event) => {
-  receivePresentation(JSON.parse(event.data));
-  setDisplayConnection(true);
-});
-presentationEvents.addEventListener("error", () => setDisplayConnection(false));
-
-Promise.all([
-  initialState("/api/presentation/state"),
-  initialState("/api/buzzer/state"),
-  initialState("/api/ordering/state?role=public"),
-  initialState("/api/listing/state?role=public"),
-  initialState("/api/sync/state?role=public")
-])
-  .then(([nextPresentation, nextBuzzer, nextOrdering, nextListing, nextSync]) => {
-    receivePresentation(nextPresentation);
-    if (!buzzer || nextBuzzer.version >= buzzer.version) receiveBuzzerState(nextBuzzer, !buzzerInitialized);
-    orderingState = nextOrdering;
-    listingState = nextListing;
-    syncState = nextSync;
+const liveConnection = createLiveConnection({
+  role: "display",
+  onConnectionChange: setDisplayConnection,
+  onSnapshot: (snapshot) => {
+    receivePresentation(snapshot.presentation);
+    receiveBuzzerState(snapshot.buzzer, !buzzerInitialized);
+    receiveTeamLobbyState(snapshot.teamLobby);
+    orderingState = snapshot.ordering;
+    listingState = snapshot.listing;
+    syncState = snapshot.sync;
     if (!displayScoreAnimationActive) render();
-  })
-  .catch(() => {
-    connection.textContent = "Warten auf die Quiz-Spielleitung…";
-    connection.classList.remove("connected");
-  });
+  }
+});
 
 orderingTicker = setInterval(() => {
   const timer = root.querySelector(".display-ordering-timer");
@@ -1098,3 +1081,4 @@ window.addEventListener("resize", () => {
     scheduleTextFit(card, ".display-listing-item-text");
   });
 });
+window.addEventListener("pagehide", () => liveConnection.close());

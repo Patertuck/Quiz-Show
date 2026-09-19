@@ -283,6 +283,7 @@ def install_legacy_routes(app: FastAPI) -> None:
             "player.html", "styles/player.css", "js/player.js", "display.html", "styles/display.css",
             "styles/sync.css", "js/display.js", "js/display-score-animation.js", "js/display-sounds.js",
             "js/score-history-chart.js", "js/fit-text.js", "js/game-catalog.js",
+            "js/live-client.js",
         }
         if not host and relative not in allowed and not relative.startswith("assets/"):
             return _json(403, {"error": "Von einem anderen Gerät sind nur Spieler- und Publikumsansicht verfügbar."})

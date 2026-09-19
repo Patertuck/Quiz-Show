@@ -1,3 +1,5 @@
+import { createLiveConnection } from "./live-client.js";
+
 const waitingStep = document.querySelector("#waiting-step");
 const waitingLogo = document.querySelector(".player-waiting-logo");
 const waitingTitle = document.querySelector("#waiting-title");
@@ -59,6 +61,7 @@ let syncEvents;
 let teamLobbyEvents;
 let buzzerEvents;
 let presentationEvents;
+let liveConnection;
 let editingSyncRegistration = false;
 let orderingTimer;
 let listingPendingSaves = 0;
@@ -505,6 +508,7 @@ function receiveOrderingState(nextState, shouldRender = true) {
 }
 
 function connectOrderingEvents() {
+  if (liveConnection) return liveConnection.refresh();
   orderingEvents?.close();
   const query = selectedTeamIndex === null ? "" : `?teamIndex=${selectedTeamIndex}`;
   orderingEvents = new EventSource(`/api/ordering/events${query}`);
@@ -647,6 +651,7 @@ function renderListingPreview() {
 }
 
 function connectListingEvents() {
+  if (liveConnection) return liveConnection.refresh();
   listingEvents?.close();
   const query = selectedTeamIndex === null ? "" : `?teamIndex=${selectedTeamIndex}`;
   listingEvents = new EventSource(`/api/listing/events${query}`);
@@ -789,6 +794,7 @@ async function saveSyncVote(selectedParticipantId) {
 }
 
 function connectSyncEvents() {
+  if (liveConnection) return liveConnection.refresh();
   syncEvents?.close();
   syncEvents = new EventSource(`/api/sync/events?deviceId=${encodeURIComponent(deviceId)}`);
   syncEvents.addEventListener("state", (event) => {
@@ -823,6 +829,7 @@ function connectGameEvents() {
 }
 
 function connectTeamLobbyEvents() {
+  if (liveConnection) return liveConnection.refresh();
   if (teamLobbyEvents) return;
   teamLobbyEvents = new EventSource(`/api/team-lobby/events?deviceId=${encodeURIComponent(deviceId)}`);
   teamLobbyEvents.addEventListener("state", (event) => {
@@ -844,6 +851,7 @@ function closeCoreGameEvents() {
 }
 
 function connectCoreGameEvents() {
+  if (liveConnection) return liveConnection.refresh();
   if (!buzzerEvents) {
     buzzerEvents = new EventSource("/api/buzzer/events");
     buzzerEvents.addEventListener("state", (event) => {
@@ -972,7 +980,20 @@ function setPlayerConnection(connected) {
   connectionStatus.classList.toggle("connected", connected);
 }
 
-connectTeamLobbyEvents();
+liveConnection = createLiveConnection({
+  role: "player",
+  identity: () => ({ deviceId, teamIndex: selectedTeamIndex }),
+  onConnectionChange: setPlayerConnection,
+  onSnapshot: (snapshot) => {
+    currentState = snapshot.buzzer;
+    teamLobbyState = snapshot.teamLobby;
+    presentationState = snapshot.presentation;
+    receiveOrderingState(snapshot.ordering, false);
+    listingState = snapshot.listing;
+    syncState = snapshot.sync;
+    render();
+  }
+});
 
 async function loadPresentationState() {
   const response = await fetch("/api/presentation/state", { cache: "no-store" });
@@ -980,12 +1001,6 @@ async function loadPresentationState() {
   presentationState = await response.json();
   render();
 }
-
-Promise.all([loadState(), loadPresentationState(), loadTeamLobbyState()]).catch(() => {
-  connectionStatus.textContent = "Offline";
-  waitingStatus.hidden = false;
-  waitingStatus.textContent = "Die Quiz-Spielleitung konnte nicht erreicht werden. Prüft die WLAN-Verbindung.";
-});
 
 orderingTimer = setInterval(() => {
   if (!orderingState?.round || orderingState.round.phase !== "active") return;
@@ -1003,4 +1018,7 @@ setInterval(() => {
   syncCountdown.textContent = Math.max(0, Math.ceil((syncState.round.deadlineAt - Date.now()) / 1000));
 }, 100);
 
-window.addEventListener("pagehide", () => cancelDrag(false));
+window.addEventListener("pagehide", () => {
+  cancelDrag(false);
+  liveConnection?.close();
+});
