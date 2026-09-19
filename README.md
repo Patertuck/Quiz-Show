@@ -32,9 +32,11 @@ Benötigt wird Python 3.11 oder neuer. Erstellt einmalig eine virtuelle Umgebung
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e ".[test]"
+npm install
 ```
 
 Verwendet danach für Start und Tests den Python-Interpreter aus `.venv`.
+Die visuellen Browsertests verwenden eine lokal installierte aktuelle Version von Google Chrome.
 
 ## Entwicklung und Qualitätsprüfung
 
@@ -50,8 +52,13 @@ Einzeln stehen folgende Befehle zur Verfügung:
 .\.venv\Scripts\python.exe -m unittest discover -s tests -p "test_*.py"
 npm test
 npm run check
+npm run test:visual
 .\.venv\Scripts\python.exe -m ruff check .
 ```
+
+`npm run test:visual` prüft Host-, Display- und Spieleransichten bei mehreren Desktop- und
+Handygrössen auf Überlauf, verdeckte Bedienelemente und visuelle Abweichungen. Beabsichtigte
+Designänderungen aktualisiert ihr nach einer Sichtprüfung mit `npm run test:visual:update`.
 
 Der Server wird mit `python main.py` gestartet. Die Hostoberfläche ist nur vom lokalen Rechner aus
 erreichbar; Geräte im LAN erhalten ausschließlich Spieler- und Publikumsressourcen.

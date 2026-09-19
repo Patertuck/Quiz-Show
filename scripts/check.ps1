@@ -7,3 +7,5 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 node --check js/app.js
 node --check js/player.js
 node --check js/display.js
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+npm run test:visual

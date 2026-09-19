@@ -4,6 +4,11 @@
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.mjs",
-    "check": "node --check js/app.js && node --check js/player.js && node --check js/display.js"
+    "check": "node --check js/app.js && node --check js/player.js && node --check js/display.js",
+    "test:visual": "playwright test",
+    "test:visual:update": "playwright test --update-snapshots"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0"
   }
 }
