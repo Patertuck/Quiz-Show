@@ -4,6 +4,7 @@
 .ordering-heading h1 { margin: 0; font-size: clamp(1.5rem, 3vw, 2.5rem); }
 .ordering-heading p { min-height: 1.25em; margin: .2rem 4rem 0; color: #eddcff; }
 .ordering-heading p:empty { display: none; }
+.ordering-connected { margin: -.35rem 0; color: #eddcff; font-size: .8rem; font-weight: 800; }
 #ordering-content { display: grid; min-height: 0; align-content: center; justify-items: center; gap: .7rem; overflow: hidden; }
 #ordering-content:has(.ordering-results-layout) { display: block; }
 .ordering-question-grid { display: grid; width: min(62rem, 92%); grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 1rem; }

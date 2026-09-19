@@ -9,6 +9,7 @@ import { isGameSnapshot } from "./control-state.js";
 
 let root;
 let content;
+let headingTitle;
 let statusLine;
 let orderingState;
 let events;
@@ -210,7 +211,10 @@ function renderActive(round) {
   timer.className = "ordering-timer";
   timer.dataset.deadline = round.deadlineAt;
   timer.textContent = remaining(round);
-  setStatus(`${round.prompt} · ${orderingState.connectedTeamCount} ${orderingState.connectedTeamCount === 1 ? "Team verbunden" : "Teams verbunden"}`);
+  setStatus(round.prompt);
+  const connected = document.createElement("p");
+  connected.className = "ordering-connected";
+  connected.textContent = `${orderingState.connectedTeamCount} ${orderingState.connectedTeamCount === 1 ? "Team verbunden" : "Teams verbunden"}`;
   const columns = document.createElement("div");
   columns.className = "ordering-live-columns";
   orderingState.teams.forEach((name, teamIndex) => {
@@ -234,7 +238,7 @@ function renderActive(round) {
     button("Antworten sperren", "primary-button", () => request("lock")),
     button("Runde abbrechen", "danger-button", confirmCancel)
   );
-  content.replaceChildren(timer, columns, answer, actions);
+  content.replaceChildren(timer, connected, columns, answer, actions);
 }
 
 function teamColumn(round, teamIndex) {
@@ -272,7 +276,7 @@ function teamColumn(round, teamIndex) {
 
 function renderResults(round) {
   const allRevealed = round.revealed.length === round.correctItems.length;
-  setStatus();
+  setStatus(round.prompt);
   const layout = document.createElement("div"); layout.className = "ordering-results-layout";
   const board = document.createElement("div"); board.className = "ordering-results";
   const split = Math.ceil(orderingState.teams.length / 2);
@@ -357,6 +361,7 @@ async function confirmCancel(trigger) {
 function render(snapshot) {
   orderingState = snapshot;
   const round = snapshot.round;
+  headingTitle.textContent = round?.title || "Order Up";
   rulesButton.hidden = Boolean(round);
   if (!round && selectedQuestion) renderPreview();
   else if (!round) renderOverview();
@@ -367,6 +372,7 @@ function render(snapshot) {
 export async function mount(element, { showRules } = {}) {
   root = element;
   content = root.querySelector("#ordering-content");
+  headingTitle = root.querySelector(".ordering-heading h1");
   statusLine = root.querySelector("#ordering-status");
   rulesButton = root.querySelector("#ordering-rules-button");
   rulesButton.addEventListener("click", () => showRules().catch((error) => setStatus(error.message)));
