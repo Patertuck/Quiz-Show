@@ -53,6 +53,22 @@ class FastApiTransportTests(unittest.TestCase):
         self.assertIn(self.request("GET", "/..%2Fmain.py").status_code, {403, 404})
         self.assertEqual(404, self.request("GET", "/api/not-real").status_code)
 
+    def test_static_resources_are_revalidated_and_api_state_is_never_cached(self):
+        script = self.request("GET", "/js/app.js")
+        state = self.request("GET", "/api/buzzer/state")
+
+        self.assertEqual("no-cache, max-age=0, must-revalidate", script.headers["Cache-Control"])
+        self.assertEqual("no-store", state.headers["Cache-Control"])
+
+    def test_lan_clients_can_load_all_player_module_dependencies(self):
+        for path in (
+            "/js/player.js", "/js/live-client.js", "/js/player/commands.js",
+            "/js/player/identity.js", "/js/player/listing.js", "/js/player/live-session.js",
+            "/js/player/ordering.js", "/js/player/sync.js",
+        ):
+            with self.subTest(path=path):
+                self.assertEqual(200, self.request("GET", path, base_url="http://192.168.1.20").status_code)
+
 
 if __name__ == "__main__":
     unittest.main()
