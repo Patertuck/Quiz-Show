@@ -14,7 +14,7 @@
 .sync-question-card.completed { cursor: context-menu; opacity: .4; }
 .sync-overview { display: grid; min-height: 0; gap: clamp(.4rem, 1.5vh, 1.2rem); }
 .sync-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: clamp(.35rem, 1vh, .75rem); }
-.sync-actions button { padding-block: clamp(.4rem, 1vh, .75rem); font-size: clamp(.75rem, 1.7vh, 1rem); }
+.sync-actions button { min-height: 2rem; padding-block: clamp(.4rem, 1vh, .75rem); font-size: clamp(.75rem, 1.7vh, 1rem); }
 .sync-prompt-panel { display: grid; min-height: 0; place-items: center; align-content: center; gap: clamp(.45rem, 1.5vh, 1rem); text-align: center; }
 .sync-prompt-panel h2, .sync-result-prompt { max-width: 18ch; margin: 0 auto; color: #fff; font-size: clamp(1.4rem, min(6vw, 6.5vh), 4.6rem); line-height: 1.08; text-align: center; overflow-wrap: anywhere; }
 .sync-result-prompt { font-size: clamp(1.5rem, 5.5vh, 4.5rem); }

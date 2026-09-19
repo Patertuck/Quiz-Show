@@ -30,6 +30,6 @@
 .rules-sync-result { display: grid; width: clamp(5rem, 12vh, 8rem); aspect-ratio: 1; place-items: center; border: .35rem solid #79e8a6; border-radius: 50%; background: #176a4a; color: #fff45c; font-size: clamp(1.2rem, 3.5vh, 2.2rem); }
 .game-rules-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: .75rem; }
 .game-rules-actions .secondary-button { border-color: #aebaff; }
-.game-rules-button { position: absolute; z-index: 5; top: .75rem; right: .75rem; padding: .55rem 1rem; border: 2px solid #ffffff55; background: #ffffff18; color: #fff; font-weight: 800; }
+.game-rules-button { position: absolute; z-index: 5; top: .75rem; right: 4.35rem; padding: .55rem 1rem; border: 2px solid #ffffff55; background: #ffffff18; color: #fff; font-weight: 800; }
 .game-rules-button:hover, .game-rules-button:focus-visible { border-color: #fff45c; background: #ffffff2b; outline: none; }
 @media (max-height: 650px) { .game-rules-panel { gap: .4rem; padding-block: .75rem; } .game-rules-graphic { min-height: 3.5rem; } .game-rules-steps { gap: .25rem; } }

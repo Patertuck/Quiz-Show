@@ -39,7 +39,7 @@
 #buzz-order li { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.35rem 0.4rem 0.35rem 0.65rem; border-radius: 0.4rem; background: rgb(255 255 255 / 12%); font-weight: bold; }
 #buzz-order li span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #buzz-order li.active { outline: 3px solid var(--yellow); background: #fff; color: var(--blue-dark); }
-.buzz-remove-button { display: grid; width: 1.8rem; height: 1.8rem; flex: 0 0 auto; place-items: center; padding: 0; border-radius: 50%; background: rgb(255 255 255 / 16%); color: inherit; font-size: 1.25rem; font-weight: bold; line-height: 1; }
+.buzz-remove-button { display: grid; width: 2.25rem; height: 2.25rem; flex: 0 0 auto; place-items: center; padding: 0; border-radius: 50%; background: rgb(255 255 255 / 16%); color: inherit; font-size: 1.25rem; font-weight: bold; line-height: 1; }
 .buzz-remove-button:hover, .buzz-remove-button:focus-visible { background: #e94f64; color: #fff; }
 .buzz-remove-button:disabled { cursor: wait; opacity: 0.5; }
 #buzzer-control-button { flex: 0 0 auto; padding: 0.7rem; background: var(--yellow); color: #17206a; font-weight: bold; }
