@@ -67,6 +67,27 @@ class RealtimeTests(unittest.TestCase):
                 with client.websocket_connect("ws://192.168.1.20/ws/live?role=host"):
                     pass
 
+    def test_replacement_host_connection_restores_the_current_session(self):
+        with self.client() as client:
+            client.post("/api/host/commands", json={
+                "instanceName": "quiz-night", "expectedRevision": 0,
+                "command": {"type": "start-session", "teams": [{"name": "Rot", "score": 50}]},
+            })
+            client.post("/api/host/commands", json={
+                "instanceName": "quiz-night", "expectedRevision": 1,
+                "command": {"type": "set-round-phase", "game": "ordering", "phase": "active",
+                            "deadline_at": 2_000_000_000},
+            })
+            with client.websocket_connect("/ws/live?role=host") as first:
+                first_snapshot = first.receive_json()["data"]["session"]
+            with client.websocket_connect("/ws/live?role=host") as replacement:
+                replacement_snapshot = replacement.receive_json()["data"]["session"]
+
+        self.assertEqual(first_snapshot, replacement_snapshot)
+        self.assertEqual("ordering", replacement_snapshot["active_game"])
+        self.assertEqual("active", replacement_snapshot["phase"])
+        self.assertEqual(2, replacement_snapshot["revision"])
+
 
 if __name__ == "__main__":
     unittest.main()
