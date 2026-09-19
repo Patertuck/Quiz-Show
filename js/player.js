@@ -1,4 +1,9 @@
-import { createLiveConnection } from "./live-client.js";
+import { playerCommands } from "./player/commands.js";
+import { loadPlayerIdentity, saveTeamSelection, clearTeamSelection } from "./player/identity.js";
+import { appendUniqueItem } from "./player/listing.js";
+import { connectPlayerSession } from "./player/live-session.js";
+import { moveOrder } from "./player/ordering.js";
+import { ownSyncParticipant as findOwnSyncParticipant } from "./player/sync.js";
 
 const waitingStep = document.querySelector("#waiting-step");
 const waitingLogo = document.querySelector(".player-waiting-logo");
@@ -72,20 +77,14 @@ let listingSubmissionQueued = false;
 let listingSaveError = "";
 let activeDrag = null;
 let deferredOrderingState = null;
-const newDeviceId = () => crypto.randomUUID?.()
-  || Array.from(crypto.getRandomValues(new Uint32Array(4)), (value) => value.toString(16).padStart(8, "0")).join("");
-const deviceId = localStorage.getItem("quiz-buzzer-device") || newDeviceId();
-localStorage.setItem("quiz-buzzer-device", deviceId);
-
-function savedSelection() {
-  try { return JSON.parse(localStorage.getItem("quiz-buzzer-team")); }
-  catch { return null; }
-}
+const playerIdentity = loadPlayerIdentity();
+const deviceId = playerIdentity.deviceId;
 
 function showTeamSelection() {
   cancelDrag(false);
   selectedTeamIndex = null;
-  localStorage.removeItem("quiz-buzzer-team");
+  clearTeamSelection();
+  playerIdentity.teamSelection = null;
   waitingStep.hidden = true;
   teamStep.hidden = false;
   teamLobbyStep.hidden = true;
@@ -103,7 +102,8 @@ function showNoGameWaiting() {
   const hadSelection = selectedTeamIndex !== null;
   cancelDrag(false);
   selectedTeamIndex = null;
-  localStorage.removeItem("quiz-buzzer-team");
+  clearTeamSelection();
+  playerIdentity.teamSelection = null;
   waitingTeamRow.hidden = true;
   waitingTitle.textContent = "Warten auf ein Spiel";
   waitingStatus.hidden = false;
@@ -138,7 +138,8 @@ function showActivityWaiting() {
 
 function selectTeam(index) {
   selectedTeamIndex = index;
-  localStorage.setItem("quiz-buzzer-team", JSON.stringify({ index, revision: currentState.teamsRevision }));
+  playerIdentity.teamSelection = { index, revision: currentState.teamsRevision };
+  saveTeamSelection(playerIdentity.teamSelection);
   waitingStep.hidden = true;
   teamStep.hidden = true;
   buzzStep.hidden = false;
@@ -163,14 +164,9 @@ function renderTeams() {
 async function teamLobbyAction(action, extra = {}) {
   teamLobbyStatus.textContent = "";
   try {
-    const response = await fetch("/api/team-lobby/player", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, deviceId, ...extra })
-    });
-    const payload = await response.json().catch(() => ({}));
+    const payload = await playerCommands.teamLobby({ action, deviceId, ...extra });
     if (payload.state) teamLobbyState = payload.state;
     else if (payload.phase && Array.isArray(payload.teams)) teamLobbyState = payload;
-    if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
     render();
     return true;
   } catch (error) {
@@ -231,7 +227,7 @@ function render() {
   }
   waitingStep.hidden = true;
   teamLobbyStep.hidden = true;
-  const saved = savedSelection();
+  const saved = playerIdentity.teamSelection;
   let restoredSelection = false;
   if (selectedTeamIndex === null && saved?.revision === currentState.teamsRevision
       && Number.isInteger(saved.index) && saved.index >= 0 && saved.index < currentState.teams.length) {
@@ -311,14 +307,6 @@ function render() {
     buzzButton.textContent = submitting ? "WIRD GESENDET" : "BUZZ";
     buzzStatus.textContent = "";
   }
-}
-
-function moveOrder(order, from, to) {
-  if (from === to || to < 0 || to >= order.length) return order;
-  const result = [...order];
-  const [item] = result.splice(from, 1);
-  result.splice(to, 0, item);
-  return result;
 }
 
 function applyDeferredOrderingState() {
@@ -423,16 +411,11 @@ async function submitOrder(order) {
   if (!round || selectedTeamIndex === null || round.phase !== "active") return;
   orderingStatus.textContent = "";
   try {
-    const response = await fetch("/api/ordering/order", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        roundId: round.id, teamsRevision: orderingState.teamsRevision,
-        teamIndex: selectedTeamIndex, deviceId, order
-      })
+    const payload = await playerCommands.ordering({
+      roundId: round.id, teamsRevision: orderingState.teamsRevision,
+      teamIndex: selectedTeamIndex, deviceId, order
     });
-    const payload = await response.json().catch(() => ({}));
     if (payload.state) orderingState = payload.state;
-    if (!response.ok) throw new Error(payload.error || "Die Reihenfolge wurde nicht akzeptiert.");
     orderingStatus.textContent = "";
   } catch (error) {
     orderingStatus.textContent = error.message || "Die Spielleitung konnte nicht erreicht werden.";
@@ -550,14 +533,8 @@ function saveListingItems(items, submit = false) {
   renderListing();
   if (!submit) focusListingEntry();
   listingSaveChain = listingSaveChain.catch(() => undefined).then(async () => {
-    const response = await fetch("/api/listing/submission", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(requestData)
-    });
-    const payload = await response.json().catch(() => ({}));
+    const payload = await playerCommands.listing(requestData);
     if (payload.state) listingState = payload.state;
-    if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
   }).catch((error) => {
     listingSaveError = error.message || "Die Spielleitung konnte nicht erreicht werden.";
   }).finally(() => {
@@ -664,9 +641,7 @@ function connectListingEvents() {
   });
 }
 
-function ownSyncParticipant() {
-  return syncState?.participants.find((item) => item.id === syncState.selfParticipantId) || null;
-}
+function ownSyncParticipant() { return findOwnSyncParticipant(syncState); }
 
 function showSyncRegistration() {
   editingSyncRegistration = true;
@@ -706,19 +681,13 @@ function renderSyncAccountChoices(own) {
 async function reconnectSyncParticipant(participantId) {
   syncRegisterStatus.textContent = "Wird wieder verbunden …";
   try {
-    const response = await fetch("/api/sync/reconnect", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        deviceId,
-        participantId,
-        teamIndex: selectedTeamIndex,
-        teamsRevision: syncState.teamsRevision
-      })
+    const payload = await playerCommands.syncReconnect({
+      deviceId,
+      participantId,
+      teamIndex: selectedTeamIndex,
+      teamsRevision: syncState.teamsRevision
     });
-    const payload = await response.json().catch(() => ({}));
     if (payload.state) syncState = payload.state;
-    if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
     editingSyncRegistration = false;
     connectSyncEvents();
     render();
@@ -778,14 +747,8 @@ async function saveSyncVote(selectedParticipantId) {
   const round = syncState?.round;
   if (!round || round.phase !== "active") return;
   try {
-    const response = await fetch("/api/sync/vote", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ deviceId, roundId: round.id, selectedParticipantId })
-    });
-    const payload = await response.json().catch(() => ({}));
+    const payload = await playerCommands.syncVote({ deviceId, roundId: round.id, selectedParticipantId });
     if (payload.state) syncState = payload.state;
-    if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
     if (navigator.vibrate) navigator.vibrate(40);
     render();
   } catch (error) {
@@ -903,19 +866,13 @@ syncRegisterForm.addEventListener("submit", async (event) => {
   if (!name || selectedTeamIndex === null || !syncState) return;
   syncRegisterStatus.textContent = "Wird registriert …";
   try {
-    const response = await fetch("/api/sync/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        deviceId,
-        teamsRevision: syncState.teamsRevision,
-        teamIndex: selectedTeamIndex,
-        name
-      })
+    const payload = await playerCommands.syncRegister({
+      deviceId,
+      teamsRevision: syncState.teamsRevision,
+      teamIndex: selectedTeamIndex,
+      name
     });
-    const payload = await response.json().catch(() => ({}));
     if (payload.state) syncState = payload.state;
-    if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
     editingSyncRegistration = false;
     connectSyncEvents();
     render();
@@ -925,20 +882,21 @@ syncRegisterForm.addEventListener("submit", async (event) => {
 });
 listingForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  const value = listingEntry.value.trim();
+  const value = listingEntry.value;
   const round = listingState?.round;
-  if (!value || !round || round.teamSubmitted) return;
+  if (!value.trim() || !round || round.teamSubmitted) return;
   const items = round.teamItems || [];
   const currentItems = listingLocalRoundId === round.id ? listingLocalItems : items;
-  if (currentItems.some((item) => item.toLocaleLowerCase() === value.toLocaleLowerCase())) {
+  const appended = appendUniqueItem(currentItems, value, round.maxItems);
+  if (appended.error === "duplicate") {
     listingStatus.textContent = "Dieser Eintrag steht bereits in eurer Liste.";
     listingEntry.focus({ preventScroll: true });
     return;
   }
-  if (currentItems.length >= round.maxItems) return;
+  if (appended.error) return;
   listingEntry.value = "";
   listingEntry.focus({ preventScroll: true });
-  saveListingItems([...currentItems, value]);
+  saveListingItems(appended.items);
 });
 teamLobbyCreateForm.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -952,22 +910,17 @@ buzzButton.addEventListener("click", async () => {
   let errorMessage = "";
   render();
   try {
-    const response = await fetch("/api/buzzer/buzz", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        roundId: currentState.round.id,
-        teamsRevision: currentState.teamsRevision,
-        teamIndex: selectedTeamIndex,
-        deviceId
-      })
+    const result = await playerCommands.buzz({
+      roundId: currentState.round.id,
+      teamsRevision: currentState.teamsRevision,
+      teamIndex: selectedTeamIndex,
+      deviceId
     });
-    const result = await response.json().catch(() => ({}));
     if (result.state) currentState = result.state;
-    if (!response.ok) errorMessage = result.error || "Der Buzzer wurde nicht akzeptiert.";
-    else if (navigator.vibrate) navigator.vibrate(100);
-  } catch {
-    errorMessage = "Die Quiz-Spielleitung konnte nicht erreicht werden. Prüft die WLAN-Verbindung.";
+    if (navigator.vibrate) navigator.vibrate(100);
+  } catch (error) {
+    if (error.payload?.state) currentState = error.payload.state;
+    errorMessage = error.message || "Die Quiz-Spielleitung konnte nicht erreicht werden. Prüft die WLAN-Verbindung.";
   } finally {
     submitting = false;
     render();
@@ -980,8 +933,7 @@ function setPlayerConnection(connected) {
   connectionStatus.classList.toggle("connected", connected);
 }
 
-liveConnection = createLiveConnection({
-  role: "player",
+liveConnection = connectPlayerSession({
   identity: () => ({ deviceId, teamIndex: selectedTeamIndex }),
   onConnectionChange: setPlayerConnection,
   onSnapshot: (snapshot) => {
