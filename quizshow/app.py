@@ -12,6 +12,7 @@ from .container import ApplicationContainer
 from .dependencies import get_container
 from .errors import install_exception_handlers
 from .http_routes import install_http_routes
+from .logging import install_request_logging
 from .realtime import install_realtime
 from .settings import Settings
 
@@ -39,6 +40,7 @@ def create_app(
 
     app = FastAPI(title="Quizshow", version="0.1.0", lifespan=lifespan)
     install_exception_handlers(app)
+    install_request_logging(app)
 
     @app.get("/api/health", response_model=HealthResponse)
     def health(current: ApplicationContainer = Depends(get_container)) -> HealthResponse:

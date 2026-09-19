@@ -92,7 +92,7 @@ class ApplicationFoundationTests(unittest.TestCase):
         response = asyncio.run(request())
 
         self.assertEqual(409, response.status_code)
-        self.assertEqual({"error": "Kaputt"}, response.json())
+        self.assertEqual({"error": "Kaputt", "code": "application_error"}, response.json())
         self.assertEqual("no-store", response.headers["Cache-Control"])
 
 

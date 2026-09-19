@@ -53,6 +53,12 @@ class FastApiTransportTests(unittest.TestCase):
         self.assertIn(self.request("GET", "/..%2Fmain.py").status_code, {403, 404})
         self.assertEqual(404, self.request("GET", "/api/not-real").status_code)
 
+    def test_requests_receive_a_traceable_request_id(self):
+        generated = self.request("GET", "/api/health")
+        supplied = self.request("GET", "/api/health", headers={"X-Request-ID": "test-request"})
+        self.assertTrue(generated.headers["X-Request-ID"])
+        self.assertEqual("test-request", supplied.headers["X-Request-ID"])
+
     def test_static_resources_are_revalidated_and_api_state_is_never_cached(self):
         script = self.request("GET", "/js/app.js")
         state = self.request("GET", "/api/buzzer/state")
