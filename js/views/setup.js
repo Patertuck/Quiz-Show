@@ -2,8 +2,9 @@ import qrcode from "../../assets/vendor/qrcode.js";
 import { state, startRuntime, resumeRuntime, saveState, deleteSavedState } from "../store.js";
 import { renderScoreboard } from "../scoreboard.js";
 import { publishTeamLobby } from "../presentation-host.js";
-import { hostFetch, slotUrl } from "../slot-api.js";
+import { hostFetch } from "../slot-api.js";
 import { confirmAction } from "../confirm-dialog.js";
+import { subscribeHostState } from "../host/live-state.js";
 
 async function post(path, payload) {
   const response = await hostFetch(path, {
@@ -182,7 +183,6 @@ export async function mount(root, { navigate }) {
     message.textContent = "Der alte Spielstand passt nicht mehr zur Quizkonfiguration; es kann nur ein neues Spiel gestartet werden.";
   }
   render();
-  events = new EventSource(slotUrl("/api/team-lobby/events"));
-  events.addEventListener("state", (event) => { lobby = JSON.parse(event.data); render(); });
-  return () => events?.close();
+  events = subscribeHostState("teamLobby", (snapshot) => { lobby = snapshot; render(); });
+  return () => events?.();
 }

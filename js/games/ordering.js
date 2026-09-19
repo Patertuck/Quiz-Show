@@ -1,9 +1,10 @@
 import { publishOrdering } from "../presentation-host.js";
 import { state, applyAward, saveState } from "../store.js";
 import { renderScoreboard } from "../scoreboard.js";
-import { hostFetch, slotUrl } from "../slot-api.js";
+import { hostFetch } from "../slot-api.js";
 import { confirmAction } from "../confirm-dialog.js";
 import { scheduleTextFit } from "../fit-text.js";
+import { subscribeHostState } from "../host/live-state.js";
 
 let root;
 let content;
@@ -377,9 +378,7 @@ export async function mount(element, { showRules } = {}) {
   visibleMapItem = null;
   await publishOrdering(questionSelection(null));
   render(orderingState);
-  events = new EventSource(slotUrl("/api/ordering/events"));
-  events.addEventListener("state", (event) => {
-    const snapshot = JSON.parse(event.data);
+  events = subscribeHostState("ordering", (snapshot) => {
     render(snapshot);
     if (!snapshot.round) publishOrdering(questionSelection()).catch(() => undefined);
   });
@@ -392,7 +391,7 @@ export async function mount(element, { showRules } = {}) {
   resultFitObserver = new ResizeObserver(() => fitResultText());
   resultFitObserver.observe(content);
   return () => {
-    events?.close();
+    events?.();
     clearInterval(ticker);
     resultFitObserver?.disconnect();
     window.removeEventListener("quiz-score-changed", handleScoreChange);

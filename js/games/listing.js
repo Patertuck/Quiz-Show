@@ -2,8 +2,9 @@ import { publishListing } from "../presentation-host.js";
 import { state, applyAward, saveState } from "../store.js";
 import { renderScoreboard } from "../scoreboard.js";
 import { scheduleTextFit } from "../fit-text.js";
-import { hostFetch, slotUrl } from "../slot-api.js";
+import { hostFetch } from "../slot-api.js";
 import { confirmAction } from "../confirm-dialog.js";
+import { subscribeHostState } from "../host/live-state.js";
 
 let root;
 let content;
@@ -402,9 +403,7 @@ export async function mount(element, { showRules } = {}) {
   listingState = await hostFetch("/api/listing/state", { cache: "no-store" }).then((response) => response.json());
   await publishListing(questionSelection(null));
   render(listingState);
-  events = new EventSource(slotUrl("/api/listing/events"));
-  events.addEventListener("state", (event) => {
-    const snapshot = JSON.parse(event.data);
+  events = subscribeHostState("listing", (snapshot) => {
     render(snapshot);
     if (!snapshot.round) publishListing(questionSelection()).catch(() => undefined);
   });
@@ -417,7 +416,7 @@ export async function mount(element, { showRules } = {}) {
     if (timer) timer.textContent = Math.max(0, Math.ceil((Number(timer.dataset.deadline) - Date.now()) / 1000));
   }, 200);
   return () => {
-    events?.close();
+    events?.();
     resultFitObserver?.disconnect();
     resultFitObserver = null;
     clearInterval(ticker);

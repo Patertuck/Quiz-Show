@@ -10,9 +10,11 @@ import * as ordering from "./games/ordering.js";
 import * as listing from "./games/listing.js";
 import * as sync from "./games/sync.js";
 import * as victory from "./views/victory.js";
-import { GAME_CATALOG, hasConfiguredGame } from "./game-catalog.js";
+import { hasConfiguredGame } from "./game-catalog.js";
 import { hostFetch, setActiveInstanceName } from "./slot-api.js";
 import { buildGameRules, renderGameRules } from "./game-rules.js";
+import { createHostRoutes } from "./host/routes.js";
+import { loadTemplate } from "./host/templates.js";
 
 const app = document.querySelector("#app");
 const scoreboardElement = document.querySelector("#scoreboard");
@@ -20,25 +22,10 @@ const hostControls = document.querySelector("#host-controls");
 initializeScoreboard(scoreboardElement);
 initializeHostControls({ navigate, requestEndGame });
 
-const gameControllers = { jeopardy, ordering, listing, sync };
-const gameRoutes = Object.fromEntries(GAME_CATALOG.map((game) => [game.id, {
-  template: game.template,
-  controller: gameControllers[game.id],
-  scoreboard: game.scoreboard,
-  requiresGame: true,
-  gameId: game.id
-}]));
-
-const routes = {
-  master: { template: "views/master.html", controller: master, scoreboard: "hidden", requiresGame: false, requiresConfig: false, hostControls: "hidden" },
-  start: { template: "views/start.html", controller: start, scoreboard: "hidden", requiresGame: false, hostControls: "hidden" },
-  setup: { template: "views/setup.html", controller: setup, scoreboard: "hidden", requiresGame: false, hostControls: "hidden" },
-  hub: { template: "views/hub.html", controller: hub, scoreboard: "standings", requiresGame: true },
-  ...gameRoutes,
-  victory: { template: "views/victory.html", controller: victory, scoreboard: "hidden", requiresGame: true }
-};
-
-const templateCache = new Map();
+const routes = createHostRoutes({
+  setup, master, start, hub, victory,
+  games: { jeopardy, ordering, listing, sync }
+});
 let cleanup;
 let navigationId = 0;
 
@@ -64,16 +51,6 @@ export function navigate(name) {
 
 function requestEndGame() {
   if (window.confirm("Spiel wirklich beenden und den Endstand anzeigen?")) navigate("victory");
-}
-
-async function templateFor(path) {
-  if (!templateCache.has(path)) {
-    templateCache.set(path, fetch(path, { cache: "no-store" }).then(async (response) => {
-      if (!response.ok) throw new Error(`${path} konnte nicht geladen werden (HTTP ${response.status}).`);
-      return response.text();
-    }));
-  }
-  return templateCache.get(path);
 }
 
 function renderError(error) {
@@ -149,7 +126,7 @@ async function renderRoute() {
       await showGameRules(route.gameId, true);
       return;
     }
-    const template = await templateFor(route.template);
+    const template = await loadTemplate(route.template);
     if (thisNavigation !== navigationId) return;
     app.innerHTML = template;
     const result = await route.controller.mount(app, {

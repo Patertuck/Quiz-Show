@@ -1,8 +1,9 @@
 import { publishSync } from "../presentation-host.js";
 import { state, applyAward, saveState } from "../store.js";
 import { renderScoreboard } from "../scoreboard.js";
-import { hostFetch, slotUrl } from "../slot-api.js";
+import { hostFetch } from "../slot-api.js";
 import { confirmAction } from "../confirm-dialog.js";
+import { subscribeHostState } from "../host/live-state.js";
 
 let root;
 let content;
@@ -290,9 +291,8 @@ export async function mount(element, { showRules } = {}) {
   });
   await publishSync();
   render(await hostFetch("/api/sync/state", { cache: "no-store" }).then((response) => response.json()));
-  events = new EventSource(slotUrl("/api/sync/events"));
-  events.addEventListener("state", (event) => {
-    render(JSON.parse(event.data));
+  events = subscribeHostState("sync", (snapshot) => {
+    render(snapshot);
     publishSync().catch(() => undefined);
   });
   ticker = setInterval(() => {
@@ -300,7 +300,7 @@ export async function mount(element, { showRules } = {}) {
     if (timer) timer.textContent = Math.max(0, Math.ceil((Number(timer.dataset.deadline) - Date.now()) / 1000));
   }, 100);
   return () => {
-    events?.close();
+    events?.();
     clearInterval(ticker);
   };
 }
