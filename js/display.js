@@ -3,7 +3,9 @@ import { gameDefinition } from "./game-catalog.js";
 import qrcode from "../assets/vendor/qrcode.js";
 import { scheduleTextFit } from "./fit-text.js";
 import { createScoreHistoryChart } from "./score-history-chart.js";
-import { createLiveConnection } from "./live-client.js";
+import { element, retryingLogo } from "./display/dom.js";
+import { connectDisplaySession } from "./display/live-session.js";
+import { displaySceneKey, scoreChanges as calculateScoreChanges } from "./display/scene.js";
 import {
   playBuzzerSound,
   playWinnerCheer,
@@ -50,32 +52,7 @@ const presentationQueue = [];
 const animatedOrderingRounds = new Set();
 const animatedListingRounds = new Set();
 const animatedSyncRounds = new Set();
-const standbyLogoRetryDelay = 2000;
-
-function element(tag, className, text) {
-  const node = document.createElement(tag);
-  if (className) node.className = className;
-  if (text !== undefined) node.textContent = text;
-  return node;
-}
-
-function logoImage(className, source) {
-  const logo = element("img", className);
-  let retryTimer;
-  logo.addEventListener("load", () => clearTimeout(retryTimer));
-  logo.addEventListener("error", () => {
-    clearTimeout(retryTimer);
-    retryTimer = setTimeout(() => {
-      if (!logo.isConnected) return;
-      const separator = source.includes("?") ? "&" : "?";
-      logo.src = `${source}${separator}retry=${Date.now()}`;
-    }, standbyLogoRetryDelay);
-  });
-  logo.src = source;
-  logo.alt = "";
-  logo.setAttribute("aria-hidden", "true");
-  return logo;
-}
+const logoImage = retryingLogo;
 
 function renderMedia(container, text, image) {
   if (typeof text === "string" && text.trim()) {
@@ -731,34 +708,7 @@ function syncVictorySounds(previousPresentation, nextPresentation, initial = fal
 }
 
 function sceneKey() {
-  if (!presentation) return null;
-  if (presentation.screen === "jeopardy-question") {
-    return `${presentation.screen}:${presentation.question?.id}:${presentation.question?.answerRevealed ? "answer" : "question"}`;
-  }
-  if (presentation.screen === "ordering") {
-    const round = orderingState?.round;
-    const view = !round ? "waiting" : round.phase === "active" ? "active" : "results";
-    return `ordering:${round?.id || "none"}:${view}`;
-  }
-  if (presentation.screen === "listing") {
-    const round = listingState?.round;
-    if (!round) return `listing:waiting:${presentation.questionSelection?.selectedQuestion?.id || "overview"}`;
-    if (round.phase === "review") return `listing:${round.id}:review:${round.review?.index ?? 0}`;
-    if (["results", "distributed"].includes(round.phase)) {
-      const resultView = round.resultView;
-      return `listing:${round.id}:results:${resultView?.mode || "ranking"}:${resultView?.teamPosition ?? 0}`;
-    }
-    return `listing:${round.id}:${round.phase}`;
-  }
-  if (presentation.screen === "team-lobby") return "team-lobby";
-  if (presentation.screen === "sync") {
-    const round = syncState?.round;
-    if (!syncState?.rosterLocked) return "sync:lobby";
-    if (!round) return "sync:waiting";
-    const view = ["results", "distributed"].includes(round.phase) ? "results" : round.phase;
-    return `sync:${round.id}:${view}`;
-  }
-  return presentation.screen;
+  return displaySceneKey(presentation, { ordering: orderingState, listing: listingState, sync: syncState });
 }
 
 function renderImmediately() {
@@ -834,12 +784,7 @@ function render() {
 }
 
 function scoreChanges(nextPresentation) {
-  return nextPresentation.teams.map((team, teamIndex) => ({
-    teamIndex,
-    points: team.score - (presentation.teams[teamIndex]?.score ?? team.score),
-    oldScore: presentation.teams[teamIndex]?.score ?? team.score,
-    newScore: team.score
-  }));
+  return calculateScoreChanges(presentation, nextPresentation);
 }
 
 function orderingAnimationPlan(nextPresentation) {
@@ -1045,8 +990,7 @@ function syncGameEventSource() {
   }
 }
 
-const liveConnection = createLiveConnection({
-  role: "display",
+const liveConnection = connectDisplaySession({
   onConnectionChange: setDisplayConnection,
   onSnapshot: (snapshot) => {
     receivePresentation(snapshot.presentation);

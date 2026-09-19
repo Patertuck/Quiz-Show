@@ -285,7 +285,7 @@ def install_legacy_routes(app: FastAPI) -> None:
             "js/score-history-chart.js", "js/fit-text.js", "js/game-catalog.js",
             "js/live-client.js",
         }
-        if not host and relative not in allowed and not relative.startswith(("assets/", "js/player/")):
+        if not host and relative not in allowed and not relative.startswith(("assets/", "js/player/", "js/display/")):
             return _json(403, {"error": "Von einem anderen Gerät sind nur Spieler- und Publikumsansicht verfügbar."})
         root = legacy.PROJECT_DIRECTORY.resolve()
         target = (root / relative).resolve()
