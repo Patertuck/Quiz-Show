@@ -52,20 +52,6 @@ async def _payload(request: Request, maximum: int) -> dict:
 def _role(request: Request, identity_name: str, role_name: str) -> tuple[str, str | int | None]:
     identity: str | int | None = request.query_params.get(identity_name)
     if identity_name == "teamIndex":
-        if path == "/api/state" and request.method == "DELETE":
-            denied = _require_instance(request)
-            if denied:
-                return denied
-            try:
-                legacy.INSTANCE_STATE.clear()
-                legacy.BUZZER.sync_teams(None)
-                legacy.ORDERING.reset(False)
-                legacy.LISTING.reset(False)
-                legacy.SYNC.reset(False)
-            except (OSError, ValueError) as error:
-                return _json(500, {"error": str(error)})
-            return _json(200, {"deleted": True})
-
         try:
             identity = int(identity) if identity is not None else None
         except ValueError:
@@ -115,6 +101,20 @@ def install_http_routes(app: FastAPI) -> None:
                 state = legacy.load_current_state()
                 return _json(404, {"error": "Es ist kein gespeichertes Spiel vorhanden."}) if state is None else _json(200, state)
             return _json(404, {"error": "Unbekannter API-Endpunkt."})
+
+        if path == "/api/state" and request.method == "DELETE":
+            denied = _require_instance(request)
+            if denied:
+                return denied
+            try:
+                legacy.INSTANCE_STATE.clear()
+                legacy.BUZZER.sync_teams(None)
+                legacy.ORDERING.reset(False)
+                legacy.LISTING.reset(False)
+                legacy.SYNC.reset(False)
+            except (OSError, ValueError) as error:
+                return _json(500, {"error": str(error)})
+            return _json(200, {"deleted": True})
 
         try:
             maximum = legacy.MAX_FINAL_EXPORT_BODY_BYTES if path == "/api/final-export" else legacy.MAX_PRESENTATION_BODY_BYTES

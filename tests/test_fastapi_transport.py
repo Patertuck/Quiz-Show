@@ -66,6 +66,14 @@ class FastApiTransportTests(unittest.TestCase):
         self.assertEqual("no-cache, max-age=0, must-revalidate", script.headers["Cache-Control"])
         self.assertEqual("no-store", state.headers["Cache-Control"])
 
+    def test_ordering_and_listing_state_endpoints_return_json(self):
+        for path in ("/api/ordering/state", "/api/listing/state"):
+            with self.subTest(path=path):
+                response = self.request("GET", path)
+                self.assertEqual(200, response.status_code)
+                self.assertIn("application/json", response.headers["Content-Type"])
+                self.assertIsInstance(response.json(), dict)
+
     def test_lan_clients_can_load_all_player_module_dependencies(self):
         for path in (
             "/js/player.js", "/js/live-client.js", "/js/player/commands.js",
