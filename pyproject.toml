@@ -15,8 +15,16 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-test = ["httpx>=0.27,<1"]
+test = ["httpx>=0.27,<1", "ruff>=0.8,<1"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+exclude = [".venv", "quiz-data"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+ignore = ["E501"]
 
 [tool.setuptools.packages.find]
 include = ["quizshow*"]
-
