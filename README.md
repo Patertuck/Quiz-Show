@@ -1,5 +1,30 @@
 # Quizshow starten
 
+## Architektur
+
+Der Python-Server ist die Autorität für eine laufende Quizrunde. Dauerhafte Daten liegen in einer
+`QuizSession`; Änderungen werden als typisierte Befehle an `POST /api/host/commands` beziehungsweise
+`POST /api/player/commands` geschickt. Der Server validiert die erwartete Revision, speichert die neue
+Session atomar und veröffentlicht anschließend einen rollenbereinigten Snapshot.
+
+Host, Spieler und Publikumsanzeige verwenden jeweils genau eine Verbindung zu `/ws/live`. Ein neu
+geöffnetes Hostfenster erhält dadurch sofort denselben Bildschirm, dieselbe Runde, Punktestände und
+Zeitinformationen wie das vorherige Fenster. Private Antworten, Stimmen und Gerätekennungen werden
+aus Spieler- und Publikums-Snapshots entfernt.
+
+Die wichtigsten Serverbausteine sind:
+
+- `quizshow/app.py`: FastAPI-Anwendungsfabrik und Lebenszyklus
+- `quizshow/domain/`: Sessionmodell, Befehle und rollenabhängige Projektionen
+- `quizshow/session_service.py`: transaktionale Befehls- und Persistenzgrenze
+- `quizshow/realtime.py`: Befehlsendpunkte und Live-WebSocket
+- `quizshow/http_routes.py`: Ressourcen und noch benötigte Spieloperationen
+- `quizshow/game_services.py`: einheitliche Schnittstelle zu den Spielmodulen
+
+Sessiondateien werden atomar ersetzt. Beim Start wird eine vorhandene Session geladen; abgelaufene
+aktive Runden wechseln vor dem ersten Snapshot in die Review-Phase. Veraltete Befehle werden mit HTTP
+409 abgelehnt, sodass ein Browser zuerst den aktuellen Snapshot übernehmen muss.
+
 ## Installation
 
 Benötigt wird Python 3.11 oder neuer. Erstellt einmalig eine virtuelle Umgebung und installiert die Anwendung mitsamt Testabhängigkeiten:
@@ -10,6 +35,26 @@ python -m venv .venv
 ```
 
 Verwendet danach für Start und Tests den Python-Interpreter aus `.venv`.
+
+## Entwicklung und Qualitätsprüfung
+
+Alle Prüfungen können unter Windows gemeinsam ausgeführt werden:
+
+```powershell
+.\scripts\check.ps1
+```
+
+Einzeln stehen folgende Befehle zur Verfügung:
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests -p "test_*.py"
+npm test
+npm run check
+.\.venv\Scripts\python.exe -m ruff check .
+```
+
+Der Server wird mit `python main.py` gestartet. Die Hostoberfläche ist nur vom lokalen Rechner aus
+erreichbar; Geräte im LAN erhalten ausschließlich Spieler- und Publikumsressourcen.
 
 ## Fragen konfigurieren
 
