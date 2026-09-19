@@ -116,6 +116,7 @@ body { margin: 0; overflow: hidden; background: var(--blue); color: #fff; }
 .display-ordering-cell.relative-revealed { background: #eee1a1; }
 .display-ordering-row-points { position: absolute; z-index: 1; top: .1rem; right: .1rem; padding: .05rem .22rem; border: 1px solid #f2d866; border-radius: 999px; background: #4a2464; color: #fff2a6; font-size: clamp(.42rem, .68vw, .6rem); font-variant-numeric: tabular-nums; line-height: 1.15; white-space: nowrap; box-shadow: 0 .12rem .3rem #210d3555; animation: display-ordering-points-pop 220ms ease-out; }
 .display-ordering-row-points.zero { border-color: #9b879f; background: #65566b; color: #e5dce8; }
+.display-ordering-row-points.settled { animation: none; }
 .display-ordering-solution .display-ordering-cell { border: 2px solid #f2d866; background: #f2d866; }
 .display-ordering-solution .hidden-answer { border-style: dashed; background: #35154d; color: #d8bce8; }
 .display-ordering-map { display: grid; width: min(92vw, 78rem); min-height: 0; height: 100%; grid-template-rows: auto minmax(0, 1fr); gap: .4rem; padding: .5rem; border: 3px solid #ffe16d; border-radius: 1rem; background: #210d35; box-shadow: 0 1rem 2.5rem #17052299, 0 0 1.6rem #ffe16d55; }

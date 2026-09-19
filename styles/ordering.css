@@ -47,6 +47,7 @@
 .ordering-result-cell.relative-revealed > span { overflow-wrap: anywhere; }
 .ordering-row-points { position: absolute; z-index: 1; top: .12rem; right: .12rem; padding: .06rem .25rem; border: 1px solid #f5d96f; border-radius: 999px; background: #4a2464; color: #fff2a6; font-size: clamp(.45rem, .72vw, .62rem); font-variant-numeric: tabular-nums; line-height: 1.15; white-space: nowrap; box-shadow: 0 .12rem .3rem #210d3555; animation: ordering-points-pop 220ms ease-out; }
 .ordering-row-points.zero { border-color: #9b879f; background: #65566b; color: #e5dce8; }
+.ordering-row-points.settled { animation: none; }
 .ordering-solution .solution-cell { border: 2px dashed #f5d96f; background: #3a1854; color: #fff; }
 .ordering-solution .solution-cell.revealed { border-style: solid; background: #f5d96f; color: #291138; }
 @keyframes ordering-points-pop { from { opacity: 0; transform: scale(.65); } to { opacity: 1; transform: scale(1); } }

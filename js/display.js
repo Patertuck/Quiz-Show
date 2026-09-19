@@ -292,7 +292,11 @@ function ordering() {
       cell.append(element("span", "display-ordering-cell-text", itemNames.get(id)));
       if (revealed && round.scoringMode === "relative" && round.pointsRevealed) {
         const value = round.rowPoints[teamIndex][slot];
-        cell.append(element("strong", `display-ordering-row-points${value === 0 ? " zero" : ""}`, `+${value}`));
+        cell.append(element(
+          "strong",
+          `display-ordering-row-points${value === 0 ? " zero" : ""}${round.phase === "distributed" ? " settled" : ""}`,
+          `+${value}`
+        ));
       }
       column.append(cell);
     });

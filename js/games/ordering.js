@@ -263,7 +263,7 @@ function teamColumn(round, teamIndex) {
     cell.append(label);
     if (revealed && round.scoringMode === "relative" && round.pointsRevealed) {
       const points = document.createElement("strong");
-      points.className = "ordering-row-points";
+      points.className = `ordering-row-points${round.phase === "distributed" ? " settled" : ""}`;
       const value = round.rowPoints[teamIndex][slot];
       if (value === 0) points.classList.add("zero");
       points.textContent = `+${value}`;

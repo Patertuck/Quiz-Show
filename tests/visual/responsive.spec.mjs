@@ -50,6 +50,9 @@ for (const viewport of desktopViewports) {
       await verify(page, `host-${name}`, {
         allowVerticalScroll: route === "master", screenshot: viewport.width === 1280
       });
+      if (name === "ordering-results") {
+        await expect(page.locator(".ordering-row-points").first()).toHaveCSS("animation-name", "none");
+      }
       expect(pageErrors).toEqual([]);
     });
   }
@@ -89,6 +92,9 @@ for (const viewport of desktopViewports) {
       await page.goto("/display.html");
       await expect(page.locator(".display-screen")).toBeVisible();
       await verify(page, `display-${name}`, { screenshot: viewport.width === 1280 });
+      if (name === "ordering-results") {
+        await expect(page.locator(".display-ordering-row-points").first()).toHaveCSS("animation-name", "none");
+      }
     });
   }
 }
