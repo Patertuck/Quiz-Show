@@ -91,7 +91,6 @@
         "displayCategory": "Tierwelt",
         "prompt": "Nennt verschiedene Haustiere.",
         "timeLimitSeconds": 60,
-        "maxItems": 20,
         "placementPoints": [300, 200, 100]
       },
       {
@@ -100,7 +99,6 @@
         "displayCategory": "Geografie",
         "prompt": "Nennt Länder, die vollständig oder teilweise in Europa liegen.",
         "timeLimitSeconds": 90,
-        "maxItems": 30,
         "placementPoints": [300, 200, 100]
       }
     ]

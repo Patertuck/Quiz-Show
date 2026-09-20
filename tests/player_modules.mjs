@@ -32,10 +32,12 @@ test("ordering moves an item without mutating its input", () => {
   assert.deepEqual(original, ["A", "B", "C"]);
 });
 
-test("listing normalizes input and rejects duplicate or excess entries", () => {
-  assert.deepEqual(appendUniqueItem(["Bern"], " Zurich ", 2), { items: ["Bern", "Zurich"], error: null });
-  assert.equal(appendUniqueItem(["Bern"], "bern", 2).error, "duplicate");
-  assert.equal(appendUniqueItem(["Bern", "Zurich"], "Basel", 2).error, "full");
+test("listing normalizes input, rejects duplicates, and allows unlimited entries", () => {
+  assert.deepEqual(appendUniqueItem(["Bern"], " Zurich "), { items: ["Bern", "Zurich"], error: null });
+  assert.equal(appendUniqueItem(["Bern"], "bern").error, "duplicate");
+  assert.deepEqual(appendUniqueItem(["Bern", "Zurich"], "Basel"), {
+    items: ["Bern", "Zurich", "Basel"], error: null
+  });
 });
 
 test("sync finds the participant owned by the current device", () => {

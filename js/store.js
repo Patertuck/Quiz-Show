@@ -166,9 +166,6 @@ export function validateConfig(config) {
     if (!Number.isInteger(question.timeLimitSeconds) || question.timeLimitSeconds <= 0) {
       throw new Error(`${path}.timeLimitSeconds muss eine positive Ganzzahl sein.`);
     }
-    if (!Number.isInteger(question.maxItems) || question.maxItems < 1 || question.maxItems > 50) {
-      throw new Error(`${path}.maxItems muss eine Ganzzahl von 1 bis 50 sein.`);
-    }
     if (!Array.isArray(question.placementPoints) || !question.placementPoints.length
         || question.placementPoints.some((points) => !Number.isInteger(points) || points < 0)) {
       throw new Error(`${path}.placementPoints muss nicht-negative Ganzzahlen enthalten.`);

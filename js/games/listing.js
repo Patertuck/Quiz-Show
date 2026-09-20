@@ -153,7 +153,7 @@ function renderPreview() {
   prompt.className = "listing-preview-prompt";
   prompt.textContent = question.prompt;
   const details = document.createElement("p");
-  details.textContent = `Maximal ${question.maxItems} Einträge · Platzierungspunkte ${question.placementPoints.join(" / ")}`;
+  details.textContent = `Platzierungspunkte ${question.placementPoints.join(" / ")}`;
   const timer = timerControl(question.timeLimitSeconds);
   const actions = document.createElement("div");
   actions.className = "listing-actions";

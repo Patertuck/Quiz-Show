@@ -46,6 +46,7 @@ class ListingState:
             self.round["deadlineAt"] = 0
         if self.round:
             self.round.pop("validationRule", None)
+            self.round.pop("maxItems", None)
             if self.round.get("phase") == "review" and "reviewTeamIndex" not in self.round:
                 queue = self.round.get("reviewQueue", [])
                 index = self.round.get("reviewIndex", 0)
@@ -115,12 +116,9 @@ class ListingState:
             if not isinstance(question.get(field), str) or not question[field].strip():
                 raise ValueError(f"Das Fragenfeld {field} ist erforderlich.")
         seconds = question.get("timeLimitSeconds")
-        maximum = question.get("maxItems")
         points = question.get("placementPoints")
         if not isinstance(seconds, int) or isinstance(seconds, bool) or seconds <= 0:
             raise ValueError("timeLimitSeconds muss eine positive Ganzzahl sein.")
-        if not isinstance(maximum, int) or isinstance(maximum, bool) or not 1 <= maximum <= 50:
-            raise ValueError("maxItems muss zwischen 1 und 50 liegen.")
         if (not isinstance(points, list) or not points
                 or any(not isinstance(point, int) or isinstance(point, bool) or point < 0 for point in points)):
             raise ValueError("placementPoints muss nicht-negative Ganzzahlen enthalten.")
@@ -142,7 +140,6 @@ class ListingState:
                 "title": clean["title"],
                 "prompt": clean["prompt"],
                 "timeLimitSeconds": clean["timeLimitSeconds"],
-                "maxItems": clean["maxItems"],
                 "placementPoints": list(clean["placementPoints"]),
                 "deadlineAt": int(time.time() * 1000) + clean["timeLimitSeconds"] * 1000,
                 "phase": "active",
@@ -157,7 +154,7 @@ class ListingState:
             self._changed_unlocked()
 
     @staticmethod
-    def _normalize_items(items: object, maximum: int) -> list[str]:
+    def _normalize_items(items: object) -> list[str]:
         if not isinstance(items, list):
             raise ValueError("items muss eine Liste sein.")
         clean: list[str] = []
@@ -174,8 +171,6 @@ class ListingState:
             if key not in seen:
                 seen.add(key)
                 clean.append(text)
-        if len(clean) > maximum:
-            raise ValueError(f"Es sind höchstens {maximum} Einträge erlaubt.")
         return clean
 
     def update_submission(self, payload: dict) -> tuple[int, dict]:
@@ -194,8 +189,7 @@ class ListingState:
             if self.round["submitted"][team_index]:
                 return 409, {"error": "Eure Liste wurde bereits abgegeben.",
                              "state": self._snapshot_unlocked("team", team_index)}
-            self.round["drafts"][team_index] = self._normalize_items(
-                payload.get("items"), self.round["maxItems"])
+            self.round["drafts"][team_index] = self._normalize_items(payload.get("items"))
             if payload.get("submit") is True:
                 self.round["submitted"][team_index] = True
             self._changed_unlocked()
@@ -463,7 +457,7 @@ class ListingState:
             return result
         source = self.round
         round_data = {key: source[key] for key in (
-            "id", "questionId", "title", "prompt", "timeLimitSeconds", "maxItems",
+            "id", "questionId", "title", "prompt", "timeLimitSeconds",
             "placementPoints", "deadlineAt", "phase", "submitted"
         )}
         round_data["submittedCount"] = sum(source["submitted"])

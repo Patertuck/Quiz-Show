@@ -11,7 +11,6 @@ QUESTION = {
     "title": "Haustiere",
     "prompt": "Nennt Haustiere.",
     "timeLimitSeconds": 60,
-    "maxItems": 10,
     "placementPoints": [300, 200, 100],
 }
 
@@ -111,6 +110,17 @@ class ListingStateTests(unittest.TestCase):
         self.assertNotIn("itemId", state.snapshot("public")["round"]["review"]["items"][0])
         self.assertNotIn("warning", snapshot["round"])
         self.assertNotIn("warning", state.snapshot("public")["round"])
+
+    def test_submission_has_no_entry_count_limit(self):
+        state = self.make_state()
+        state.start(QUESTION)
+        items = [f"Antwort {index}" for index in range(75)]
+
+        status, _payload = self.submit(state, 0, items)
+        state.control({"action": "lock"})
+
+        self.assertEqual(200, status)
+        self.assertEqual(75, state.snapshot("host")["round"]["review"]["total"])
 
     def test_empty_teams_receive_no_placement_points(self):
         state = self.make_state()

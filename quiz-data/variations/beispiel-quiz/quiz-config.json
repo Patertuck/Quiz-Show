@@ -40,7 +40,6 @@
           "displayCategory": "Allgemeinwissen",
           "prompt": "Nennt möglichst viele Farben des Regenbogens.",
           "timeLimitSeconds": 45,
-          "maxItems": 7,
           "placementPoints": [300, 200, 100]
         }
       ]

@@ -23,7 +23,7 @@ const ordering = {
 const listing = {
   questions: [{
     id: "list", title: "List", displayCategory: "Kategorie", prompt: "Auflisten",
-    timeLimitSeconds: 30, maxItems: 10,
+    timeLimitSeconds: 30,
     placementPoints: [100]
   }]
 };

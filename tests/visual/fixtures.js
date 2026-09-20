@@ -28,7 +28,7 @@ export const config = {
     ordering: { scoringMode: "relative", pointsPerCorrect: 50, questions },
     listing: { questions: questions.map((question, index) => ({
       ...question, displayCategory: `Kategorie ${index + 1} mit langem Namen`,
-      maxItems: 20, placementPoints: [300, 200, 100]
+      placementPoints: [300, 200, 100]
     })) },
     sync: { timeLimitSeconds: 8, pointsPerSync: 100, questions }
   }
@@ -72,7 +72,7 @@ const listingItems = Array.from({ length: 18 }, (_, index) => ({ text: `Eingerei
 export const listingBase = { version: 3, teams: teamNames, teamsRevision: "visual", completedQuestionIds: ["q-6"], connectedTeamCount: 6, round: null };
 export const listingActive = { ...listingBase, round: {
   id: "listing-round", questionId: "q-1", title: questions[0].title, prompt: questions[0].prompt,
-  phase: "active", deadlineAt: Date.now() + 35_000, submittedCount: 4, maxItems: 20,
+  phase: "active", deadlineAt: Date.now() + 35_000, submittedCount: 4,
   submitted: teamNames.map((_, index) => index < 4),
   drafts: teamNames.map((_, teamIndex) => listingItems.slice(0, teamIndex + 2).map(({ text }) => text))
 } };

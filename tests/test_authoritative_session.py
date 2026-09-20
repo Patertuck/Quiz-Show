@@ -162,10 +162,12 @@ class BackendQuizConfigTests(unittest.TestCase):
     def test_legacy_listing_validation_rule_is_ignored(self):
         payload = json.loads(Path("quiz-data/variations/beispiel-quiz/quiz-config.json").read_text(encoding="utf-8"))
         payload["games"]["listing"]["questions"][0]["validationRule"] = "Obsolete AI instruction"
+        payload["games"]["listing"]["questions"][0]["maxItems"] = 7
 
         question = QuizConfig.model_validate(payload).games.listing.questions[0]
 
         self.assertNotIn("validationRule", question.model_dump(by_alias=True))
+        self.assertNotIn("maxItems", question.model_dump(by_alias=True))
 
     def test_duplicate_team_and_question_ids_are_rejected(self):
         with self.assertRaises(ValidationError):

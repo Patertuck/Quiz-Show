@@ -494,8 +494,7 @@ const connectOrderingEvents = refreshLiveConnection;
 
 function focusListingEntry() {
   const round = listingState?.round;
-  if (!round || round.phase !== "active" || round.teamSubmitted || listingSubmissionQueued
-      || listingLocalItems.length >= round.maxItems) return;
+  if (!round || round.phase !== "active" || round.teamSubmitted || listingSubmissionQueued) return;
   requestAnimationFrame(() => {
     if (!listingEntry.hidden && !listingEntry.disabled && listingEntry.isConnected) {
       listingEntry.focus({ preventScroll: true });
@@ -563,12 +562,12 @@ function renderListing() {
   listingSubmit.hidden = !active || round.teamSubmitted || listingSubmissionQueued;
   if (!active) {
     listingStatus.textContent = "Eure Liste ist gesperrt.";
-    listingItemCount.textContent = `${listingLocalItems.length} / ${round.maxItems} Einträge`;
+    listingItemCount.textContent = `${listingLocalItems.length} Einträge`;
     return;
   }
   const items = listingLocalItems;
-  listingItemCount.textContent = `${items.length} / ${round.maxItems} Einträge`;
-  listingEntry.disabled = items.length >= round.maxItems;
+  listingItemCount.textContent = `${items.length} Einträge`;
+  listingEntry.disabled = false;
   listingAdd.disabled = false;
   listingSubmit.disabled = listingSubmissionQueued || listingPendingSaves > 0;
   listingItems.replaceChildren();
@@ -611,7 +610,7 @@ function renderListingPreview() {
   listingPrompt.textContent = "Die Aufgabe wird gleich eingeblendet.";
   listingCountdown.textContent = "–";
   listingCountdown.removeAttribute("data-deadline");
-  listingItemCount.textContent = "0 / – Einträge";
+  listingItemCount.textContent = "0 Einträge";
   listingForm.hidden = false;
   listingEntry.value = "";
   listingEntry.disabled = true;
@@ -787,7 +786,7 @@ listingForm.addEventListener("submit", (event) => {
   if (!value.trim() || !round || round.teamSubmitted) return;
   const items = round.teamItems || [];
   const currentItems = listingLocalRoundId === round.id ? listingLocalItems : items;
-  const appended = appendUniqueItem(currentItems, value, round.maxItems);
+  const appended = appendUniqueItem(currentItems, value);
   if (appended.error === "duplicate") {
     listingStatus.textContent = "Dieser Eintrag steht bereits in eurer Liste.";
     listingEntry.focus({ preventScroll: true });

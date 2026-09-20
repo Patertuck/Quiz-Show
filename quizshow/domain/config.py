@@ -115,14 +115,13 @@ class ListingQuestion(QuestionWithId):
     display_category: str = Field(min_length=1, alias="displayCategory")
     prompt: str = Field(min_length=1)
     time_limit_seconds: int = Field(gt=0, alias="timeLimitSeconds")
-    max_items: int = Field(ge=1, le=50, alias="maxItems")
     placement_points: list[Annotated[int, Field(ge=0)]] = Field(min_length=1, alias="placementPoints")
 
     @model_validator(mode="before")
     @classmethod
-    def discard_legacy_ai_rule(cls, value: object) -> object:
-        if isinstance(value, dict) and "validationRule" in value:
-            value = {key: item for key, item in value.items() if key != "validationRule"}
+    def discard_legacy_listing_fields(cls, value: object) -> object:
+        if isinstance(value, dict):
+            value = {key: item for key, item in value.items() if key not in {"validationRule", "maxItems"}}
         return value
 
 
