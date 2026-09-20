@@ -1,11 +1,11 @@
 #scoreboard { position: fixed; z-index: 5; right: 0; bottom: 0; left: 0; display: flex; height: var(--scoreboard-height); gap: clamp(.2rem, .8vw, .65rem); align-items: stretch; padding: clamp(.3rem, .8vw, .65rem); overflow: hidden; background: linear-gradient(180deg, #101b59, #080f35); color: #fff; box-shadow: 0 -0.35rem 1.2rem rgb(0 0 0 / 38%); }
-.team { display: grid; min-width: 0; flex: 1 1 0; grid-template-columns: minmax(1.8rem, .8fr) minmax(0, 1fr) minmax(1.8rem, .8fr); grid-template-rows: minmax(1.2rem, 1.7rem) 1fr; gap: .2rem clamp(.1rem, .35vw, .35rem); align-items: center; padding: clamp(.2rem, .55vw, .55rem); overflow: hidden; border: 2px solid #5264bd; border-radius: clamp(.4rem, .9vw, .75rem); background: linear-gradient(180deg, #263ca3, #18287d); box-shadow: 0 0.35rem 0.8rem rgb(0 0 0 / 28%); cursor: context-menu; }
+.team { display: grid; min-width: 0; flex: 1 1 0; grid-template-columns: minmax(1.35rem, .55fr) minmax(0, 1.9fr) minmax(1.35rem, .55fr); grid-template-rows: minmax(1.2rem, 1.7rem) 1fr; gap: .2rem clamp(.1rem, .35vw, .35rem); align-items: center; padding: clamp(.2rem, .55vw, .55rem); overflow: hidden; border: 2px solid #5264bd; border-radius: clamp(.4rem, .9vw, .75rem); background: linear-gradient(180deg, #263ca3, #18287d); box-shadow: 0 0.35rem 0.8rem rgb(0 0 0 / 28%); cursor: context-menu; }
 .team.rank-first { border-color: #ffd84d; box-shadow: 0 0 0.75rem rgb(255 216 77 / 45%), 0 0.35rem 0.8rem rgb(0 0 0 / 32%); }
 .team.rank-second { border-color: #d8deea; box-shadow: 0 0 0.65rem rgb(216 222 234 / 38%), 0 0.35rem 0.8rem rgb(0 0 0 / 32%); }
 .team.rank-third { border-color: #cd8b52; box-shadow: 0 0 0.65rem rgb(205 139 82 / 38%), 0 0.35rem 0.8rem rgb(0 0 0 / 32%); }
 .team-name { grid-column: 1 / -1; grid-row: 1; width: 100%; overflow: hidden; color: #f8f9ff; font-size: clamp(.55rem, 1.15vw, .9rem); font-weight: 800; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
-.score { min-width: 0; grid-column: 2; grid-row: 2; overflow: hidden; color: var(--yellow); font-size: clamp(.8rem, 2.5vw, 2rem); font-variant-numeric: tabular-nums; font-weight: 900; text-align: center; text-overflow: ellipsis; text-shadow: 0 0.12rem 0 #10194f, 0 0 0.55rem rgb(255 244 92 / 24%); }
-.score-button { width: 100%; min-width: 0; height: clamp(1.8rem, 4.5vh, 2.15rem); grid-row: 2; padding: 0 .1rem; overflow: hidden; border: 1px solid rgb(255 255 255 / 25%); border-radius: 999px; color: #fff; font-size: clamp(.52rem, 1vw, .78rem); font-variant-numeric: tabular-nums; font-weight: 900; text-overflow: ellipsis; }
+.score { min-width: 0; grid-column: 2; grid-row: 2; overflow: visible; color: var(--yellow); font-size: clamp(.72rem, 2.25vw, 2rem); font-variant-numeric: tabular-nums; font-weight: 900; text-align: center; white-space: nowrap; text-shadow: 0 0.12rem 0 #10194f, 0 0 0.55rem rgb(255 244 92 / 24%); }
+.score-button { width: min(100%, 2.1rem); min-width: 0; justify-self: center; height: clamp(1.55rem, 4.1vh, 2rem); grid-row: 2; padding: 0 .05rem; overflow: hidden; border: 1px solid rgb(255 255 255 / 25%); border-radius: 999px; color: #fff; font-size: clamp(.48rem, .9vw, .7rem); font-variant-numeric: tabular-nums; font-weight: 900; text-overflow: ellipsis; }
 .score-button.subtract { grid-column: 1; background: linear-gradient(#b6384b, #7f1f30); }
 .score-button.add { grid-column: 3; background: linear-gradient(#3a9b65, #216a44); }
 .score-button:hover, .score-button:focus-visible { filter: brightness(1.18); transform: translateY(-1px); }
@@ -25,5 +25,5 @@
 @media (max-width: 650px) {
   :root { --scoreboard-height: 118px; }
   #scoreboard { gap: .15rem; padding: .25rem; }
-  .team { grid-template-columns: minmax(1.5rem, .8fr) minmax(0, 1fr) minmax(1.5rem, .8fr); padding: .2rem; }
+  .team { grid-template-columns: minmax(1.15rem, .55fr) minmax(0, 1.9fr) minmax(1.15rem, .55fr); padding: .2rem; }
 }

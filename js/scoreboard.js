@@ -129,7 +129,7 @@ export function updateScoreControls() {
     const isAdd = button.dataset.action === "add";
     const sign = isAdd ? "+" : "−";
     button.disabled = !active;
-    button.textContent = active ? `${sign}${formatInteger(state.activeValue)}` : sign;
+    button.textContent = sign;
     button.setAttribute("aria-label", active
       ? `${formatInteger(state.activeValue)} Punkte bei ${team.name} ${isAdd ? "hinzufügen" : "abziehen"}`
       : `Keine aktive Frage; Punktevergabe für ${team.name} nicht verfügbar`);
