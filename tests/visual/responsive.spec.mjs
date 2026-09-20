@@ -155,3 +155,24 @@ test("display scoreboard uses apostrophe grouping", async ({ page }) => {
   await page.goto("/display.html");
   await expect(page.locator(".display-team-score").first()).toHaveText("1'000");
 });
+
+test("host score controls fit a narrow desktop without scrolling", async ({ page }) => {
+  await page.setViewportSize({ width: 800, height: 600 });
+  await mockHost(page, { activeQuestion: { categoryIndex: 0, rowIndex: 0, answerRevealed: false } });
+  await page.goto("/#/jeopardy");
+  const scoreboard = page.locator("#scoreboard");
+  await expect(scoreboard).toBeVisible();
+  expect(await scoreboard.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await expect(page.locator(".team").last()).toBeInViewport();
+});
+
+test("host standings fit all twelve teams across the screen", async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 600 });
+  const hostTeams = Array.from({ length: 12 }, (_, index) => ({ name: `Team ${index + 1}`, score: index * 1_000 }));
+  await mockHost(page, { hostTeams });
+  await page.goto("/#/hub");
+  const scoreboard = page.locator("#scoreboard");
+  await expect(page.locator(".team")).toHaveCount(12);
+  expect(await scoreboard.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await expect(page.locator(".team").last()).toBeInViewport();
+});
