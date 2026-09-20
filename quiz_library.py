@@ -7,12 +7,11 @@ import os
 import re
 import shutil
 import threading
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import quote, unquote, urlsplit
 
 from instance_state import InstanceStateStore
-
 
 LOGO_FILENAMES = {
     "main": "logo_Quiz.png",
@@ -65,7 +64,7 @@ class QuizLibrary:
 
     @staticmethod
     def _timestamp(path: Path) -> str:
-        return datetime.fromtimestamp(path.stat().st_mtime, timezone.utc).isoformat()
+        return datetime.fromtimestamp(path.stat().st_mtime, UTC).isoformat()
 
     @staticmethod
     def _write_json(path: Path, value: dict) -> None:
@@ -253,7 +252,7 @@ class QuizLibrary:
                 self._write_json(directory / "instance.json", {
                     "version": self.INSTANCE_VERSION,
                     "variationId": config.parent.name,
-                    "createdAt": datetime.now(timezone.utc).isoformat(),
+                    "createdAt": datetime.now(UTC).isoformat(),
                 })
                 (directory / "logos").mkdir()
                 self._persist_active_instance(clean)

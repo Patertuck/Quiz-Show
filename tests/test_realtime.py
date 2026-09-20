@@ -8,13 +8,13 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="starlette.testclient")
-from starlette.testclient import TestClient
+from starlette.testclient import TestClient  # noqa: E402
 
-from quizshow.app import create_app
-from quizshow.container import ApplicationContainer
-from quizshow.domain.session import QuizSession
-from quizshow.settings import Settings
-from quizshow.realtime import run_deadline_coordinator
+from quizshow.app import create_app  # noqa: E402
+from quizshow.container import ApplicationContainer  # noqa: E402
+from quizshow.domain.session import QuizSession  # noqa: E402
+from quizshow.realtime import run_deadline_coordinator  # noqa: E402
+from quizshow.settings import Settings  # noqa: E402
 
 
 class RealtimeTests(unittest.TestCase):

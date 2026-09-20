@@ -8,7 +8,6 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-
 GAME_IDS = frozenset({"jeopardy", "ordering", "listing", "sync"})
 
 
@@ -71,7 +70,7 @@ class QuizSession(BaseModel):
     timer_deadlines: dict[str, float] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_invariants(self) -> "QuizSession":
+    def validate_invariants(self) -> QuizSession:
         names = [team.name.casefold() for team in self.teams]
         if len(names) != len(set(names)):
             raise ValueError("team names must be unique")
@@ -92,5 +91,5 @@ class QuizSession(BaseModel):
         return self
 
     @classmethod
-    def empty(cls, instance_name: str) -> "QuizSession":
+    def empty(cls, instance_name: str) -> QuizSession:
         return cls(instance_name=instance_name)

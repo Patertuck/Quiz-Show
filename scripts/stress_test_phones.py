@@ -22,7 +22,6 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-
 SSE_PATHS = (
     "/api/presentation/events",
     "/api/buzzer/events",

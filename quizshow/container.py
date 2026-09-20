@@ -24,7 +24,7 @@ class ApplicationContainer:
     session: SessionService
 
     @classmethod
-    def build(cls, settings: Settings | None = None, *, clock: Clock | None = None) -> "ApplicationContainer":
+    def build(cls, settings: Settings | None = None, *, clock: Clock | None = None) -> ApplicationContainer:
         resolved = settings or Settings.from_project_root()
         library = QuizLibrary(
             resolved.variation_directory,

@@ -7,8 +7,8 @@ import hashlib
 import ipaddress
 import json
 import os
-import re
 import random
+import re
 import secrets
 import socket
 import threading
@@ -16,20 +16,19 @@ import time
 import webbrowser
 from pathlib import Path
 
-from listing_game import ListingState
 from instance_state import InstanceStateStore
-from quiz_library import LOGO_FILENAMES, QuizLibrary
-from sync_game import SyncState
-from quizshow.final_export import final_export_csv, final_export_key, save_final_export
+from listing_game import ListingState
+from quiz_library import LOGO_FILENAMES, QuizLibrary  # noqa: F401
+from quizshow.final_export import final_export_csv, final_export_key, save_final_export  # noqa: F401
 from quizshow.presentation import (
     PresentationState,
-    validate_presentation,
-    validate_presentation_audio,
-    validate_presentation_image,
-    validate_presentation_logos,
-    validate_quiz_media_source,
+    validate_presentation,  # noqa: F401
+    validate_presentation_audio,  # noqa: F401
+    validate_presentation_image,  # noqa: F401
+    validate_presentation_logos,  # noqa: F401
+    validate_quiz_media_source,  # noqa: F401
 )
-
+from sync_game import SyncState
 
 BIND_HOST = "0.0.0.0"
 HOST_URL = "http://127.0.0.1:8000/"
@@ -822,6 +821,7 @@ def bind_active_instance() -> None:
 
 def main() -> None:
     import uvicorn
+
     from quizshow.app import create_app
     from quizshow.runtime import require_websocket_runtime
 

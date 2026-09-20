@@ -18,7 +18,7 @@ class Settings:
             raise ValueError("port must be between 1 and 65535")
 
     @classmethod
-    def from_project_root(cls) -> "Settings":
+    def from_project_root(cls) -> Settings:
         return cls(Path(__file__).resolve().parent.parent)
 
     @property

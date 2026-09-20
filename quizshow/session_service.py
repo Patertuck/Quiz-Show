@@ -21,7 +21,7 @@ class StaleSessionError(ValueError):
 
 class SessionService:
     def __init__(self, clock: Clock, session: QuizSession | None = None,
-                 repository: "InstanceStateStore | None" = None) -> None:
+                 repository: InstanceStateStore | None = None) -> None:
         self.clock = clock
         self._session = session
         self._repository = repository

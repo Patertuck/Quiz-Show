@@ -6,7 +6,6 @@ import uuid
 
 from fastapi import FastAPI, Request
 
-
 LOGGER = logging.getLogger("quizshow.http")
 
 

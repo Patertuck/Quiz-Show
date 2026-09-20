@@ -7,7 +7,6 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-
 ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]*$")
 
 
@@ -52,7 +51,7 @@ class JeopardyQuestion(ConfigModel):
     answer_audio: Audio | None = Field(default=None, alias="answerAudio")
 
     @model_validator(mode="after")
-    def require_both_sides(self) -> "JeopardyQuestion":
+    def require_both_sides(self) -> JeopardyQuestion:
         if not any((self.question and self.question.strip(), self.question_image, self.question_audio)):
             raise ValueError("a question medium is required")
         if not any((self.answer and self.answer.strip(), self.answer_image, self.answer_audio)):
@@ -71,7 +70,7 @@ class JeopardyConfig(ConfigModel):
     categories: list[JeopardyCategory] = Field(min_length=1)
 
     @model_validator(mode="after")
-    def matching_grid(self) -> "JeopardyConfig":
+    def matching_grid(self) -> JeopardyConfig:
         if any(len(category.questions) != len(self.values) for category in self.categories):
             raise ValueError("each category needs one question per value")
         return self
@@ -96,7 +95,7 @@ class OrderingQuestion(QuestionWithId):
     item_maps: dict[str, Image] | None = Field(default=None, alias="itemMaps")
 
     @model_validator(mode="after")
-    def unique_known_items(self) -> "OrderingQuestion":
+    def unique_known_items(self) -> OrderingQuestion:
         normalized = [item.strip().casefold() for item in self.items]
         if any(not item for item in normalized) or len(normalized) != len(set(normalized)):
             raise ValueError("ordering items must be non-empty and unique")
@@ -142,7 +141,7 @@ class Games(ConfigModel):
     sync: SyncConfig | None = None
 
     @model_validator(mode="after")
-    def at_least_one_game_and_unique_ids(self) -> "Games":
+    def at_least_one_game_and_unique_ids(self) -> Games:
         configured = [game for game in (self.jeopardy, self.ordering, self.listing, self.sync) if game is not None]
         if not configured:
             raise ValueError("at least one game is required")
@@ -161,7 +160,7 @@ class QuizConfig(ConfigModel):
     games: Games
 
     @model_validator(mode="after")
-    def unique_teams(self) -> "QuizConfig":
+    def unique_teams(self) -> QuizConfig:
         names = [team.name.strip().casefold() for team in self.teams]
         if any(not name for name in names) or len(names) != len(set(names)):
             raise ValueError("team names must be non-empty and unique")

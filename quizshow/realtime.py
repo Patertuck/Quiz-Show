@@ -5,19 +5,17 @@ from __future__ import annotations
 import asyncio
 import time
 import uuid
-from typing import Any
 
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 from pydantic import TypeAdapter, ValidationError
 
-from .container import ApplicationContainer
 from .api_models import CommandAccepted, HostCommandEnvelope, PlayerCommandEnvelope
+from .container import ApplicationContainer
 from .domain.commands import Command
 from .domain.projections import ClientRole
 from .game_services import legacy_game_services
 from .session_service import StaleSessionError
-
 
 COMMAND_ADAPTER = TypeAdapter(Command)
 

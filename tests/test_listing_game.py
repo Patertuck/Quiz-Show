@@ -6,7 +6,6 @@ from pathlib import Path
 from instance_state import InstanceStateStore
 from listing_game import ListingState
 
-
 QUESTION = {
     "id": "pets",
     "title": "Haustiere",

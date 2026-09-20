@@ -5,7 +5,6 @@ from pathlib import Path
 from instance_state import InstanceStateStore
 from main import OrderingState
 
-
 QUESTION = {
     "id": "letters",
     "title": "Letters",
