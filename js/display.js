@@ -374,11 +374,41 @@ function listing() {
   }
   if (round.phase === "review" && round.review) {
     const content = element("div", "display-listing-review");
-    content.append(
-      element("p", "display-listing-review-progress", `Prüfung ${round.review.index + 1} von ${round.review.total}`),
-      element("p", "display-listing-team", listingState.teams[round.review.teamIndex]),
-      element("h1", "display-listing-answer", round.review.text)
+    const header = element("header", "display-listing-review-header");
+    const title = element("div", "");
+    title.append(
+      element("p", "display-listing-review-progress", `Team ${round.review.teamPosition + 1} von ${round.review.teamTotal}`),
+      element("h1", "display-listing-team", listingState.teams[round.review.teamIndex])
     );
+    header.append(title, element(
+      "strong", "display-listing-review-count",
+      `${round.review.decidedCount}/${round.review.total} bewertet`
+    ));
+    const teams = element("div", "display-listing-review-teams");
+    round.review.teams.forEach((summary, position) => {
+      const complete = summary.decidedCount === summary.itemCount;
+      const tab = element(
+        "span",
+        `display-listing-review-team-tab${summary.teamIndex === round.review.teamIndex ? " active" : ""}${complete ? " complete" : ""}`,
+        `${position + 1}. ${listingState.teams[summary.teamIndex]} ${complete ? "✓" : `${summary.decidedCount}/${summary.itemCount}`}`
+      );
+      teams.append(tab);
+    });
+    const answers = element("div", "display-listing-review-grid");
+    round.review.items.forEach((item) => {
+      let state = "pending";
+      let label = "Offen";
+      if (item.decision === 1 || item.decision === true) { state = "positive"; label = "+1"; }
+      else if (item.decision === -1) { state = "negative"; label = "−1"; }
+      else if (item.decision === 0 || item.decision === false) { state = "neutral"; label = "0"; }
+      const card = element("article", `display-listing-review-item decision-${state}`);
+      card.append(
+        element("span", "display-listing-review-answer", item.text),
+        element("strong", "display-listing-review-decision", label)
+      );
+      answers.append(card);
+    });
+    content.append(header, teams, answers);
     screen.append(content);
     return screen;
   }

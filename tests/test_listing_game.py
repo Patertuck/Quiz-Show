@@ -57,14 +57,14 @@ class ListingStateTests(unittest.TestCase):
         self.assertNotIn("reason", state.snapshot("host")["round"]["review"])
 
         queue_items = []
-        while state.snapshot("host")["round"]["phase"] == "review":
+        for team_index in (0, 1):
+            state.control({"action": "review-team", "teamIndex": team_index})
             review = state.snapshot("host")["round"]["review"]
-            queue_items.append(review["text"])
-            state.control({"action": "decide", "itemId": review["itemId"],
-                           "accepted": review["text"] in {"Hund", "Katze"}})
-            current = state.snapshot("host")["round"]
-            if current["review"]["decidedCount"] == current["review"]["total"]:
-                state.control({"action": "finish-review"})
+            for item in review["items"]:
+                queue_items.append(item["text"])
+                state.control({"action": "decide", "itemId": item["itemId"],
+                               "accepted": item["text"] in {"Hund", "Katze"}})
+        state.control({"action": "finish-review"})
 
         self.assertEqual(["Hund", "Katze", "Tiger", "Hund"], queue_items)
         results = state.snapshot("host")["round"]["results"]
@@ -107,6 +107,8 @@ class ListingStateTests(unittest.TestCase):
         state.control({"action": "lock"})
         snapshot = wait_until(state, "review")
         self.assertEqual(2, snapshot["round"]["review"]["total"])
+        self.assertEqual(["Hund", "Katze"], [item["text"] for item in snapshot["round"]["review"]["items"]])
+        self.assertNotIn("itemId", state.snapshot("public")["round"]["review"]["items"][0])
         self.assertNotIn("warning", snapshot["round"])
         self.assertNotIn("warning", state.snapshot("public")["round"])
 
@@ -123,13 +125,10 @@ class ListingStateTests(unittest.TestCase):
         self.submit(state, 0, ["Katze", "Hund"])
         state.control({"action": "lock"})
         wait_until(state, "review")
-        first = state.snapshot("host")["round"]["review"]
-        state.control({"action": "decide", "itemId": first["itemId"], "accepted": False})
-        state.control({"action": "navigate", "index": 0})
-        state.control({"action": "decide", "itemId": first["itemId"], "accepted": True})
-        state.control({"action": "navigate", "index": 1})
-        second = state.snapshot("host")["round"]["review"]
-        state.control({"action": "decide", "itemId": second["itemId"], "accepted": True})
+        items = state.snapshot("host")["round"]["review"]["items"]
+        state.control({"action": "decide", "itemId": items[0]["itemId"], "accepted": False})
+        state.control({"action": "decide", "itemId": items[0]["itemId"], "accepted": True})
+        state.control({"action": "decide", "itemId": items[1]["itemId"], "accepted": True})
         state.control({"action": "finish-review"})
         self.assertEqual(2, state.snapshot("host")["round"]["results"][0]["acceptedCount"])
 
@@ -166,7 +165,7 @@ class ListingStateTests(unittest.TestCase):
         self.assertEqual(1, result["acceptedCount"])
         self.assertEqual(["counted"], [item["status"] for item in result["items"]])
 
-    def test_result_items_can_toggle_between_correct_and_wrong(self):
+    def test_result_items_can_be_reclassified(self):
         state = self.make_state()
         state.start(QUESTION)
         self.submit(state, 0, ["Hund", "Stein"])
@@ -176,12 +175,12 @@ class ListingStateTests(unittest.TestCase):
         state.control({"action": "decide", "itemId": "t0-i1", "countImpact": 0})
         state.control({"action": "finish-review"})
 
-        state.control({"action": "toggle-result-item", "itemId": "t0-i0"})
+        state.control({"action": "set-result-impact", "itemId": "t0-i0", "countImpact": 0})
         result = state.snapshot("host")["round"]["results"][0]
         self.assertEqual(0, result["acceptedCount"])
         self.assertEqual("rejected", result["items"][0]["status"])
 
-        state.control({"action": "toggle-result-item", "itemId": "t0-i1"})
+        state.control({"action": "set-result-impact", "itemId": "t0-i1", "countImpact": 1})
         result = state.snapshot("host")["round"]["results"][0]
         self.assertEqual(1, result["acceptedCount"])
         self.assertEqual("counted", result["items"][1]["status"])
@@ -197,7 +196,7 @@ class ListingStateTests(unittest.TestCase):
         state.control({"action": "confirm-distribution"})
 
         with self.assertRaisesRegex(ValueError, "Punkteverteilung"):
-            state.control({"action": "toggle-result-item", "itemId": "t0-i0"})
+            state.control({"action": "set-result-impact", "itemId": "t0-i0", "countImpact": -1})
 
     def test_result_navigation_rejects_invalid_positions(self):
         state = self.make_state()

@@ -44,6 +44,14 @@ class ListingState:
         if self.round and self.round.get("phase") == "classifying":
             self.round["phase"] = "active"
             self.round["deadlineAt"] = 0
+        if self.round:
+            self.round.pop("validationRule", None)
+            if self.round.get("phase") == "review" and "reviewTeamIndex" not in self.round:
+                queue = self.round.get("reviewQueue", [])
+                index = self.round.get("reviewIndex", 0)
+                item_id = queue[index] if queue and isinstance(index, int) and 0 <= index < len(queue) else None
+                entry = next((item for item in self.round.get("entries", []) if item.get("id") == item_id), None)
+                self.round["reviewTeamIndex"] = entry.get("teamIndex", 0) if entry else 0
 
     def reload(self) -> None:
         with self.condition:
@@ -142,7 +150,7 @@ class ListingState:
                 "submitted": [False for _ in self.teams],
                 "entries": [],
                 "reviewQueue": [],
-                "reviewIndex": 0,
+                "reviewTeamIndex": 0,
                 "decisions": {},
                 "resultView": None,
             }
@@ -219,7 +227,7 @@ class ListingState:
                 })
         self.round["entries"] = entries
         self.round["reviewQueue"] = [entry["id"] for entry in entries]
-        self.round["reviewIndex"] = 0
+        self.round["reviewTeamIndex"] = entries[0]["teamIndex"] if entries else 0
         self.round["decisions"] = {}
         self.round["phase"] = "review" if entries else "results"
         self.round["resultView"] = None if entries else {"mode": "team", "teamPosition": 0}
@@ -232,6 +240,19 @@ class ListingState:
         if not entry:
             raise ValueError("Der Eintrag gehört nicht zu dieser Runde.")
         return entry
+
+    def _review_team_indices_unlocked(self) -> list[int]:
+        if not self.round:
+            return []
+        present = {entry["teamIndex"] for entry in self.round.get("entries", [])}
+        return [team_index for team_index in range(len(self.teams)) if team_index in present]
+
+    def _active_review_team_unlocked(self) -> int | None:
+        team_indices = self._review_team_indices_unlocked()
+        if not team_indices:
+            return None
+        selected = self.round.get("reviewTeamIndex")
+        return selected if selected in team_indices else team_indices[0]
 
     def _accepted_unlocked(self, entry: dict) -> bool:
         if entry["id"] in self.round["decisions"]:
@@ -337,15 +358,14 @@ class ListingState:
                             or isinstance(impact, bool) or impact not in {-1, 0, 1}):
                         raise ValueError("Ungültige Prüfentscheidung.")
                     self.round["decisions"][item_id] = impact
-                    current = self.round["reviewQueue"].index(item_id)
-                    self.round["reviewIndex"] = min(current + 1, len(self.round["reviewQueue"]) - 1)
-                elif action == "navigate":
+                elif action == "review-team":
                     if self.round["phase"] != "review":
-                        raise ValueError("Es gibt momentan keine Prüfwarteschlange.")
-                    index = payload.get("index")
-                    if not isinstance(index, int) or isinstance(index, bool) or not 0 <= index < len(self.round["reviewQueue"]):
-                        raise ValueError("Ungültige Position in der Prüfwarteschlange.")
-                    self.round["reviewIndex"] = index
+                        raise ValueError("Es gibt momentan keine Teamprüfung.")
+                    team_index = payload.get("teamIndex")
+                    if (isinstance(team_index, bool) or not isinstance(team_index, int)
+                            or team_index not in self._review_team_indices_unlocked()):
+                        raise ValueError("Ungültige Teamseite in der Prüfung.")
+                    self.round["reviewTeamIndex"] = team_index
                 elif action == "finish-review":
                     if self.round["phase"] != "review":
                         raise ValueError("Die Runde ist nicht in der Prüfung.")
@@ -362,6 +382,21 @@ class ListingState:
                     entry = self._entry_unlocked(item_id)
                     current_impact = self._count_impact_unlocked(entry)
                     self.round["decisions"][item_id] = 0 if current_impact == 1 else 1
+                    ordered_results = self._ordered_results_unlocked()
+                    team_position = next(
+                        index for index, result in enumerate(ordered_results)
+                        if result["teamIndex"] == entry["teamIndex"]
+                    )
+                    self.round["resultView"] = {"mode": "team", "teamPosition": team_position}
+                elif action == "set-result-impact":
+                    if self.round["phase"] != "results":
+                        raise ValueError("Ergebnisse können nur vor der Punkteverteilung geändert werden.")
+                    item_id = payload.get("itemId")
+                    impact = payload.get("countImpact")
+                    if (not isinstance(item_id, str) or isinstance(impact, bool) or impact not in {-1, 0, 1}):
+                        raise ValueError("Ungültige Ergebniskorrektur.")
+                    entry = self._entry_unlocked(item_id)
+                    self.round["decisions"][item_id] = impact
                     ordered_results = self._ordered_results_unlocked()
                     team_position = next(
                         index for index, result in enumerate(ordered_results)
@@ -437,16 +472,32 @@ class ListingState:
                 round_data["teamItems"] = list(source["drafts"][team_index])
                 round_data["teamSubmitted"] = source["submitted"][team_index]
         elif source["phase"] == "review" and source["reviewQueue"]:
-            item_id = source["reviewQueue"][source["reviewIndex"]]
-            entry = self._entry_unlocked(item_id)
-            round_data["review"] = {
-                "itemId": item_id,
+            team_indices = self._review_team_indices_unlocked()
+            team_index = self._active_review_team_unlocked()
+            team_entries = [entry for entry in source["entries"] if entry["teamIndex"] == team_index]
+            summaries = []
+            for candidate in team_indices:
+                candidate_entries = [entry for entry in source["entries"] if entry["teamIndex"] == candidate]
+                summaries.append({
+                    "teamIndex": candidate,
+                    "itemCount": len(candidate_entries),
+                    "decidedCount": sum(entry["id"] in source["decisions"] for entry in candidate_entries),
+                })
+            items = [{
                 "text": entry["text"],
-                "teamIndex": entry["teamIndex"],
-                "index": source["reviewIndex"],
-                "total": len(source["reviewQueue"]),
+                "decision": source["decisions"].get(entry["id"]),
+                **({"itemId": entry["id"]} if role == "host" else {}),
+            } for entry in team_entries]
+            round_data["review"] = {
+                "teamIndex": team_index,
+                "teamPosition": team_indices.index(team_index),
+                "teamTotal": len(team_indices),
+                "teamDecidedCount": sum(item["decision"] is not None for item in items),
+                "teamItemCount": len(items),
                 "decidedCount": len(source["decisions"]),
-                "decision": source["decisions"].get(item_id),
+                "total": len(source["reviewQueue"]),
+                "teams": summaries,
+                "items": items,
             }
         if source["phase"] in {"results", "distributed"}:
             round_data["results"] = self._ordered_results_unlocked()

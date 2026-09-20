@@ -77,7 +77,16 @@ export const listingActive = { ...listingBase, round: {
   drafts: teamNames.map((_, teamIndex) => listingItems.slice(0, teamIndex + 2).map(({ text }) => text))
 } };
 export const listingReview = { ...listingBase, round: {
-  ...listingActive.round, phase: "review", review: { index: 7, total: 28, teamIndex: 0, text: "Ein aussergewöhnlich langer eingereichter Begriff" }
+  ...listingActive.round, phase: "review", review: {
+    teamIndex: 0, teamPosition: 0, teamTotal: 6, decidedCount: 7, total: 28,
+    teamDecidedCount: 7, teamItemCount: 12,
+    teams: teamNames.map((_, teamIndex) => ({ teamIndex, itemCount: teamIndex + 7, decidedCount: teamIndex ? teamIndex : 7 })),
+    items: Array.from({ length: 12 }, (_, index) => ({
+      itemId: `t0-i${index}`,
+      text: index === 2 ? "Ein aussergewöhnlich langer eingereichter Begriff" : `Antwort ${index + 1}`,
+      decision: index < 4 ? 1 : index < 6 ? 0 : index === 6 ? -1 : null
+    }))
+  }
 } };
 export const listingResults = { ...listingBase, round: {
   ...listingActive.round, phase: "results", resultView: { mode: "ranking", teamPosition: 0 },

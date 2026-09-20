@@ -32,10 +32,15 @@ const orderingList = document.querySelector("#ordering-list");
 const orderingStatus = document.querySelector("#ordering-phone-status");
 const listingStep = document.querySelector("#listing-step");
 const listingTeam = document.querySelector("#listing-team");
+const listingTitle = document.querySelector("#listing-title");
+const listingPrompt = document.querySelector("#listing-prompt");
+const listingCountdown = document.querySelector("#listing-countdown");
+const listingItemCount = document.querySelector("#listing-item-count");
 const listingForm = document.querySelector("#listing-entry-form");
 const listingEntry = document.querySelector("#listing-entry");
 const listingAdd = listingForm.querySelector("button[type='submit']");
 const listingItems = document.querySelector("#listing-items");
+const listingSubmit = document.querySelector("#listing-submit");
 const listingStatus = document.querySelector("#listing-phone-status");
 const syncRegisterStep = document.querySelector("#sync-register-step");
 const syncRegisterTeam = document.querySelector("#sync-register-team");
@@ -547,15 +552,25 @@ function renderListing() {
     listingLocalItems = [...(round.teamItems || listingLocalItems)];
   }
   listingTeam.textContent = listingState.teams[selectedTeamIndex] || "";
-  listingForm.hidden = !active || round.teamSubmitted;
+  listingTitle.textContent = round.title;
+  listingPrompt.textContent = round.prompt;
+  listingCountdown.textContent = active
+    ? Math.max(0, Math.ceil((round.deadlineAt - Date.now()) / 1000))
+    : "0";
+  listingCountdown.dataset.deadline = active ? round.deadlineAt : "";
+  listingForm.hidden = !active || round.teamSubmitted || listingSubmissionQueued;
   listingItems.hidden = !active;
+  listingSubmit.hidden = !active || round.teamSubmitted || listingSubmissionQueued;
   if (!active) {
     listingStatus.textContent = "Eure Liste ist gesperrt.";
+    listingItemCount.textContent = `${listingLocalItems.length} / ${round.maxItems} Einträge`;
     return;
   }
   const items = listingLocalItems;
+  listingItemCount.textContent = `${items.length} / ${round.maxItems} Einträge`;
   listingEntry.disabled = items.length >= round.maxItems;
   listingAdd.disabled = false;
+  listingSubmit.disabled = listingSubmissionQueued || listingPendingSaves > 0;
   listingItems.replaceChildren();
   items.forEach((text, index) => {
     const row = document.createElement("li");
@@ -592,12 +607,18 @@ function renderListing() {
 function renderListingPreview() {
   listingStep.classList.add("is-preview");
   listingTeam.textContent = currentState.teams[selectedTeamIndex] || "";
+  listingTitle.textContent = "List It";
+  listingPrompt.textContent = "Die Aufgabe wird gleich eingeblendet.";
+  listingCountdown.textContent = "–";
+  listingCountdown.removeAttribute("data-deadline");
+  listingItemCount.textContent = "0 / – Einträge";
   listingForm.hidden = false;
   listingEntry.value = "";
   listingEntry.disabled = true;
   listingAdd.disabled = true;
   listingItems.hidden = false;
   listingItems.replaceChildren();
+  listingSubmit.hidden = true;
   for (let index = 0; index < 3; index += 1) {
     const row = document.createElement("li");
     row.className = "preview-placeholder";
@@ -777,6 +798,11 @@ listingForm.addEventListener("submit", (event) => {
   listingEntry.focus({ preventScroll: true });
   saveListingItems(appended.items);
 });
+listingSubmit.addEventListener("click", () => {
+  const round = listingState?.round;
+  if (!round || round.phase !== "active" || round.teamSubmitted || listingSubmissionQueued) return;
+  saveListingItems(listingLocalItems, true);
+});
 teamLobbyCreateForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const name = teamLobbyName.value.trim();
@@ -827,13 +853,17 @@ liveConnection = connectPlayerSession({
 });
 
 orderingTimer = setInterval(() => {
-  if (!orderingState?.round || orderingState.round.phase !== "active") return;
-  const seconds = Math.max(0, Math.ceil((orderingState.round.deadlineAt - Date.now()) / 1000));
-  orderingCountdown.textContent = seconds;
-  if (seconds === 0 && activeDrag) {
-    cancelDrag();
-    orderingList.classList.add("locked-pending");
-    orderingStatus.textContent = "";
+  if (orderingState?.round?.phase === "active") {
+    const seconds = Math.max(0, Math.ceil((orderingState.round.deadlineAt - Date.now()) / 1000));
+    orderingCountdown.textContent = seconds;
+    if (seconds === 0 && activeDrag) {
+      cancelDrag();
+      orderingList.classList.add("locked-pending");
+      orderingStatus.textContent = "";
+    }
+  }
+  if (listingState?.round?.phase === "active") {
+    listingCountdown.textContent = Math.max(0, Math.ceil((listingState.round.deadlineAt - Date.now()) / 1000));
   }
 }, 200);
 

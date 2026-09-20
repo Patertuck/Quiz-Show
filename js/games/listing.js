@@ -219,37 +219,85 @@ async function confirmCancel(trigger) {
 
 function renderReview(round) {
   const review = round.review;
-  setStatus(`${review.decidedCount} von ${review.total} Entscheidungen getroffen.`);
+  const pending = review.total - review.decidedCount;
+  setStatus(pending ? `${review.decidedCount} von ${review.total} Antworten bewertet.` : "Alle Antworten sind bewertet.");
   const panel = document.createElement("section");
   panel.className = "listing-review";
-  const progress = document.createElement("p");
-  progress.className = "listing-review-progress";
-  progress.textContent = `Eintrag ${review.index + 1} von ${review.total}`;
-  const team = document.createElement("p");
-  team.className = "listing-review-team";
+  const header = document.createElement("header");
+  header.className = "listing-review-header";
+  const heading = document.createElement("div");
+  const eyebrow = document.createElement("p");
+  eyebrow.className = "listing-review-progress";
+  eyebrow.textContent = `Team ${review.teamPosition + 1} von ${review.teamTotal}`;
+  const team = document.createElement("h2");
   team.textContent = listingState.teams[review.teamIndex];
-  const answer = document.createElement("h2");
-  answer.textContent = review.text;
-  const decisions = document.createElement("div");
-  decisions.className = "listing-decision-actions";
-  decisions.append(
-    button("✓ Richtig (+1)", `listing-accept${review.decision === 1 || review.decision === true ? " selected" : ""}`,
-      () => request("decide", { itemId: review.itemId, countImpact: 1 })),
-    button("✕ Falsch (−1)", `listing-reject${review.decision === -1 ? " selected" : ""}`,
-      () => request("decide", { itemId: review.itemId, countImpact: -1 })),
-    button("Falsch (0)", `listing-reject-neutral${review.decision === 0 || review.decision === false ? " selected" : ""}`,
-      () => request("decide", { itemId: review.itemId, countImpact: 0 }))
-  );
+  const counter = document.createElement("strong");
+  counter.className = "listing-review-counter";
+  counter.textContent = `${review.teamDecidedCount}/${review.teamItemCount}`;
+  heading.append(eyebrow, team);
+  header.append(heading, counter);
+
+  const teamTabs = document.createElement("nav");
+  teamTabs.className = "listing-review-teams";
+  teamTabs.setAttribute("aria-label", "Teams in der Prüfung");
+  review.teams.forEach((summary, position) => {
+    const complete = summary.decidedCount === summary.itemCount;
+    const tab = button(
+      `${position + 1}. ${listingState.teams[summary.teamIndex]} ${complete ? "✓" : `${summary.decidedCount}/${summary.itemCount}`}`,
+      `listing-review-team-tab${summary.teamIndex === review.teamIndex ? " active" : ""}${complete ? " complete" : ""}`,
+      () => request("review-team", { teamIndex: summary.teamIndex })
+    );
+    tab.setAttribute("aria-current", summary.teamIndex === review.teamIndex ? "page" : "false");
+    teamTabs.append(tab);
+  });
+
+  const answers = document.createElement("div");
+  answers.className = "listing-review-grid";
+  review.items.forEach((item) => {
+    const card = document.createElement("article");
+    card.className = `listing-review-item ${decisionClass(item.decision)}`;
+    const answer = document.createElement("p");
+    answer.className = "listing-review-answer";
+    answer.textContent = item.text;
+    card.append(answer, decisionControls(item, "decide"));
+    answers.append(card);
+  });
+
   const navigation = document.createElement("div");
   navigation.className = "listing-actions";
+  const previous = review.teams[review.teamPosition - 1]?.teamIndex;
+  const next = review.teams[review.teamPosition + 1]?.teamIndex;
   navigation.append(
-    button("← Zurück", "secondary-button", () => request("navigate", { index: review.index - 1 }), review.index === 0),
-    button("Weiter →", "secondary-button", () => request("navigate", { index: review.index + 1 }), review.index + 1 >= review.total),
+    button("← Vorheriges Team", "secondary-button", () => request("review-team", { teamIndex: previous }), previous === undefined),
+    button("Nächstes Team →", "secondary-button", () => request("review-team", { teamIndex: next }), next === undefined),
     button("Prüfung abschliessen", "primary-button", () => request("finish-review"), review.decidedCount < review.total),
     button("Runde abbrechen", "danger-button", confirmCancel)
   );
-  panel.append(progress, team, answer, decisions, navigation);
+  panel.append(header, teamTabs, answers, navigation);
   content.replaceChildren(panel);
+}
+
+function decisionClass(decision) {
+  if (decision === 1 || decision === true) return "decision-positive";
+  if (decision === -1) return "decision-negative";
+  if (decision === 0 || decision === false) return "decision-neutral";
+  return "decision-pending";
+}
+
+function decisionControls(item, action) {
+  const controls = document.createElement("div");
+  controls.className = "listing-decision-actions";
+  const positive = button("+1", `listing-accept${item.decision === 1 || item.decision === true ? " selected" : ""}`,
+    () => request(action, { itemId: item.itemId, countImpact: 1 }));
+  const neutral = button("0", `listing-reject-neutral${item.decision === 0 || item.decision === false ? " selected" : ""}`,
+    () => request(action, { itemId: item.itemId, countImpact: 0 }));
+  const negative = button("−1", `listing-reject${item.decision === -1 ? " selected" : ""}`,
+    () => request(action, { itemId: item.itemId, countImpact: -1 }));
+  positive.setAttribute("aria-label", `${item.text}: richtig, plus eins`);
+  neutral.setAttribute("aria-label", `${item.text}: falsch, null`);
+  negative.setAttribute("aria-label", `${item.text}: falsch, minus eins`);
+  controls.append(positive, neutral, negative);
+  return controls;
 }
 
 function resultTable(round) {
@@ -283,25 +331,13 @@ function resultItems(items) {
     return list;
   }
   items.forEach((item) => {
-    const card = document.createElement("button");
-    card.type = "button";
+    const card = document.createElement("article");
     card.className = `listing-result-item ${item.status}`;
-    card.title = `${item.text} · Anklicken, um als ${item.accepted ? "falsch" : "richtig"} zu markieren`;
-    card.setAttribute("aria-label", `${item.text}: ${item.accepted ? "richtig" : "falsch"}. Zum Ändern anklicken.`);
-    card.setAttribute("aria-pressed", String(item.accepted));
     const text = document.createElement("span");
     text.className = "listing-result-item-text";
     text.textContent = item.text;
-    card.append(text);
-    card.addEventListener("click", async () => {
-      card.disabled = true;
-      try {
-        await request("toggle-result-item", { itemId: item.itemId });
-      } catch (error) {
-        card.disabled = false;
-        setStatus(error.message);
-      }
-    });
+    const decision = item.status === "penalized" ? -1 : (item.accepted ? 1 : 0);
+    card.append(text, decisionControls({ ...item, decision }, "set-result-impact"));
     list.append(card);
   });
   return list;
