@@ -28,7 +28,6 @@ export const config = {
     ordering: { scoringMode: "relative", pointsPerCorrect: 50, questions },
     listing: { questions: questions.map((question, index) => ({
       ...question, displayCategory: `Kategorie ${index + 1} mit langem Namen`,
-      validationRule: "Akzeptiere passende, eindeutige Antworten und lehne doppelte oder sachlich falsche Antworten ab.",
       maxItems: 20, placementPoints: [300, 200, 100]
     })) },
     sync: { timeLimitSeconds: 8, pointsPerSync: 100, questions }

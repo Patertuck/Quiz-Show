@@ -16,11 +16,11 @@ class ClientRole(StrEnum):
 
 
 PLAYER_PRIVATE_KEYS = frozenset({
-    "answer", "correctAnswer", "correctOrder", "validationRule", "votes", "submissions",
+    "answer", "correctAnswer", "correctOrder", "votes", "submissions",
     "deviceId", "deviceIds", "hostNotes",
 })
 DISPLAY_PRIVATE_KEYS = frozenset({
-    "validationRule", "votes", "submissions", "deviceId", "deviceIds", "hostNotes",
+    "votes", "submissions", "deviceId", "deviceIds", "hostNotes",
 })
 
 

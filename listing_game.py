@@ -103,7 +103,7 @@ class ListingState:
     def _validate_question(question: object) -> dict:
         if not isinstance(question, dict):
             raise ValueError("Eine List-It-Frage ist erforderlich.")
-        for field in ("id", "title", "prompt", "validationRule"):
+        for field in ("id", "title", "prompt"):
             if not isinstance(question.get(field), str) or not question[field].strip():
                 raise ValueError(f"Das Fragenfeld {field} ist erforderlich.")
         seconds = question.get("timeLimitSeconds")
@@ -133,7 +133,6 @@ class ListingState:
                 "questionId": clean["id"],
                 "title": clean["title"],
                 "prompt": clean["prompt"],
-                "validationRule": clean["validationRule"],
                 "timeLimitSeconds": clean["timeLimitSeconds"],
                 "maxItems": clean["maxItems"],
                 "placementPoints": list(clean["placementPoints"]),

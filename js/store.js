@@ -159,7 +159,6 @@ export function validateConfig(config) {
     requireString(question?.title, `${path}.title`);
     requireString(question?.displayCategory, `${path}.displayCategory`);
     requireString(question?.prompt, `${path}.prompt`);
-    requireString(question?.validationRule, `${path}.validationRule`);
     if (!/^[a-z0-9][a-z0-9-]*$/i.test(question.id) || listingIds.has(question.id)) {
       throw new Error(`${path}.id muss eindeutig sein und darf nur Buchstaben, Zahlen und Bindestriche enthalten.`);
     }

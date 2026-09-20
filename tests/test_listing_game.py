@@ -10,7 +10,6 @@ QUESTION = {
     "id": "pets",
     "title": "Haustiere",
     "prompt": "Nennt Haustiere.",
-    "validationRule": "Übliche Haustiere sind richtig.",
     "timeLimitSeconds": 60,
     "maxItems": 10,
     "placementPoints": [300, 200, 100],

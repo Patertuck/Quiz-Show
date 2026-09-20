@@ -39,7 +39,6 @@
           "title": "Farben des Regenbogens",
           "displayCategory": "Allgemeinwissen",
           "prompt": "Nennt möglichst viele Farben des Regenbogens.",
-          "validationRule": "Akzeptiere Rot, Orange, Gelb, Grün, Blau, Indigo und Violett. Akzeptiere eindeutige alternative Schreibweisen, aber keine anderen Farben.",
           "timeLimitSeconds": 45,
           "maxItems": 7,
           "placementPoints": [300, 200, 100]

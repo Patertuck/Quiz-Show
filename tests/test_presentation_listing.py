@@ -15,7 +15,7 @@ class PresentationListingTests(unittest.TestCase):
                         "id": "pets",
                         "displayCategory": "Zusammenleben",
                         "completed": False,
-                        "validationRule": "This must stay private.",
+                        "hostNotes": "This must stay private.",
                     },
                 ],
                 "highlightedQuestionId": "pets",
@@ -23,7 +23,7 @@ class PresentationListingTests(unittest.TestCase):
                     "id": "pets",
                     "title": "Haustiere",
                     "prompt": "Nennt verschiedene Haustiere.",
-                    "validationRule": "This must stay private.",
+                    "hostNotes": "This must stay private.",
                 },
             },
         })
@@ -37,8 +37,8 @@ class PresentationListingTests(unittest.TestCase):
                 "id": "pets", "title": "Haustiere", "prompt": "Nennt verschiedene Haustiere.",
             },
         }, clean["questionSelection"])
-        self.assertNotIn("validationRule", clean["questionSelection"]["questions"][0])
-        self.assertNotIn("validationRule", clean["questionSelection"]["selectedQuestion"])
+        self.assertNotIn("hostNotes", clean["questionSelection"]["questions"][0])
+        self.assertNotIn("hostNotes", clean["questionSelection"]["selectedQuestion"])
 
     def test_accepts_listing_without_question_selection(self):
         clean = main.validate_presentation({

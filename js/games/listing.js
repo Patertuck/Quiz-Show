@@ -155,12 +155,6 @@ function renderPreview() {
   const details = document.createElement("p");
   details.textContent = `Maximal ${question.maxItems} Einträge · Platzierungspunkte ${question.placementPoints.join(" / ")}`;
   const timer = timerControl(question.timeLimitSeconds);
-  const rule = document.createElement("details");
-  const summary = document.createElement("summary");
-  summary.textContent = "Private Prüfregel";
-  const ruleText = document.createElement("p");
-  ruleText.textContent = question.validationRule;
-  rule.append(summary, ruleText);
   const actions = document.createElement("div");
   actions.className = "listing-actions";
   actions.append(
@@ -173,7 +167,7 @@ function renderPreview() {
       await publishListing(questionSelection(null));
     })
   );
-  preview.append(title, prompt, details, timer.label, rule, actions);
+  preview.append(title, prompt, details, timer.label, actions);
   content.replaceChildren(preview);
 }
 

@@ -113,7 +113,6 @@ class AuthoritativeSessionTests(unittest.TestCase):
         session = self.started()
         session = apply_command(session, ReplaceGameState(type="replace-game-state", game="sync", state={
             "prompt": "Wer?", "answer": "Geheim", "votes": [{"deviceId": "phone-1"}],
-            "validationRule": "intern",
         }), 1_800_000_001.0)
 
         host = project_session(session, ClientRole.HOST)
@@ -159,6 +158,14 @@ class BackendQuizConfigTests(unittest.TestCase):
         for games in ({}, {"unknown": {}}):
             with self.subTest(games=games), self.assertRaises(ValidationError):
                 QuizConfig.model_validate({**base, "games": games})
+
+    def test_legacy_listing_validation_rule_is_ignored(self):
+        payload = json.loads(Path("quiz-data/variations/beispiel-quiz/quiz-config.json").read_text(encoding="utf-8"))
+        payload["games"]["listing"]["questions"][0]["validationRule"] = "Obsolete AI instruction"
+
+        question = QuizConfig.model_validate(payload).games.listing.questions[0]
+
+        self.assertNotIn("validationRule", question.model_dump(by_alias=True))
 
     def test_duplicate_team_and_question_ids_are_rejected(self):
         with self.assertRaises(ValidationError):

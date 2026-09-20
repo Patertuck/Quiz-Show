@@ -23,7 +23,7 @@ const ordering = {
 const listing = {
   questions: [{
     id: "list", title: "List", displayCategory: "Kategorie", prompt: "Auflisten",
-    validationRule: "Gültige Einträge", timeLimitSeconds: 30, maxItems: 10,
+    timeLimitSeconds: 30, maxItems: 10,
     placementPoints: [100]
   }]
 };
@@ -43,6 +43,12 @@ test("accepts every supported game independently and together", () => {
   }
   assert.deepEqual(Object.keys(validateConfig(config({ jeopardy, ordering, listing, sync })).games),
     ["jeopardy", "ordering", "listing", "sync"]);
+});
+
+test("does not require the retired listing AI rule", () => {
+  const legacy = { ...listing, questions: [{ ...listing.questions[0], validationRule: "Obsolete" }] };
+  assert.equal(validateConfig(config({ listing })).games.listing, listing);
+  assert.equal(validateConfig(config({ listing: legacy })).games.listing, legacy);
 });
 
 test("rejects no games, unknown games, and malformed present games", () => {
