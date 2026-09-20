@@ -79,11 +79,7 @@ class ListingStateTests(unittest.TestCase):
             ],
             results[0]["items"],
         )
-        self.assertEqual({"mode": "team", "teamPosition": 0}, state.snapshot("public")["round"]["resultView"])
-        state.control({"action": "result-navigate", "teamPosition": 1})
-        self.assertEqual(1, state.snapshot("public")["round"]["resultView"]["teamPosition"])
-        state.control({"action": "result-ranking"})
-        self.assertEqual("ranking", state.snapshot("public")["round"]["resultView"]["mode"])
+        self.assertEqual({"mode": "ranking", "teamPosition": 0}, state.snapshot("public")["round"]["resultView"])
         public_item = state.snapshot("public")["round"]["results"][0]["items"][0]
         self.assertEqual({"text", "status"}, set(public_item))
         awards = state.awards()
@@ -174,47 +170,6 @@ class ListingStateTests(unittest.TestCase):
         result = snapshot["round"]["results"][0]
         self.assertEqual(1, result["acceptedCount"])
         self.assertEqual(["counted"], [item["status"] for item in result["items"]])
-
-    def test_result_items_can_be_reclassified(self):
-        state = self.make_state()
-        state.start(QUESTION)
-        self.submit(state, 0, ["Hund", "Stein"])
-        state.control({"action": "lock"})
-        wait_until(state, "review")
-        state.control({"action": "decide", "itemId": "t0-i0", "countImpact": 1})
-        state.control({"action": "decide", "itemId": "t0-i1", "countImpact": 0})
-        state.control({"action": "finish-review"})
-
-        state.control({"action": "set-result-impact", "itemId": "t0-i0", "countImpact": 0})
-        result = state.snapshot("host")["round"]["results"][0]
-        self.assertEqual(0, result["acceptedCount"])
-        self.assertEqual("rejected", result["items"][0]["status"])
-
-        state.control({"action": "set-result-impact", "itemId": "t0-i1", "countImpact": 1})
-        result = state.snapshot("host")["round"]["results"][0]
-        self.assertEqual(1, result["acceptedCount"])
-        self.assertEqual("counted", result["items"][1]["status"])
-
-    def test_result_items_cannot_change_after_distribution(self):
-        state = self.make_state()
-        state.start(QUESTION)
-        self.submit(state, 0, ["Hund"])
-        state.control({"action": "lock"})
-        wait_until(state, "review")
-        state.control({"action": "decide", "itemId": "t0-i0", "countImpact": 1})
-        state.control({"action": "finish-review"})
-        state.control({"action": "confirm-distribution"})
-
-        with self.assertRaisesRegex(ValueError, "Punkteverteilung"):
-            state.control({"action": "set-result-impact", "itemId": "t0-i0", "countImpact": -1})
-
-    def test_result_navigation_rejects_invalid_positions(self):
-        state = self.make_state()
-        state.start(QUESTION)
-        state.control({"action": "lock"})
-        wait_until(state, "results")
-        with self.assertRaisesRegex(ValueError, "Ungültige Teamseite"):
-            state.control({"action": "result-navigate", "teamPosition": 2})
 
     def test_results_can_be_cancelled_until_points_are_distributed(self):
         state = self.make_state()

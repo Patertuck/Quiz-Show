@@ -1,7 +1,6 @@
 import { publishListing } from "../presentation-host.js";
 import { state, applyAward, saveState } from "../store.js";
 import { renderScoreboard } from "../scoreboard.js";
-import { scheduleTextFit } from "../fit-text.js";
 import { formatInteger } from "../format-number.js";
 import { hostFetch } from "../slot-api.js";
 import { confirmAction } from "../confirm-dialog.js";
@@ -14,15 +13,8 @@ let statusLine;
 let listingState;
 let events;
 let ticker;
-let resultFitObserver;
 let selectedQuestion = null;
 let rulesButton;
-
-function fitResultItems(scope = content) {
-  scope?.querySelectorAll(".listing-result-item").forEach((card) => {
-    scheduleTextFit(card, ".listing-result-item-text");
-  });
-}
 
 function questionSelection(highlightedQuestionId = selectedQuestion?.id || null) {
   return {
@@ -254,12 +246,18 @@ function renderReview(round) {
   const answers = document.createElement("div");
   answers.className = "listing-review-grid";
   review.items.forEach((item) => {
-    const card = document.createElement("article");
+    const card = document.createElement("button");
+    card.type = "button";
     card.className = `listing-review-item ${decisionClass(item.decision)}`;
-    const answer = document.createElement("p");
-    answer.className = "listing-review-answer";
-    answer.textContent = item.text;
-    card.append(answer, decisionControls(item, "decide"));
+    card.textContent = item.text;
+    const next = nextDecision(item.decision);
+    const status = item.decision === 1 ? "richtig" : item.decision === 0 ? "neutral falsch" : item.decision === -1 ? "mit Abzug falsch" : "offen";
+    card.setAttribute("aria-label", `${item.text}: ${status}. Anklicken, um die nächste Wertung zu setzen.`);
+    card.addEventListener("click", async () => {
+      card.disabled = true;
+      try { await request("decide", { itemId: item.itemId, countImpact: next }); }
+      catch (error) { card.disabled = false; setStatus(error.message); }
+    });
     answers.append(card);
   });
 
@@ -284,20 +282,10 @@ function decisionClass(decision) {
   return "decision-pending";
 }
 
-function decisionControls(item, action) {
-  const controls = document.createElement("div");
-  controls.className = "listing-decision-actions";
-  const positive = button("+1", `listing-accept${item.decision === 1 || item.decision === true ? " selected" : ""}`,
-    () => request(action, { itemId: item.itemId, countImpact: 1 }));
-  const neutral = button("0", `listing-reject-neutral${item.decision === 0 || item.decision === false ? " selected" : ""}`,
-    () => request(action, { itemId: item.itemId, countImpact: 0 }));
-  const negative = button("−1", `listing-reject${item.decision === -1 ? " selected" : ""}`,
-    () => request(action, { itemId: item.itemId, countImpact: -1 }));
-  positive.setAttribute("aria-label", `${item.text}: richtig, plus eins`);
-  neutral.setAttribute("aria-label", `${item.text}: falsch, null`);
-  negative.setAttribute("aria-label", `${item.text}: falsch, minus eins`);
-  controls.append(positive, neutral, negative);
-  return controls;
+function nextDecision(decision) {
+  if (decision === 1 || decision === true) return 0;
+  if (decision === 0 || decision === false) return -1;
+  return 1;
 }
 
 function resultTable(round) {
@@ -320,63 +308,6 @@ function resultTable(round) {
   return table;
 }
 
-function resultItems(items) {
-  const list = document.createElement("div");
-  list.className = "listing-result-items";
-  if (!items.length) {
-    const empty = document.createElement("p");
-    empty.className = "listing-result-empty";
-    empty.textContent = "Keine Begriffe eingereicht";
-    list.append(empty);
-    return list;
-  }
-  items.forEach((item) => {
-    const card = document.createElement("article");
-    card.className = `listing-result-item ${item.status}`;
-    const text = document.createElement("span");
-    text.className = "listing-result-item-text";
-    text.textContent = item.text;
-    const decision = item.status === "penalized" ? -1 : (item.accepted ? 1 : 0);
-    card.append(text, decisionControls({ ...item, decision }, "set-result-impact"));
-    list.append(card);
-  });
-  return list;
-}
-
-function renderTeamResult(round) {
-  const position = round.resultView?.teamPosition || 0;
-  const result = round.results[position];
-  if (!result) {
-    request("result-ranking").catch((error) => setStatus(error.message));
-    return;
-  }
-  setStatus(`Teamseite ${position + 1} von ${round.results.length} · absteigend nach Platzierung.`);
-  const panel = document.createElement("section");
-  panel.className = "listing-team-result-panel";
-  const heading = document.createElement("header");
-  heading.className = "listing-team-result-heading";
-  const place = document.createElement("strong");
-  place.textContent = `${result.place}. Platz`;
-  const title = document.createElement("h2");
-  title.textContent = listingState.teams[result.teamIndex];
-  const count = document.createElement("span");
-  count.textContent = `${formatInteger(result.acceptedCount)} Punkte`;
-  heading.append(place, title, count);
-  const actions = document.createElement("div");
-  actions.className = "listing-actions";
-  actions.append(
-    button("← Vorheriges Team", "secondary-button",
-      () => request("result-navigate", { teamPosition: position - 1 }), position === 0),
-    button("Nächstes Team →", "secondary-button",
-      () => request("result-navigate", { teamPosition: position + 1 }), position + 1 >= round.results.length),
-    button("Direkt zur Rangliste", "primary-button", () => request("result-ranking")),
-    button("Runde abbrechen", "danger-button", confirmCancel)
-  );
-  panel.append(heading, resultItems(result.items || []), actions);
-  content.replaceChildren(panel);
-  fitResultItems(panel);
-}
-
 function renderRanking(round) {
   setStatus(round.phase === "distributed" ? "Punkte wurden verteilt." : "Ergebnisse bereit.");
   const panel = document.createElement("section");
@@ -389,7 +320,6 @@ function renderRanking(round) {
     actions.append(button("Zurück zu den Aufgaben", "primary-button", () => request("close")));
   } else {
     actions.append(
-      button("Teamseiten anzeigen", "secondary-button", () => request("result-teams")),
       button("Punkte verteilen", "primary-button", distribute),
       button("Runde abbrechen", "danger-button", confirmCancel)
     );
@@ -399,8 +329,7 @@ function renderRanking(round) {
 }
 
 function renderResults(round) {
-  if (round.phase === "results" && round.resultView?.mode === "team") renderTeamResult(round);
-  else renderRanking(round);
+  renderRanking(round);
 }
 
 async function distribute() {
@@ -440,8 +369,6 @@ export async function mount(element, { showRules } = {}) {
     render(snapshot);
     if (!snapshot.round) publishListing(questionSelection()).catch(() => undefined);
   });
-  resultFitObserver = new ResizeObserver(() => fitResultItems());
-  resultFitObserver.observe(content);
   const scoreListener = (event) => {
     if (event.detail?.source !== "manual") publishListing(questionSelection()).catch(() => undefined);
   };
@@ -452,8 +379,6 @@ export async function mount(element, { showRules } = {}) {
   }, 200);
   return () => {
     events?.();
-    resultFitObserver?.disconnect();
-    resultFitObserver = null;
     clearInterval(ticker);
     window.removeEventListener("quiz-score-changed", scoreListener);
   };

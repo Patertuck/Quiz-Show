@@ -53,6 +53,8 @@ class ListingState:
                 item_id = queue[index] if queue and isinstance(index, int) and 0 <= index < len(queue) else None
                 entry = next((item for item in self.round.get("entries", []) if item.get("id") == item_id), None)
                 self.round["reviewTeamIndex"] = entry.get("teamIndex", 0) if entry else 0
+            if self.round.get("phase") in {"results", "distributed"}:
+                self.round["resultView"] = {"mode": "ranking", "teamPosition": 0}
 
     def reload(self) -> None:
         with self.condition:
@@ -224,7 +226,7 @@ class ListingState:
         self.round["reviewTeamIndex"] = entries[0]["teamIndex"] if entries else 0
         self.round["decisions"] = {}
         self.round["phase"] = "review" if entries else "results"
-        self.round["resultView"] = None if entries else {"mode": "team", "teamPosition": 0}
+        self.round["resultView"] = None if entries else {"mode": "ranking", "teamPosition": 0}
         self._changed_unlocked()
 
     def _entry_unlocked(self, item_id: str) -> dict:
@@ -366,53 +368,7 @@ class ListingState:
                     if any(item_id not in self.round["decisions"] for item_id in self.round["reviewQueue"]):
                         raise ValueError("Entscheidet zuerst über alle Einträge.")
                     self.round["phase"] = "results"
-                    self.round["resultView"] = {"mode": "team", "teamPosition": 0}
-                elif action == "toggle-result-item":
-                    if self.round["phase"] != "results":
-                        raise ValueError("Ergebnisse können nur vor der Punkteverteilung geändert werden.")
-                    item_id = payload.get("itemId")
-                    if not isinstance(item_id, str):
-                        raise ValueError("Ungültiger Ergebnis-Eintrag.")
-                    entry = self._entry_unlocked(item_id)
-                    current_impact = self._count_impact_unlocked(entry)
-                    self.round["decisions"][item_id] = 0 if current_impact == 1 else 1
-                    ordered_results = self._ordered_results_unlocked()
-                    team_position = next(
-                        index for index, result in enumerate(ordered_results)
-                        if result["teamIndex"] == entry["teamIndex"]
-                    )
-                    self.round["resultView"] = {"mode": "team", "teamPosition": team_position}
-                elif action == "set-result-impact":
-                    if self.round["phase"] != "results":
-                        raise ValueError("Ergebnisse können nur vor der Punkteverteilung geändert werden.")
-                    item_id = payload.get("itemId")
-                    impact = payload.get("countImpact")
-                    if (not isinstance(item_id, str) or isinstance(impact, bool) or impact not in {-1, 0, 1}):
-                        raise ValueError("Ungültige Ergebniskorrektur.")
-                    entry = self._entry_unlocked(item_id)
-                    self.round["decisions"][item_id] = impact
-                    ordered_results = self._ordered_results_unlocked()
-                    team_position = next(
-                        index for index, result in enumerate(ordered_results)
-                        if result["teamIndex"] == entry["teamIndex"]
-                    )
-                    self.round["resultView"] = {"mode": "team", "teamPosition": team_position}
-                elif action == "result-navigate":
-                    if self.round["phase"] != "results":
-                        raise ValueError("Die Teamseiten sind momentan nicht verfügbar.")
-                    position = payload.get("teamPosition")
-                    if (not isinstance(position, int) or isinstance(position, bool)
-                            or not 0 <= position < len(self.teams)):
-                        raise ValueError("Ungültige Teamseite.")
-                    self.round["resultView"] = {"mode": "team", "teamPosition": position}
-                elif action == "result-ranking":
-                    if self.round["phase"] != "results":
-                        raise ValueError("Die Rangliste ist momentan nicht verfügbar.")
                     self.round["resultView"] = {"mode": "ranking", "teamPosition": 0}
-                elif action == "result-teams":
-                    if self.round["phase"] != "results":
-                        raise ValueError("Die Teamseiten sind momentan nicht verfügbar.")
-                    self.round["resultView"] = {"mode": "team", "teamPosition": 0}
                 elif action == "confirm-distribution":
                     if self.round["phase"] != "results":
                         raise ValueError("Die Ergebnisse sind noch nicht bereit.")
@@ -506,13 +462,7 @@ class ListingState:
                     }
                     for result in round_data["results"]
                 ]
-            result_view = source.get("resultView")
-            if not isinstance(result_view, dict) or result_view.get("mode") not in {"team", "ranking"}:
-                result_view = {
-                    "mode": "ranking" if source["phase"] == "distributed" else "team",
-                    "teamPosition": 0,
-                }
-            round_data["resultView"] = result_view
+            round_data["resultView"] = {"mode": "ranking", "teamPosition": 0}
         if role == "host":
             round_data["drafts"] = source["drafts"]
             round_data["decisions"] = source["decisions"]

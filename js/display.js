@@ -397,51 +397,14 @@ function listing() {
     const answers = element("div", "display-listing-review-grid");
     round.review.items.forEach((item) => {
       let state = "pending";
-      let label = "Offen";
-      if (item.decision === 1 || item.decision === true) { state = "positive"; label = "+1"; }
-      else if (item.decision === -1) { state = "negative"; label = "−1"; }
-      else if (item.decision === 0 || item.decision === false) { state = "neutral"; label = "0"; }
+      if (item.decision === 1 || item.decision === true) state = "positive";
+      else if (item.decision === -1) state = "negative";
+      else if (item.decision === 0 || item.decision === false) state = "neutral";
       const card = element("article", `display-listing-review-item decision-${state}`);
-      card.append(
-        element("span", "display-listing-review-answer", item.text),
-        element("strong", "display-listing-review-decision", label)
-      );
+      card.append(element("span", "display-listing-review-answer", item.text));
       answers.append(card);
     });
     content.append(header, teams, answers);
-    screen.append(content);
-    return screen;
-  }
-  if (round.phase === "results" && round.resultView?.mode === "team") {
-    const position = round.resultView.teamPosition || 0;
-    const result = round.results?.[position];
-    const content = element("div", "display-listing-team-result");
-    if (!result) {
-      content.append(element("h1", "", "Keine Teamergebnisse"));
-      screen.append(content);
-      return screen;
-    }
-    const heading = element("header", "display-listing-team-heading");
-    heading.append(
-      element("strong", "display-listing-team-place", `${result.place}. Platz`),
-      element("h1", "", listingState.teams[result.teamIndex])
-    );
-    const items = element("div", "display-listing-items");
-    if (!result.items?.length) {
-      items.append(element("p", "display-listing-empty", "Keine Begriffe eingereicht"));
-    } else {
-      result.items.forEach((item) => {
-        const card = element("div", `display-listing-item ${item.status}`);
-        card.title = item.text;
-        card.append(element("span", "display-listing-item-text", item.text));
-        items.append(card);
-        scheduleTextFit(card, ".display-listing-item-text");
-      });
-    }
-    content.append(heading, items, element(
-      "p", "display-listing-team-count",
-      `${formatInteger(result.acceptedCount)} Punkte`
-    ));
     screen.append(content);
     return screen;
   }
@@ -1012,8 +975,5 @@ syncTicker = setInterval(() => {
 window.addEventListener("resize", () => {
   const board = root.querySelector(".display-board");
   if (board && presentation?.board) fitBoard(board, presentation.board.categories.length, presentation.board.values.length);
-  root.querySelectorAll(".display-listing-item").forEach((card) => {
-    scheduleTextFit(card, ".display-listing-item-text");
-  });
 });
 window.addEventListener("pagehide", () => liveConnection.close());
