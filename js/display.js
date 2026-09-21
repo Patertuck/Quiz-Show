@@ -382,15 +382,14 @@ function listing() {
     );
     header.append(title, element(
       "strong", "display-listing-review-count",
-      `${round.review.decidedCount}/${round.review.total} bewertet`
+      `${round.review.teamValidCount} gültig`
     ));
     const teams = element("div", "display-listing-review-teams");
     round.review.teams.forEach((summary, position) => {
-      const complete = summary.decidedCount === summary.itemCount;
       const tab = element(
         "span",
-        `display-listing-review-team-tab${summary.teamIndex === round.review.teamIndex ? " active" : ""}${complete ? " complete" : ""}`,
-        `${position + 1}. ${listingState.teams[summary.teamIndex]} ${complete ? "✓" : `${summary.decidedCount}/${summary.itemCount}`}`
+        `display-listing-review-team-tab${summary.teamIndex === round.review.teamIndex ? " active" : ""}`,
+        `${position + 1}. ${listingState.teams[summary.teamIndex]} · ${summary.validCount} gültig`
       );
       teams.append(tab);
     });

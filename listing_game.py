@@ -432,6 +432,7 @@ class ListingState:
                     "teamIndex": candidate,
                     "itemCount": len(candidate_entries),
                     "decidedCount": sum(entry["id"] in source["decisions"] for entry in candidate_entries),
+                    "validCount": sum(self._count_impact_unlocked(entry) for entry in candidate_entries),
                 })
             items = [{
                 "text": entry["text"],
@@ -444,6 +445,7 @@ class ListingState:
                 "teamTotal": len(team_indices),
                 "teamDecidedCount": sum(item["decision"] is not None for item in items),
                 "teamItemCount": len(items),
+                "teamValidCount": sum(self._count_impact_unlocked(entry) for entry in team_entries),
                 "decidedCount": len(source["decisions"]),
                 "total": len(source["reviewQueue"]),
                 "teams": summaries,

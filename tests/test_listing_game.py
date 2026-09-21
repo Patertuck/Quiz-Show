@@ -148,6 +148,9 @@ class ListingStateTests(unittest.TestCase):
         state.control({"action": "decide", "itemId": "t0-i0", "countImpact": 1})
         state.control({"action": "decide", "itemId": "t0-i1", "countImpact": -1})
         state.control({"action": "decide", "itemId": "t1-i0", "countImpact": 0})
+        review = state.snapshot("host")["round"]["review"]
+        self.assertEqual(0, review["teamValidCount"])
+        self.assertEqual([0, 0], [team["validCount"] for team in review["teams"]])
         state.control({"action": "finish-review"})
 
         results = state.snapshot("host")["round"]["results"]

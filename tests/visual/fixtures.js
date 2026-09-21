@@ -79,8 +79,8 @@ export const listingActive = { ...listingBase, round: {
 export const listingReview = { ...listingBase, round: {
   ...listingActive.round, phase: "review", review: {
     teamIndex: 0, teamPosition: 0, teamTotal: 6, decidedCount: 7, total: 28,
-    teamDecidedCount: 7, teamItemCount: 12,
-    teams: teamNames.map((_, teamIndex) => ({ teamIndex, itemCount: teamIndex + 7, decidedCount: teamIndex ? teamIndex : 7 })),
+    teamDecidedCount: 7, teamItemCount: 12, teamValidCount: 3,
+    teams: teamNames.map((_, teamIndex) => ({ teamIndex, itemCount: teamIndex + 7, decidedCount: teamIndex ? teamIndex : 7, validCount: teamIndex ? teamIndex : 3 })),
     items: Array.from({ length: 12 }, (_, index) => ({
       itemId: `t0-i${index}`,
       text: index === 2 ? "Ein aussergewöhnlich langer eingereichter Begriff" : `Antwort ${index + 1}`,
