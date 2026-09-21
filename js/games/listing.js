@@ -246,18 +246,26 @@ function renderReview(round) {
   const answers = document.createElement("div");
   answers.className = "listing-review-grid";
   review.items.forEach((item) => {
-    const card = document.createElement("button");
-    card.type = "button";
+    const card = document.createElement("article");
     card.className = `listing-review-item ${decisionClass(item.decision)}`;
-    card.textContent = item.text;
-    const next = nextDecision(item.decision);
-    const status = item.decision === 1 ? "richtig" : item.decision === 0 ? "neutral falsch" : item.decision === -1 ? "mit Abzug falsch" : "offen";
-    card.setAttribute("aria-label", `${item.text}: ${status}. Anklicken, um die nächste Wertung zu setzen.`);
-    card.addEventListener("click", async () => {
-      card.disabled = true;
-      try { await request("decide", { itemId: item.itemId, countImpact: next }); }
-      catch (error) { card.disabled = false; setStatus(error.message); }
-    });
+    const answer = document.createElement("p");
+    answer.className = "listing-review-answer";
+    answer.textContent = item.text;
+    const controls = document.createElement("div");
+    controls.className = "listing-decision-actions";
+    for (const [impact, label, className, description] of [
+      [1, "+1", "listing-accept", "richtig"],
+      [0, "0", "listing-reject-neutral", "falsch ohne Abzug"],
+      [-1, "−1", "listing-reject", "falsch mit Abzug"]
+    ]) {
+      const selected = item.decision === impact;
+      const control = button(label, `${className}${selected ? " selected" : ""}`,
+        () => request("decide", { itemId: item.itemId, countImpact: impact }));
+      control.setAttribute("aria-label", `${item.text}: ${description}, ${label} ${selected ? "ausgewählt" : "setzen"}`);
+      control.setAttribute("aria-pressed", String(selected));
+      controls.append(control);
+    }
+    card.append(answer, controls);
     answers.append(card);
   });
 
@@ -280,12 +288,6 @@ function decisionClass(decision) {
   if (decision === -1) return "decision-negative";
   if (decision === 0 || decision === false) return "decision-neutral";
   return "decision-pending";
-}
-
-function nextDecision(decision) {
-  if (decision === 1 || decision === true) return 0;
-  if (decision === 0 || decision === false) return -1;
-  return 1;
 }
 
 function resultTable(round) {

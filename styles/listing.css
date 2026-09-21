@@ -31,9 +31,15 @@
 .listing-review-team-tab.active { border-color: var(--yellow); background: #ffe65c1a; color: #fff6a9; }
 .listing-review-team-tab.complete { color: #a8f1c9; }
 .listing-review-grid { display: grid; min-height: 0; grid-template-columns: repeat(auto-fit, minmax(12.5rem, 1fr)); grid-auto-rows: minmax(6.2rem, auto); gap: .55rem; align-content: start; overflow-y: auto; overscroll-behavior: contain; padding: .15rem; }
-.listing-review-item { display: grid; min-width: 0; min-height: 5.5rem; place-items: center; padding: .75rem; border: 2px solid #5c7880; border-radius: .8rem; background: #0b3542; color: #fff; font-size: clamp(.88rem, 2vh, 1.18rem); font-weight: 900; line-height: 1.15; overflow-wrap: anywhere; text-align: center; transition: border-color 150ms ease, background 150ms ease, transform 120ms ease; }
-.listing-review-item:hover, .listing-review-item:focus-visible { border-color: var(--yellow); transform: translateY(-1px); }
-.listing-review-item:disabled { cursor: wait; opacity: .75; }
+.listing-review-item { display: grid; min-width: 0; min-height: 6.2rem; grid-template-rows: minmax(0, 1fr) auto; padding: .55rem; border: 2px solid #5c7880; border-radius: .8rem; background: #0b3542; color: #fff; text-align: center; }
+.listing-review-answer { display: grid; min-width: 0; place-items: center; margin: 0; overflow-wrap: anywhere; font-size: clamp(.85rem, 1.8vh, 1.08rem); font-weight: 900; line-height: 1.15; }
+.listing-decision-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .3rem; margin-top: .45rem; }
+.listing-decision-actions button { min-height: 2rem; padding: .3rem; border: 2px solid transparent; border-radius: .45rem; color: #fff; font-size: .8rem; font-weight: 950; }
+.listing-decision-actions button:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
+.listing-accept { background: #168750; }
+.listing-reject-neutral { background: #6d5960; }
+.listing-reject { background: #ac2b38; }
+.listing-decision-actions .selected { border-color: var(--yellow); box-shadow: 0 0 0 2px #ffe65c44; }
 .listing-review-item.decision-positive { border-color: #56d092; background: #0c4938; }
 .listing-review-item.decision-neutral { border-color: #b8a5ad; background: #493d43; }
 .listing-review-item.decision-negative { border-color: #ff6b7c; background: #591f2b; }
