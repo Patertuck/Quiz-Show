@@ -381,10 +381,13 @@ function listing() {
       element("p", "display-listing-review-progress", `Team ${round.review.teamPosition + 1} von ${round.review.teamTotal}`),
       element("h1", "display-listing-team", listingState.teams[round.review.teamIndex])
     );
-    header.append(title, element(
-      "strong", "display-listing-review-count",
-      `${points} gültig`
-    ));
+    const score = element("strong", "display-listing-review-count");
+    score.setAttribute("aria-label", `${points} gültige Begriffe`);
+    score.append(
+      element("span", "display-listing-review-count-value", String(points)),
+      element("span", "display-listing-review-count-label", "gültig")
+    );
+    header.append(title, score);
     const answers = element("div", "display-listing-review-grid");
     round.review.items.forEach((item) => {
       let state = "pending";

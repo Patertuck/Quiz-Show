@@ -209,7 +209,9 @@ body { margin: 0; overflow: hidden; background: var(--blue); color: #fff; }
 .display-listing-review-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 1rem; padding-right: clamp(8.5rem, 12vw, 10rem); text-align: left; }
 .display-listing-review-progress { margin: 0; color: #9edbd6; font-size: clamp(.75rem, 1.8vh, 1.15rem); font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
 .display-listing-team { margin: .08rem 0 0; overflow: hidden; color: #ffe65c; font-size: clamp(1.5rem, 4.6vh, 3.2rem); text-overflow: ellipsis; white-space: nowrap; }
-.display-listing-review-count { padding: .6rem .85rem; border: 2px solid #ffe65c; border-radius: .8rem; color: #ffe65c; font-size: clamp(.85rem, 2vh, 1.3rem); font-variant-numeric: tabular-nums; }
+.display-listing-review-count { display: grid; min-width: clamp(7rem, 12vw, 10rem); min-height: clamp(5.5rem, 13vh, 8rem); align-content: center; justify-items: center; padding: .5rem 1rem; border: 3px solid #ffe65c; border-radius: 1.1rem; background: linear-gradient(155deg, #ffe65c2c, #083947); color: #ffe65c; box-shadow: 0 .8rem 1.8rem #00151e66, inset 0 1px #fff8; font-variant-numeric: tabular-nums; line-height: 1; }
+.display-listing-review-count-value { font-size: clamp(3rem, 8vh, 5.5rem); font-weight: 950; letter-spacing: -.06em; }
+.display-listing-review-count-label { margin-top: .25rem; color: #fff4aa; font-size: clamp(.9rem, 2.2vh, 1.3rem); font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
 .display-listing-review-grid { display: grid; min-height: 0; grid-template-columns: repeat(auto-fill, minmax(12.5rem, 1fr)); grid-auto-rows: 6.2rem; gap: .55rem; align-content: start; overflow-y: auto; }
 .display-listing-review-item { display: grid; min-width: 0; place-items: center; padding: .55rem; border: 2px solid #5c7880; border-radius: .8rem; background: #0b3542; text-align: center; }
 .display-listing-review-item.decision-positive { border-color: #56d092; background: #0c4938; }

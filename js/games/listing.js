@@ -212,7 +212,7 @@ async function confirmCancel(trigger) {
 function renderReview(round) {
   const review = round.review;
   const points = review.items.reduce((total, item) => total + (item.decision === 1 ? 1 : item.decision === -1 ? -1 : 0), 0);
-  setStatus(`${listingState.teams[review.teamIndex]}: ${points} Punkte.`);
+  setStatus("Bewertet alle Begriffe des Teams.");
   const panel = document.createElement("section");
   panel.className = "listing-review";
   const header = document.createElement("header");
@@ -225,8 +225,14 @@ function renderReview(round) {
   team.textContent = listingState.teams[review.teamIndex];
   const counter = document.createElement("strong");
   counter.className = "listing-review-counter";
-  counter.textContent = `${points} gültig`;
-  counter.setAttribute("aria-label", `${points} Punkte aus bewerteten Begriffen`);
+  const countValue = document.createElement("span");
+  countValue.className = "listing-review-counter-value";
+  countValue.textContent = String(points);
+  const countLabel = document.createElement("span");
+  countLabel.className = "listing-review-counter-label";
+  countLabel.textContent = "gültig";
+  counter.setAttribute("aria-label", `${points} gültige Begriffe`);
+  counter.append(countValue, countLabel);
   heading.append(eyebrow, team);
   header.append(heading, counter);
 
