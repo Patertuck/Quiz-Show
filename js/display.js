@@ -374,6 +374,7 @@ function listing() {
   }
   if (round.phase === "review" && round.review) {
     const content = element("div", "display-listing-review");
+    const points = round.review.items.reduce((total, item) => total + (item.decision === 1 ? 1 : item.decision === -1 ? -1 : 0), 0);
     const header = element("header", "display-listing-review-header");
     const title = element("div", "");
     title.append(
@@ -382,17 +383,8 @@ function listing() {
     );
     header.append(title, element(
       "strong", "display-listing-review-count",
-      `${round.review.teamValidCount} gültig`
+      `${points} gültig`
     ));
-    const teams = element("div", "display-listing-review-teams");
-    round.review.teams.forEach((summary, position) => {
-      const tab = element(
-        "span",
-        `display-listing-review-team-tab${summary.teamIndex === round.review.teamIndex ? " active" : ""}`,
-        `${position + 1}. ${listingState.teams[summary.teamIndex]} · ${summary.validCount} gültig`
-      );
-      teams.append(tab);
-    });
     const answers = element("div", "display-listing-review-grid");
     round.review.items.forEach((item) => {
       let state = "pending";
@@ -403,7 +395,7 @@ function listing() {
       card.append(element("span", "display-listing-review-answer", item.text));
       answers.append(card);
     });
-    content.append(header, teams, answers);
+    content.append(header, answers);
     screen.append(content);
     return screen;
   }

@@ -205,15 +205,11 @@ body { margin: 0; overflow: hidden; background: var(--blue); color: #fff; }
 .display-listing-question-preview { display: grid; width: min(62rem, 92vw); justify-self: center; gap: clamp(.75rem, 2vh, 1.35rem); padding: clamp(1.2rem, 3vw, 2.5rem); border: 3px solid #ffe65c; border-radius: 1.25rem; background: #063744cc; box-shadow: 0 1rem 2.5rem #00151e99, 0 0 1.6rem #ffe65c44; }
 .display-listing-question-preview h2 { margin: 0; color: #ffe65c; font-size: clamp(1.7rem, 4vw, 3.2rem); }
 .display-listing-question-preview p { max-width: 58rem; margin: 0 auto; font-size: clamp(1.25rem, 3vw, 2.2rem); font-weight: 800; line-height: 1.3; }
-.display-listing-review { display: grid; width: min(75rem, 100%); height: 100%; min-height: 0; grid-template-rows: auto auto minmax(0, 1fr); gap: clamp(.45rem, 1.2vh, .8rem); padding: clamp(.5rem, 1.2vh, 1rem); }
+.display-listing-review { display: grid; width: min(75rem, 100%); height: 100%; min-height: 0; grid-template-rows: auto minmax(0, 1fr); gap: clamp(.45rem, 1.2vh, .8rem); padding: clamp(.5rem, 1.2vh, 1rem); }
 .display-listing-review-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 1rem; padding-right: clamp(8.5rem, 12vw, 10rem); text-align: left; }
 .display-listing-review-progress { margin: 0; color: #9edbd6; font-size: clamp(.75rem, 1.8vh, 1.15rem); font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
 .display-listing-team { margin: .08rem 0 0; overflow: hidden; color: #ffe65c; font-size: clamp(1.5rem, 4.6vh, 3.2rem); text-overflow: ellipsis; white-space: nowrap; }
 .display-listing-review-count { padding: .6rem .85rem; border: 2px solid #ffe65c; border-radius: .8rem; color: #ffe65c; font-size: clamp(.85rem, 2vh, 1.3rem); font-variant-numeric: tabular-nums; }
-.display-listing-review-teams { display: flex; gap: .45rem; overflow: hidden; }
-.display-listing-review-team-tab { min-width: 8.5rem; padding: .45rem .65rem; overflow: hidden; border: 1px solid #ffffff2c; border-radius: .6rem; background: #ffffff0f; color: #bad6d8; font-size: clamp(.62rem, 1.35vh, .85rem); font-weight: 850; text-overflow: ellipsis; white-space: nowrap; }
-.display-listing-review-team-tab.active { border-color: #ffe65c; background: #ffe65c1c; color: #fff5a5; }
-.display-listing-review-team-tab.complete { color: #a8f1c9; }
 .display-listing-review-grid { display: grid; min-height: 0; grid-template-columns: repeat(auto-fill, minmax(12.5rem, 1fr)); grid-auto-rows: 6.2rem; gap: .55rem; align-content: start; overflow-y: auto; }
 .display-listing-review-item { display: grid; min-width: 0; place-items: center; padding: .55rem; border: 2px solid #5c7880; border-radius: .8rem; background: #0b3542; text-align: center; }
 .display-listing-review-item.decision-positive { border-color: #56d092; background: #0c4938; }

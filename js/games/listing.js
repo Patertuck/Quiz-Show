@@ -211,7 +211,8 @@ async function confirmCancel(trigger) {
 
 function renderReview(round) {
   const review = round.review;
-  setStatus(`${review.teamValidCount} gültig für ${listingState.teams[review.teamIndex]}.`);
+  const points = review.items.reduce((total, item) => total + (item.decision === 1 ? 1 : item.decision === -1 ? -1 : 0), 0);
+  setStatus(`${listingState.teams[review.teamIndex]}: ${points} Punkte.`);
   const panel = document.createElement("section");
   panel.className = "listing-review";
   const header = document.createElement("header");
@@ -224,16 +225,17 @@ function renderReview(round) {
   team.textContent = listingState.teams[review.teamIndex];
   const counter = document.createElement("strong");
   counter.className = "listing-review-counter";
-  counter.textContent = `${review.teamValidCount} gültig`;
+  counter.textContent = `${points} gültig`;
+  counter.setAttribute("aria-label", `${points} Punkte aus bewerteten Begriffen`);
   heading.append(eyebrow, team);
   header.append(heading, counter);
 
   const teamTabs = document.createElement("nav");
   teamTabs.className = "listing-review-teams";
   teamTabs.setAttribute("aria-label", "Teams in der Prüfung");
-  review.teams.forEach((summary, position) => {
+  review.teams.forEach((summary) => {
     const tab = button(
-      `${position + 1}. ${listingState.teams[summary.teamIndex]} · ${summary.validCount} gültig`,
+      listingState.teams[summary.teamIndex],
       `listing-review-team-tab${summary.teamIndex === review.teamIndex ? " active" : ""}`,
       () => request("review-team", { teamIndex: summary.teamIndex })
     );
