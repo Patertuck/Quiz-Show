@@ -5,7 +5,7 @@
 .team.rank-third { border-color: #cd8b52; box-shadow: 0 0 0.65rem rgb(205 139 82 / 38%), 0 0.35rem 0.8rem rgb(0 0 0 / 32%); }
 .team-name { grid-column: 1 / -1; grid-row: 1; width: 100%; overflow: hidden; color: #f8f9ff; font-size: clamp(.55rem, 1.15vw, .9rem); font-weight: 800; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
 .score { min-width: 0; grid-column: 2; grid-row: 2; overflow: visible; color: var(--yellow); font-size: clamp(.72rem, 2.25vw, 2rem); font-variant-numeric: tabular-nums; font-weight: 900; text-align: center; white-space: nowrap; text-shadow: 0 0.12rem 0 #10194f, 0 0 0.55rem rgb(255 244 92 / 24%); }
-.score-button { width: min(100%, 2.1rem); min-width: 0; justify-self: center; height: clamp(1.55rem, 4.1vh, 2rem); grid-row: 2; padding: 0 .05rem; overflow: hidden; border: 1px solid rgb(255 255 255 / 25%); border-radius: 999px; color: #fff; font-size: clamp(.48rem, .9vw, .7rem); font-variant-numeric: tabular-nums; font-weight: 900; text-overflow: ellipsis; }
+.score-button { width: min(100%, 2.1rem); min-width: 0; justify-self: center; height: clamp(1.875rem, 4.1vh, 2rem); grid-row: 2; padding: 0 .05rem; overflow: hidden; border: 1px solid rgb(255 255 255 / 25%); border-radius: 999px; color: #fff; font-size: clamp(.48rem, .9vw, .7rem); font-variant-numeric: tabular-nums; font-weight: 900; text-overflow: ellipsis; }
 .score-button.subtract { grid-column: 1; background: linear-gradient(#b6384b, #7f1f30); }
 .score-button.add { grid-column: 3; background: linear-gradient(#3a9b65, #216a44); }
 .score-button:hover, .score-button:focus-visible { filter: brightness(1.18); transform: translateY(-1px); }

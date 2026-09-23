@@ -17,7 +17,7 @@ export async function mockLiveSocket(page, snapshot) {
 }
 
 export async function mockHost(page, { ordering = orderingBase, listing = listingBase, sync = syncLobby,
-  activeQuestion = null, lobby = teamLobby, hostTeams = teams } = {}) {
+  activeQuestion = null, lobby = teamLobby, buzzer: buzzerState = buzzer, hostTeams = teams } = {}) {
   const saved = {
     version: 5, updatedAt: "2026-01-01T12:00:00Z", revision: 5, gameStarted: true,
     teams: hostTeams, usedTiles: ["5:4"], activeQuestion, appliedAwards: [],
@@ -36,7 +36,7 @@ export async function mockHost(page, { ordering = orderingBase, listing = listin
     }))
   };
   const snapshot = liveSnapshot({ ...basePresentation, teams: hostTeams, screen: "hub", games: Object.keys(config.games), highlightedGame: null }, {
-    ordering, listing, sync, teamLobby: lobby
+    ordering, listing, sync, teamLobby: lobby, buzzer: buzzerState
   });
   await mockLiveSocket(page, snapshot);
   await page.route("**/*", async (route) => {
@@ -49,7 +49,7 @@ export async function mockHost(page, { ordering = orderingBase, listing = listin
     if (path === "/api/state") return route.fulfill(json(saved));
     if (path === "/api/presentation/state") return route.fulfill(json({ ...basePresentation, screen: "hub" }));
     if (path === "/api/buzzer/info") return route.fulfill(json({ joinUrl: "http://quiz.local/player", displayUrl: "http://quiz.local/display" }));
-    if (path === "/api/buzzer/state" || path === "/api/buzzer/control") return route.fulfill(json(buzzer));
+    if (path === "/api/buzzer/state" || path === "/api/buzzer/control") return route.fulfill(json(buzzerState));
     if (path.startsWith("/api/team-lobby/")) return route.fulfill(json(lobby));
     if (path === "/api/ordering/state" || path === "/api/ordering/control") return route.fulfill(json(ordering));
     if (path === "/api/listing/state" || path === "/api/listing/control") return route.fulfill(json(listing));

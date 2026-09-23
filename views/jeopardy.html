@@ -22,11 +22,30 @@
       </div>
       <aside id="buzzer-panel" aria-label="Buzzer-Reihenfolge">
         <div class="buzzer-panel-heading">
-          <h2>Buzzer</h2>
+          <div>
+            <span class="buzzer-kicker">Jeopardy</span>
+            <h2>Buzzer</h2>
+          </div>
           <span id="buzzer-connection" title="Verbindungsstatus der Buzzer">Verbindung wird hergestellt…</span>
         </div>
-        <p id="buzzer-host-status">Gebt die Buzzer frei, sobald die Spieler bereit sind.</p>
-        <ol id="buzz-order"></ol>
+        <p id="buzzer-host-status" role="status" aria-live="polite">Gebt die Buzzer frei, sobald die Spieler bereit sind.</p>
+        <div id="buzzer-active" hidden>
+          <span>Antwortet jetzt</span>
+          <strong id="buzzer-active-team"></strong>
+          <button id="buzzer-active-remove" class="buzz-remove-button" type="button"></button>
+        </div>
+        <div id="buzzer-empty">
+          <span class="buzzer-empty-icon" aria-hidden="true">!</span>
+          <strong>Noch niemand gebuzzert</strong>
+          <span id="buzzer-empty-detail">Der Buzzer ist noch geschlossen.</span>
+        </div>
+        <section class="buzzer-queue" aria-labelledby="buzzer-queue-title">
+          <div class="buzzer-queue-heading">
+            <h3 id="buzzer-queue-title">Warteschlange</h3>
+            <span id="buzzer-queue-count">0 Teams</span>
+          </div>
+          <ol id="buzz-order"></ol>
+        </section>
         <button id="buzzer-control-button" type="button">Buzzer freigeben</button>
       </aside>
     </div>

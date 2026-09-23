@@ -20,6 +20,14 @@ const hostCases = [
   ["master", "master", {}], ["intro", "start", {}], ["team-setup", "setup", {}], ["hub", "hub", {}],
   ["jeopardy-board", "jeopardy", {}],
   ["jeopardy-question", "jeopardy", { activeQuestion: { categoryIndex: 0, rowIndex: 0, answerRevealed: false } }],
+  ["jeopardy-buzzer-waiting", "jeopardy", {
+    activeQuestion: { categoryIndex: 0, rowIndex: 0, answerRevealed: false },
+    buzzer: { ...buzzer, round: { ...buzzer.round, buzzes: [], activeTeamIndex: null } }
+  }],
+  ["jeopardy-buzzer-closed", "jeopardy", {
+    activeQuestion: { categoryIndex: 0, rowIndex: 0, answerRevealed: false },
+    buzzer: { ...buzzer, round: { ...buzzer.round, open: false, buzzes: [], activeTeamIndex: null } }
+  }],
   ["ordering-overview", "ordering", { ordering: orderingBase }],
   ["ordering-preview", "ordering", { ordering: orderingBase }, async (page) => page.locator(".ordering-question-card").first().click()],
   ["ordering-active", "ordering", { ordering: orderingActive }],
@@ -73,6 +81,36 @@ test("host ordering preview keeps its actions visible at short desktop height", 
     return transform !== "none" && Number(transform.split("(")[1].split(",")[0]) < 1;
   })).toBe(true);
   await expectVisibleControlsUsable(page, 30);
+});
+
+test("team names save on Enter without separate save buttons", async ({ page }) => {
+  const renameRequests = [];
+  await mockHost(page);
+  await page.route("**/api/team-lobby/control**", async (route) => {
+    const payload = route.request().postDataJSON();
+    if (payload.action === "rename") renameRequests.push(payload);
+    const nextLobby = payload.action === "rename"
+      ? { ...teamLobby, teams: teamLobby.teams.map((team) => team.id === payload.teamId ? { ...team, name: payload.name } : team) }
+      : teamLobby;
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(nextLobby) });
+  });
+  await page.goto("/#/setup");
+  await expect(page.getByRole("button", { name: "Speichern", exact: true })).toHaveCount(0);
+  const input = page.locator(".team-name-editor").first();
+  await input.fill("Die Schnelleren");
+  await input.press("Enter");
+  await expect.poll(() => renameRequests.length).toBe(1);
+  expect(renameRequests[0]).toMatchObject({ action: "rename", name: "Die Schnelleren" });
+  await expect(page.locator(".team-name-status").first()).toHaveText("Gespeichert");
+});
+
+test("Jeopardy buzzer distinguishes current team and waiting queue", async ({ page }) => {
+  await mockHost(page, { activeQuestion: { categoryIndex: 0, rowIndex: 0, answerRevealed: false } });
+  await page.goto("/#/jeopardy");
+  await expect(page.locator("#buzzer-panel")).toHaveAttribute("data-state", "buzzed");
+  await expect(page.locator("#buzzer-active-team")).toHaveText(teamNames[0]);
+  await expect(page.locator("#buzz-order li")).toHaveCount(teamNames.length - 1);
+  await expect(page.locator(".buzz-position").first()).toHaveText("2");
 });
 
 const gameList = Object.keys(config.games);

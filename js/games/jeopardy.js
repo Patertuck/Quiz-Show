@@ -19,10 +19,18 @@ export async function mount(root, { showRules } = {}) {
   const audioStatus = root.querySelector("#audio-status");
   const buzzerConnection = root.querySelector("#buzzer-connection");
   const buzzerStatus = root.querySelector("#buzzer-host-status");
+  const buzzerPanel = root.querySelector("#buzzer-panel");
+  const buzzerActive = root.querySelector("#buzzer-active");
+  const buzzerActiveTeam = root.querySelector("#buzzer-active-team");
+  const buzzerActiveRemove = root.querySelector("#buzzer-active-remove");
+  const buzzerEmpty = root.querySelector("#buzzer-empty");
+  const buzzerEmptyDetail = root.querySelector("#buzzer-empty-detail");
+  const buzzerQueueCount = root.querySelector("#buzzer-queue-count");
   const buzzOrder = root.querySelector("#buzz-order");
   const buzzerControl = root.querySelector("#buzzer-control-button");
   const rulesButton = root.querySelector("#jeopardy-rules-button");
   let buzzerState = null;
+  let buzzerConnected = false;
   rulesButton.addEventListener("click", () => showRules().catch((error) => window.alert(error.message)));
   root.querySelector("#jeopardy-title").textContent = state.config.title;
   await publishJeopardy();
@@ -38,10 +46,54 @@ export async function mount(root, { showRules } = {}) {
   function renderBuzzer() {
     buzzOrder.replaceChildren();
     const round = currentRound();
-    const activePosition = round?.buzzes.length ? 0 : -1;
-    (round?.buzzes || []).forEach((buzz, index) => {
+    const buzzes = round?.buzzes || [];
+    const activeBuzz = buzzes[0] || null;
+    buzzerPanel.dataset.state = !buzzerConnected
+      ? "disconnected"
+      : (!round?.open ? "closed" : (activeBuzz ? "buzzed" : "open"));
+
+    async function removeBuzz(buzz, button) {
+      button.disabled = true;
+      try {
+        buzzerState = await controlBuzzer("remove", {
+          questionId: activeQuestionId(),
+          teamIndex: buzz.teamIndex
+        });
+        renderBuzzer();
+      } catch (error) {
+        buzzerPanel.dataset.state = "error";
+        buzzerStatus.textContent = `Team konnte nicht entfernt werden: ${error.message}`;
+        button.disabled = false;
+      }
+    }
+
+    buzzerActive.hidden = !activeBuzz;
+    buzzerEmpty.hidden = Boolean(activeBuzz);
+    if (activeBuzz) {
+      buzzerActiveTeam.textContent = activeBuzz.teamName;
+      buzzerActive.setAttribute("aria-label", `${activeBuzz.teamName} antwortet jetzt`);
+      buzzerActive.setAttribute("aria-current", "true");
+      buzzerActiveRemove.textContent = "×";
+      buzzerActiveRemove.setAttribute("aria-label", `${activeBuzz.teamName} aus der Buzzer-Reihenfolge entfernen`);
+      buzzerActiveRemove.onclick = () => removeBuzz(activeBuzz, buzzerActiveRemove);
+    } else {
+      buzzerActive.removeAttribute("aria-label");
+      buzzerActive.removeAttribute("aria-current");
+      buzzerActiveRemove.onclick = null;
+      buzzerEmptyDetail.textContent = round?.open
+        ? "Der Buzzer ist offen und wartet auf ein Team."
+        : "Der Buzzer ist noch geschlossen.";
+    }
+
+    const queuedBuzzes = buzzes.slice(1);
+    buzzerQueueCount.textContent = `${queuedBuzzes.length} ${queuedBuzzes.length === 1 ? "Team" : "Teams"}`;
+    queuedBuzzes.forEach((buzz, index) => {
       const item = document.createElement("li");
+      const position = document.createElement("span");
+      position.className = "buzz-position";
+      position.textContent = String(index + 2);
       const name = document.createElement("span");
+      name.className = "buzz-team-name";
       name.textContent = buzz.teamName;
       const remove = document.createElement("button");
       remove.type = "button";
@@ -49,41 +101,27 @@ export async function mount(root, { showRules } = {}) {
       remove.textContent = "×";
       remove.setAttribute("aria-label", `${buzz.teamName} aus der Buzzer-Reihenfolge entfernen`);
       remove.title = `${buzz.teamName} entfernen`;
-      remove.addEventListener("click", async () => {
-        remove.disabled = true;
-        try {
-          buzzerState = await controlBuzzer("remove", {
-            questionId: activeQuestionId(),
-            teamIndex: buzz.teamIndex
-          });
-          renderBuzzer();
-        } catch (error) {
-          buzzerStatus.textContent = `Team konnte nicht entfernt werden: ${error.message}`;
-          remove.disabled = false;
-        }
-      });
-      item.append(name, remove);
-      item.classList.toggle("active", index === activePosition);
+      remove.addEventListener("click", () => removeBuzz(buzz, remove));
+      item.append(position, name, remove);
       buzzOrder.append(item);
     });
     if (!round?.open) {
       buzzerStatus.textContent = "Gebt die Buzzer frei, sobald die Spieler bereit sind.";
       buzzerControl.textContent = "Buzzer freigeben";
-    } else if (!round.buzzes.length) {
+    } else if (!buzzes.length) {
       buzzerStatus.textContent = "Die Buzzer sind offen. Warten auf ein Team…";
       buzzerControl.textContent = "Buzzer zurücksetzen";
-    } else if (activePosition !== -1) {
-      buzzerStatus.textContent = `${round.buzzes[activePosition].teamName} antwortet.`;
-      buzzerControl.textContent = "Buzzer zurücksetzen";
     } else {
-      buzzerStatus.textContent = "Momentan wartet kein Team.";
+      buzzerStatus.textContent = `${activeBuzz.teamName} antwortet.`;
       buzzerControl.textContent = "Buzzer zurücksetzen";
     }
   }
 
   function setBuzzerConnection(connected) {
-    buzzerConnection.textContent = connected ? "Verbunden" : "Verbindung wird wiederhergestellt…";
+    buzzerConnected = connected;
+    buzzerConnection.textContent = connected ? "Live verbunden" : "Verbindung wird wiederhergestellt…";
     buzzerConnection.classList.toggle("connected", connected);
+    renderBuzzer();
   }
 
   const disconnectBuzzer = connectToBuzzer((nextState) => {
@@ -100,6 +138,7 @@ export async function mount(root, { showRules } = {}) {
       buzzerState = await controlBuzzer(action, { questionId });
       renderBuzzer();
     } catch (error) {
+      buzzerPanel.dataset.state = "error";
       buzzerStatus.textContent = `Buzzer-Fehler: ${error.message}`;
     } finally {
       buzzerControl.disabled = false;
