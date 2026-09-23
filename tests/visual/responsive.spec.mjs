@@ -211,6 +211,22 @@ test("display team join highlight is not clipped at roster edges", async ({ page
   await expectNoViewportOverflow(page);
 });
 
+test("host toolbar stays open while crossing from the trigger to an option", async ({ page }) => {
+  await mockHost(page);
+  await page.goto("/#/hub");
+  const trigger = page.locator("#host-options-button");
+  const menu = page.locator(".host-option-items");
+  await trigger.hover();
+  await expect(menu).toBeVisible();
+  const triggerBox = await trigger.boundingBox();
+  const firstOption = menu.locator("button").first();
+  const optionBox = await firstOption.boundingBox();
+  if (!triggerBox || !optionBox) throw new Error("Host toolbar controls are not measurable.");
+  await page.mouse.move(triggerBox.x + triggerBox.width / 2, triggerBox.y + triggerBox.height / 2);
+  await page.mouse.move(optionBox.x + optionBox.width / 2, optionBox.y + optionBox.height / 2, { steps: 8 });
+  await expect(menu).toBeVisible();
+});
+
 test("host score controls fit a narrow desktop without scrolling", async ({ page }) => {
   await page.setViewportSize({ width: 800, height: 600 });
   await mockHost(page, { activeQuestion: { categoryIndex: 0, rowIndex: 0, answerRevealed: false } });

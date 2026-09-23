@@ -6,6 +6,7 @@
 #host-options-button:hover, #host-options-button:focus-visible, #host-controls.is-open #host-options-button { border-color: var(--yellow); opacity: 1; background: rgb(25 41 126 / 92%); }
 #host-options-button svg, .host-option-items svg { width: 100%; height: 100%; fill: currentColor; }
 .host-option-items { position: absolute; top: 0; right: 2.6rem; display: flex; gap: 0.3rem; padding: 0.22rem; border-radius: 999px; visibility: hidden; opacity: 0; background: rgb(8 15 53 / 54%); box-shadow: 0 0.35rem 1rem rgb(0 0 0 / 20%); transform: translateX(0.5rem) scale(0.96); transform-origin: right center; pointer-events: none; transition: visibility 0s linear 180ms, opacity 180ms ease, transform 180ms ease; }
+.host-option-items::after { position: absolute; top: 0; right: -0.55rem; bottom: 0; width: 0.7rem; content: ""; }
 #host-controls:hover .host-option-items, #host-controls:focus-within .host-option-items, #host-controls.is-open .host-option-items { visibility: visible; opacity: 1; transform: none; pointer-events: auto; transition-delay: 0s; }
 .host-option-items > button:hover, .host-option-items > button:focus-visible { border-color: var(--yellow); background: rgb(25 41 126 / 94%); transform: translateY(-0.1rem); }
 #host-controls.audio-only .host-option-items > button:not(#audio-settings-button) { display: none; }
