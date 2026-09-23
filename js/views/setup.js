@@ -30,6 +30,8 @@ export async function mount(root, { navigate }) {
   let events;
   let busy = false;
   const nameDrafts = new Map();
+  const nameErrors = new Map();
+  const pendingNameSaves = new Map();
 
   title.textContent = state.config.title;
   const seed = (compatible ? saved.teams : state.config.teams).map((team, index) => ({
@@ -62,6 +64,42 @@ export async function mount(root, { navigate }) {
     catch (error) { message.textContent = error.message; throw error; }
   }
 
+  async function saveTeamName(teamId) {
+    if (pendingNameSaves.has(teamId)) await pendingNameSaves.get(teamId);
+    const team = lobby.teams.find((item) => item.id === teamId);
+    const draft = nameDrafts.get(teamId);
+    if (!team || draft === undefined) return;
+    if (draft.trim().replace(/\s+/g, " ") === team.name) {
+      nameDrafts.delete(teamId);
+      nameErrors.delete(teamId);
+      render();
+      return;
+    }
+
+    nameErrors.delete(teamId);
+    const submitted = draft;
+    const request = post("/api/team-lobby/control", { action: "rename", teamId, name: submitted });
+    pendingNameSaves.set(teamId, request);
+    render();
+    try {
+      lobby = await request;
+      if (nameDrafts.get(teamId) === submitted) nameDrafts.delete(teamId);
+      nameErrors.delete(teamId);
+    } catch (error) {
+      nameErrors.set(teamId, error.message);
+      message.textContent = error.message;
+      throw error;
+    } finally {
+      pendingNameSaves.delete(teamId);
+      render();
+    }
+  }
+
+  async function flushTeamNames() {
+    for (const teamId of [...nameDrafts.keys()]) await saveTeamName(teamId);
+    await Promise.all(pendingNameSaves.values());
+  }
+
   function render() {
     const focused = document.activeElement?.classList.contains("team-name-editor")
       ? { id: document.activeElement.dataset.teamId, value: document.activeElement.value } : null;
@@ -76,26 +114,60 @@ export async function mount(root, { navigate }) {
       input.disabled = lobby.phase !== "open";
       input.value = focused?.id === team.id ? focused.value : (nameDrafts.get(team.id) ?? team.name);
       input.setAttribute("aria-label", `Name von ${team.name}`);
-      input.addEventListener("input", () => nameDrafts.set(team.id, input.value));
-      const saveName = document.createElement("button");
-      saveName.type = "button";
-      saveName.className = "save-team-name-button";
-      saveName.textContent = "Speichern";
-      saveName.disabled = lobby.phase !== "open";
-      saveName.addEventListener("click", () => control("rename", { teamId: team.id, name: input.value })
-        .then(() => { nameDrafts.delete(team.id); render(); })
-        .catch(() => { nameDrafts.delete(team.id); input.value = team.name; }));
+      input.setAttribute("aria-invalid", String(nameErrors.has(team.id)));
+      input.addEventListener("input", () => {
+        nameDrafts.set(team.id, input.value);
+        nameErrors.delete(team.id);
+      });
+      input.addEventListener("blur", () => saveTeamName(team.id).catch(() => undefined));
+      input.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          saveTeamName(team.id).catch(() => undefined);
+        } else if (event.key === "Escape") {
+          event.preventDefault();
+          nameDrafts.delete(team.id);
+          nameErrors.delete(team.id);
+          input.value = team.name;
+          input.blur();
+        }
+      });
+      const saveStatus = document.createElement("span");
+      saveStatus.className = "team-name-status";
+      if (pendingNameSaves.has(team.id)) {
+        saveStatus.textContent = "Wird gespeichert…";
+      } else if (nameErrors.has(team.id)) {
+        saveStatus.textContent = "Nicht gespeichert";
+        saveStatus.classList.add("error");
+        saveStatus.title = nameErrors.get(team.id);
+      } else if (nameDrafts.has(team.id)) {
+        saveStatus.textContent = "Ungespeichert";
+      } else {
+        saveStatus.textContent = "Gespeichert";
+      }
       const members = document.createElement("span");
-      members.className = "team-member-count";
-      members.textContent = `${team.memberCount} ${team.memberCount === 1 ? "Handy" : "Handys"}`;
+      members.className = `team-member-count${team.memberCount ? " connected" : ""}`;
+      members.textContent = team.memberCount === 0
+        ? "Keine Handys"
+        : `${team.memberCount} ${team.memberCount === 1 ? "Handy" : "Handys"} verbunden`;
       const remove = document.createElement("button");
       remove.type = "button";
       remove.className = "remove-team-button";
       remove.textContent = "×";
       remove.disabled = lobby.phase !== "open";
       remove.setAttribute("aria-label", `${team.name} entfernen`);
-      remove.addEventListener("click", () => control("remove", { teamId: team.id }).catch(() => undefined));
-      item.append(input, saveName, members, remove);
+      remove.addEventListener("click", async () => {
+        remove.disabled = true;
+        try {
+          await flushTeamNames();
+          await control("remove", { teamId: team.id });
+          nameDrafts.delete(team.id);
+          nameErrors.delete(team.id);
+        } catch {
+          remove.disabled = false;
+        }
+      });
+      item.append(input, saveStatus, members, remove);
       list.append(item);
     });
     if (focused) {
@@ -109,14 +181,16 @@ export async function mount(root, { navigate }) {
     newButton.disabled = busy || !lobby.teams.length || (!editingActiveGame && lobby.phase !== "open");
   }
 
-  addButton.addEventListener("click", () => {
-    const names = new Set(lobby.teams.map((team) => team.name.toLocaleLowerCase()));
-    let number = 1;
-    while (names.has(`team ${number}`)) number += 1;
-    control("add", { name: `Team ${number}` }).then(() => {
+  addButton.addEventListener("click", async () => {
+    try {
+      await flushTeamNames();
+      const names = new Set(lobby.teams.map((team) => team.name.toLocaleLowerCase()));
+      let number = 1;
+      while (names.has(`team ${number}`)) number += 1;
+      await control("add", { name: `Team ${number}` });
       const input = list.lastElementChild?.querySelector("input");
       input?.focus(); input?.select();
-    }).catch(() => undefined);
+    } catch { /* The field-level or lobby message already explains the error. */ }
   });
 
   async function begin(mode) {
@@ -127,15 +201,7 @@ export async function mount(root, { navigate }) {
       if (mode === "new" && lobby.phase === "locked") {
         lobby = await post("/api/team-lobby/control", { action: "unlock" });
       }
-      for (const input of list.querySelectorAll(".team-name-editor")) {
-        const team = lobby.teams.find((item) => item.id === input.dataset.teamId);
-        if (team && input.value.trim() !== team.name) {
-          lobby = await post("/api/team-lobby/control", {
-            action: "rename", teamId: team.id, name: input.value
-          });
-          nameDrafts.delete(team.id);
-        }
-      }
+      await flushTeamNames();
       lobby = await post("/api/team-lobby/control", { action: "lock" });
       const teams = lobby.teams.map((team) => ({
         name: team.name, score: mode === "resume" ? team.currentScore : team.startingScore
