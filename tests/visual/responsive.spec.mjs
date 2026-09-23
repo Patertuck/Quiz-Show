@@ -194,6 +194,23 @@ test("display scoreboard uses apostrophe grouping", async ({ page }) => {
   await expect(page.locator(".display-team-score").first()).toHaveText("1'000");
 });
 
+test("display team join highlight is not clipped at roster edges", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  const presentation = displayPresentation("team-lobby", { joinUrl: "http://quiz.local/player" });
+  await mockLiveSocket(page, { session: {}, presentation, teamLobby, buzzer, ordering: orderingBase, listing: listingBase, sync: syncLobby });
+  await page.goto("/display.html");
+  const roster = page.locator(".display-team-lobby-roster");
+  const edgeTeam = page.locator(".display-team-lobby-team").last();
+  await expect(roster).toHaveCSS("overflow", "visible");
+  await edgeTeam.evaluate((element) => {
+    element.classList.add("fresh-activity");
+    element.style.animationDelay = "-320ms";
+    element.style.animationPlayState = "paused";
+  });
+  await expect(edgeTeam).toHaveCSS("transform", "none");
+  await expectNoViewportOverflow(page);
+});
+
 test("host score controls fit a narrow desktop without scrolling", async ({ page }) => {
   await page.setViewportSize({ width: 800, height: 600 });
   await mockHost(page, { activeQuestion: { categoryIndex: 0, rowIndex: 0, answerRevealed: false } });
