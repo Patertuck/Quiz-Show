@@ -28,7 +28,7 @@ function loadAudioSettings() {
 let audioSettings = loadAudioSettings();
 
 function teams() {
-  return state.teams.map(({ name, score }) => ({ name, score }));
+  return state.teams.map(({ name, score, color }) => ({ name, score, color }));
 }
 
 function base(screen) {

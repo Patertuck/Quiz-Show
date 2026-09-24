@@ -2,6 +2,14 @@ export const teamNames = [
   "Die unglaublich schnellen Roten", "Team Blau", "Goldene Genies",
   "Violette Visionäre", "Grüne Giganten", "Orange Originale"
 ];
+export const colorPalette = [
+  ["sun", "Sonnengelb", "#ffdd3c"], ["cyan", "Cyan", "#4de3ff"],
+  ["rose", "Rosa", "#ff6384"], ["green", "Grün", "#70e36b"],
+  ["violet", "Violett", "#bd7cff"], ["orange", "Orange", "#ff9f43"],
+  ["blue", "Blau", "#45a3ff"], ["pink", "Pink", "#f368e0"],
+  ["lime", "Limette", "#a3e635"], ["coral", "Koralle", "#ff6b35"],
+  ["mint", "Mint", "#55efc4"], ["lavender", "Lavendel", "#c7d2fe"]
+].map(([id, label, value]) => ({ id, label, value, text: "#17206a" }));
 
 const questions = Array.from({ length: 6 }, (_, index) => ({
   id: `q-${index + 1}`,
@@ -40,7 +48,7 @@ export const logos = {
   sync: "/assets/Logos/Logo_Sync_Up.png"
 };
 
-export const teams = teamNames.map((name, index) => ({ name, score: (5 - index) * 100 }));
+export const teams = teamNames.map((name, index) => ({ name, score: (5 - index) * 100, color: colorPalette[index].id }));
 export const basePresentation = { version: 1, serverSessionId: "visual-tests", title: config.title, teams, logos,
   audioSettings: { effectsEnabled: false, tensionMusicEnabled: false, ambientMusicEnabled: false } };
 
@@ -109,7 +117,9 @@ export const syncResults = { ...syncLobby, rosterLocked: true, round: {
 } };
 
 export const teamLobby = { version: 1, phase: "open", maxTeams: 12, selectedTeamId: "team-0", ownedTeamId: null,
-  teams: teamNames.map((name, index) => ({ id: `team-${index}`, name, memberCount: index + 1 })) };
+  colorPalette, teams: teamNames.map((name, index) => ({
+    id: `team-${index}`, name, color: colorPalette[index].id, memberCount: index + 1
+  })) };
 export const buzzer = { version: 1, teams: teamNames, teamsRevision: "visual", round: { id: "buzz", questionId: "0:0", open: true,
   buzzes: teamNames.map((name, teamIndex) => ({ teamIndex, teamName: name })), activeTeamIndex: 0 } };
 

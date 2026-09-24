@@ -1,5 +1,6 @@
 import { GAME_CATALOG, hasConfiguredGame } from "./game-catalog.js";
 import { hostFetch } from "./slot-api.js";
+import { TEAM_COLORS } from "./team-colors.js";
 
 export const state = {
   config: null,
@@ -60,9 +61,16 @@ export function validateConfig(config) {
   if (!config || typeof config !== "object" || Array.isArray(config)) throw new Error("quiz-config.json muss ein Objekt enthalten.");
   requireString(config.title, "title");
   if (!Array.isArray(config.teams) || !config.teams.length) throw new Error("teams muss mindestens ein Team enthalten.");
+  const configuredColors = new Set();
   config.teams.forEach((team, index) => {
     requireString(team?.name, `teams[${index}].name`);
     if (!Number.isInteger(team.startingScore)) throw new Error(`teams[${index}].startingScore muss eine Ganzzahl sein.`);
+    if (team.color !== undefined) {
+      if (!TEAM_COLORS.some(({ id }) => id === team.color) || configuredColors.has(team.color)) {
+        throw new Error(`teams[${index}].color muss eine eindeutige Teamfarbe sein.`);
+      }
+      configuredColors.add(team.color);
+    }
   });
   if (!config.games || typeof config.games !== "object" || Array.isArray(config.games)) {
     throw new Error("games muss ein Objekt sein.");
@@ -200,7 +208,7 @@ export function validateConfig(config) {
 }
 
 function validateSavedState(saved) {
-  if (!saved || typeof saved !== "object" || ![1, 2, 3, 4, 5].includes(saved.version)) throw new Error("Das gespeicherte Spiel hat ein nicht unterstütztes Format.");
+  if (!saved || typeof saved !== "object" || ![1, 2, 3, 4, 5, 6].includes(saved.version)) throw new Error("Das gespeicherte Spiel hat ein nicht unterstütztes Format.");
   if (typeof saved.gameStarted !== "boolean") throw new Error("Im gespeicherten Spiel fehlen erforderliche Felder.");
   if (!Number.isInteger(saved.revision) || saved.revision < 1) throw new Error("Das gespeicherte Spiel hat eine ungültige Revision.");
   if (!Array.isArray(saved.teams) || !saved.teams.length) throw new Error("Das gespeicherte Spiel muss mindestens ein Team enthalten.");
@@ -239,6 +247,14 @@ function validateSavedState(saved) {
     scoreHistoryGame: null
   };
   if (saved.version === 4) saved = { ...saved, version: 5, shownRuleGameIds: [] };
+  if (saved.version === 5) saved = { ...saved, version: 6, teams: saved.teams.map((team, index) => ({
+    ...team, color: TEAM_COLORS[index].id
+  })) };
+  const savedColors = saved.teams.map(({ color }) => color);
+  if (savedColors.some((color) => !TEAM_COLORS.some(({ id }) => id === color))
+      || savedColors.length !== new Set(savedColors).size) {
+    throw new Error("Das gespeicherte Spiel enthält ungültige Teamfarben.");
+  }
   if (!Array.isArray(saved.scoreHistory) || !saved.scoreHistory.length
       || saved.scoreHistory.some((entry) => !entry || !Array.isArray(entry.scores)
         || entry.scores.length !== saved.teams.length
@@ -304,11 +320,11 @@ export async function loadApplicationData(configUrl) {
 
 export function stateSnapshot() {
   return {
-    version: 5,
+    version: 6,
     updatedAt: new Date().toISOString(),
     revision: ++state.revision,
     gameStarted: state.gameStarted,
-    teams: state.teams.map(({ name, score }) => ({ name, score })),
+    teams: state.teams.map(({ name, score, color }) => ({ name, score, color })),
     usedTiles: Array.from(state.usedTiles).sort(),
     activeQuestion: state.activeQuestion ? { ...state.activeQuestion } : null,
     appliedAwards: Array.from(state.appliedAwards).sort(),

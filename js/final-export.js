@@ -1,4 +1,5 @@
 import { SCORE_HISTORY_COLORS } from "./score-history-chart.js";
+import { teamColor } from "./team-colors.js";
 import { formatInteger } from "./format-number.js";
 import { hostFetch } from "./slot-api.js";
 
@@ -175,7 +176,7 @@ function createHistorySvg(teams, history) {
     svg.append(svgNode("text", { x, y: bottom + 46, fill: "#ffffff", "font-family": "Arial, sans-serif", "font-size": 25, "font-weight": 700, "text-anchor": "middle" }, index ? index : "Start"));
   });
   teams.forEach((team, teamIndex) => {
-    const color = SCORE_HISTORY_COLORS[teamIndex % SCORE_HISTORY_COLORS.length];
+    const color = teamColor(team.color, teamIndex).value;
     const points = history.map((entry, index) => `${xAt(index)},${yAt(entry.scores[teamIndex])}`).join(" ");
     svg.append(svgNode("polyline", { points, fill: "none", stroke: color, "stroke-width": 7, "stroke-linejoin": "round" }));
     history.forEach((entry, index) => svg.append(svgNode("circle", { cx: xAt(index), cy: yAt(entry.scores[teamIndex]), r: 7, fill: color, stroke: "#10194f", "stroke-width": 3 })));
@@ -204,7 +205,7 @@ function createHistorySvg(teams, history) {
     let x = (WIDTH - rowWidth) / 2;
     const y = firstLegendY + rowIndex * rowHeight;
     row.forEach(({ team, index, width }) => {
-      svg.append(svgNode("circle", { cx: x + 11, cy: y, r: 11, fill: SCORE_HISTORY_COLORS[index % SCORE_HISTORY_COLORS.length], stroke: "#ffffff", "stroke-width": 2 }));
+      svg.append(svgNode("circle", { cx: x + 11, cy: y, r: 11, fill: teamColor(team.color, index).value, stroke: "#ffffff", "stroke-width": 2 }));
       svg.append(svgNode("text", { x: x + 34, y: y + 9, fill: "#ffffff", "font-family": "Arial, sans-serif", "font-size": 27, "font-weight": 800 }, team.name));
       x += width + 38;
     });

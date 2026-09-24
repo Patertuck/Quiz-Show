@@ -7,6 +7,8 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from quizshow.team_colors import TEAM_COLOR_IDS
+
 ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]*$")
 
 
@@ -40,6 +42,7 @@ class Audio(ConfigModel):
 class TeamConfig(ConfigModel):
     name: str = Field(min_length=1)
     starting_score: int = Field(alias="startingScore")
+    color: str | None = None
 
 
 class JeopardyQuestion(ConfigModel):
@@ -169,4 +172,7 @@ class QuizConfig(ConfigModel):
         names = [team.name.strip().casefold() for team in self.teams]
         if any(not name for name in names) or len(names) != len(set(names)):
             raise ValueError("team names must be non-empty and unique")
+        colors = [team.color for team in self.teams if team.color is not None]
+        if any(color not in TEAM_COLOR_IDS for color in colors) or len(colors) != len(set(colors)):
+            raise ValueError("team colors must be valid and unique")
         return self

@@ -234,7 +234,7 @@ def install_http_routes(app: FastAPI) -> None:
             "player.html", "styles/player.css", "js/player.js", "display.html", "styles/display.css",
             "styles/sync.css", "js/display.js", "js/display-score-animation.js", "js/display-sounds.js",
             "js/score-history-chart.js", "js/fit-text.js", "js/format-number.js", "js/game-catalog.js",
-            "js/live-client.js",
+            "js/live-client.js", "js/team-colors.js",
         }
         if not host and relative not in allowed and not relative.startswith(("assets/", "js/player/", "js/display/")):
             return _json(403, {"error": "Von einem anderen Gerät sind nur Spieler- und Publikumsansicht verfügbar."})

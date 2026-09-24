@@ -8,6 +8,7 @@ import threading
 import time
 
 from quiz_library import LOGO_FILENAMES
+from quizshow.team_colors import TEAM_COLOR_IDS, TEAM_COLORS
 
 TILE_ID_PATTERN = re.compile(r"^\d+:\d+$")
 PRESENTATION_SCREENS = {"standby", "team-lobby", "hub", "jeopardy-board", "jeopardy-question", "ordering", "listing", "sync", "victory", "score-history"}
@@ -70,13 +71,18 @@ def validate_presentation(payload: object) -> dict:
     if not isinstance(teams, list):
         raise ValueError("Presentation teams must be an array.")
     clean_teams = []
-    for team in teams:
+    used_colors: set[str] = set()
+    for index, team in enumerate(teams):
         if not isinstance(team, dict) or not isinstance(team.get("name"), str):
             raise ValueError("Each presentation team needs a name.")
         score = team.get("score")
         if not isinstance(score, int) or isinstance(score, bool):
             raise ValueError("Each presentation team needs an integer score.")
-        clean_teams.append({"name": team["name"], "score": score})
+        color = team.get("color", TEAM_COLORS[index % len(TEAM_COLORS)]["id"])
+        if color not in TEAM_COLOR_IDS or color in used_colors:
+            raise ValueError("Each presentation team needs a valid color.")
+        used_colors.add(color)
+        clean_teams.append({"name": team["name"], "score": score, "color": color})
 
     clean: dict = {
         "screen": payload["screen"], "title": title, "teams": clean_teams,

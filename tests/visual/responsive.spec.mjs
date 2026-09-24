@@ -104,6 +104,36 @@ test("team names save on Enter without separate save buttons", async ({ page }) 
   await expect(page.locator(".team-name-status").first()).toHaveText("Gespeichert");
 });
 
+test("host team colors stay compact until opened", async ({ page }) => {
+  await mockHost(page);
+  await page.goto("/#/setup");
+  const picker = page.locator(".team-color-picker").first();
+  await expect(picker.locator(".team-color-options")).toBeHidden();
+  await picker.locator(".team-color-trigger").click();
+  await expect(picker.locator(".team-color-options")).toBeVisible();
+  await expect(picker.locator(".team-color-choice")).toHaveCount(12);
+  await expect(picker.locator(".team-color-choice:disabled")).toHaveCount(teamLobby.teams.length - 1);
+  expect(await picker.locator(".team-color-choice:disabled").first().evaluate((element) =>
+    getComputedStyle(element, "::after").content)).toContain("🔒");
+});
+
+test("phone team color picker renders the selected color and palette", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockPlayer(page, playerSnapshot(displayPresentation("team-lobby", {
+    joinUrl: "http://quiz.local/player"
+  }), { teamLobby }));
+  await page.goto("/player.html");
+  const picker = page.locator(".team-lobby-phone-colors");
+  const trigger = picker.locator(".team-lobby-color-trigger");
+  await expect(trigger).toHaveCSS("background-color", "rgb(255, 221, 60)");
+  await trigger.click();
+  await expect(picker.locator(".team-lobby-color-options")).toBeVisible();
+  await expect(picker.locator(".team-lobby-color-options button").nth(1))
+    .toHaveCSS("background-color", "rgb(77, 227, 255)");
+  expect(await picker.locator(".team-lobby-color-options button:disabled").first().evaluate((element) =>
+    getComputedStyle(element, "::after").content)).toContain("🔒");
+});
+
 test("Jeopardy buzzer distinguishes current team and waiting queue", async ({ page }) => {
   await mockHost(page, { activeQuestion: { categoryIndex: 0, rowIndex: 0, answerRevealed: false } });
   await page.goto("/#/jeopardy");

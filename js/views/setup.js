@@ -5,6 +5,7 @@ import { publishTeamLobby } from "../presentation-host.js";
 import { hostFetch } from "../slot-api.js";
 import { confirmAction } from "../confirm-dialog.js";
 import { subscribeHostState } from "../host/live-state.js";
+import { applyTeamColor } from "../team-colors.js";
 
 async function post(path, payload) {
   const response = await hostFetch(path, {
@@ -37,7 +38,8 @@ export async function mount(root, { navigate }) {
   const seed = (compatible ? saved.teams : state.config.teams).map((team, index) => ({
     name: team.name,
     currentScore: Number.isInteger(team.score) ? team.score : (team.startingScore || 0),
-    startingScore: state.config.teams[index]?.startingScore ?? 0
+    startingScore: state.config.teams[index]?.startingScore ?? 0,
+    color: team.color
   }));
   lobby = await post("/api/team-lobby/initialize", {
     teams: seed, force: !state.gameStarted
@@ -107,6 +109,7 @@ export async function mount(root, { navigate }) {
     list.replaceChildren();
     lobby.teams.forEach((team) => {
       const item = document.createElement("li");
+      applyTeamColor(item, team.color);
       const input = document.createElement("input");
       input.className = "team-name-editor";
       input.dataset.teamId = team.id;
@@ -150,6 +153,41 @@ export async function mount(root, { navigate }) {
       members.textContent = team.memberCount === 0
         ? "Keine Handys"
         : `${team.memberCount} ${team.memberCount === 1 ? "Handy" : "Handys"} verbunden`;
+      const colors = document.createElement("div");
+      colors.className = "team-color-picker";
+      const currentColor = lobby.colorPalette.find((color) => color.id === team.color);
+      const colorTrigger = document.createElement("button");
+      colorTrigger.type = "button";
+      colorTrigger.className = "team-color-trigger";
+      colorTrigger.style.setProperty("--choice-color", currentColor.value);
+      colorTrigger.disabled = lobby.phase !== "open";
+      colorTrigger.title = `Teamfarbe: ${currentColor.label}`;
+      colorTrigger.setAttribute("aria-label", `${team.name}: Farbe ändern. Aktuell ${currentColor.label}`);
+      colorTrigger.setAttribute("aria-expanded", "false");
+      const colorOptions = document.createElement("div");
+      colorOptions.className = "team-color-options";
+      colorOptions.hidden = true;
+      colorTrigger.addEventListener("click", () => {
+        const opening = colorOptions.hidden;
+        root.querySelectorAll(".team-color-options:not([hidden])").forEach((panel) => { panel.hidden = true; });
+        root.querySelectorAll(".team-color-trigger[aria-expanded='true']").forEach((button) => button.setAttribute("aria-expanded", "false"));
+        colorOptions.hidden = !opening;
+        colorTrigger.setAttribute("aria-expanded", String(opening));
+      });
+      lobby.colorPalette.forEach((color) => {
+        const choice = document.createElement("button");
+        choice.type = "button";
+        choice.className = `team-color-choice${team.color === color.id ? " selected" : ""}`;
+        choice.style.setProperty("--choice-color", color.value);
+        const owner = lobby.teams.find((candidate) => candidate.id !== team.id && candidate.color === color.id);
+        choice.disabled = lobby.phase !== "open" || Boolean(owner);
+        choice.title = owner ? `${color.label} wird von ${owner.name} verwendet` : color.label;
+        choice.setAttribute("aria-label", choice.title);
+        choice.setAttribute("aria-pressed", String(team.color === color.id));
+        choice.addEventListener("click", () => control("set-color", { teamId: team.id, color: color.id }));
+        colorOptions.append(choice);
+      });
+      colors.append(colorTrigger, colorOptions);
       const remove = document.createElement("button");
       remove.type = "button";
       remove.className = "remove-team-button";
@@ -167,7 +205,7 @@ export async function mount(root, { navigate }) {
           remove.disabled = false;
         }
       });
-      item.append(input, saveStatus, members, remove);
+      item.append(input, saveStatus, colors, members, remove);
       list.append(item);
     });
     if (focused) {
@@ -204,7 +242,7 @@ export async function mount(root, { navigate }) {
       await flushTeamNames();
       lobby = await post("/api/team-lobby/control", { action: "lock" });
       const teams = lobby.teams.map((team) => ({
-        name: team.name, score: mode === "resume" ? team.currentScore : team.startingScore
+        name: team.name, score: mode === "resume" ? team.currentScore : team.startingScore, color: team.color
       }));
       if (mode === "resume") resumeRuntime(teams);
       else {

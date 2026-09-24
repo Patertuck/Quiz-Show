@@ -66,6 +66,20 @@ class TeamLobbyStateTests(unittest.TestCase):
         self.assertNotIn("currentScore", public["teams"][0])
         self.assertNotIn("startingScore", public["teams"][0])
 
+    def test_team_colors_are_unique_and_members_can_change_their_own(self):
+        teams = self.lobby.snapshot()["teams"]
+        self.assertEqual(len(teams), len({team["color"] for team in teams}))
+        joined = self.player("device-player", "join", teamId=teams[0]["id"])
+        available = next(color["id"] for color in joined["colorPalette"]
+                         if color["id"] not in {team["color"] for team in joined["teams"]})
+        changed = self.player("device-player", "set-color", teamId=teams[0]["id"], color=available)
+        self.assertEqual(available, changed["teams"][0]["color"])
+
+        with self.assertRaisesRegex(ValueError, "bereits verwendet"):
+            self.player("device-player", "set-color", teamId=teams[0]["id"], color=teams[1]["color"])
+        with self.assertRaisesRegex(ValueError, "eigenen Teams"):
+            self.player("device-player", "set-color", teamId=teams[1]["id"], color="rose")
+
     def test_lock_rejects_mutations_and_unlock_recovers(self):
         locked = self.lobby.host_control({"action": "lock"})
         self.assertEqual("locked", locked["phase"])

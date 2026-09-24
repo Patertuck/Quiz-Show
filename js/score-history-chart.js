@@ -1,11 +1,9 @@
 import { formatInteger } from "./format-number.js";
+import { TEAM_COLORS, teamColor } from "./team-colors.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
-export const SCORE_HISTORY_COLORS = [
-  "#ffdd3c", "#4de3ff", "#ff6384", "#70e36b", "#bd7cff", "#ff9f43",
-  "#45a3ff", "#f368e0", "#a3e635", "#ff6b35", "#55efc4", "#c7d2fe"
-];
+export const SCORE_HISTORY_COLORS = TEAM_COLORS.map(({ value }) => value);
 
 const SCORE_HISTORY_GAME_LABELS = {
   jeopardy: "Jeopardy",
@@ -107,7 +105,7 @@ export function createScoreHistoryChart(teams, history) {
   });
 
   teams.forEach((team, teamIndex) => {
-    const color = SCORE_HISTORY_COLORS[teamIndex % SCORE_HISTORY_COLORS.length];
+    const color = teamColor(team.color, teamIndex).value;
     history.slice(1).forEach((entry, offset) => {
       const index = offset + 1;
       const delay = startDuration + offset * stepDuration;
@@ -149,7 +147,7 @@ export function createScoreHistoryChart(teams, history) {
   teams.forEach((team, index) => {
     const item = document.createElement("div");
     const swatch = document.createElement("i");
-    swatch.style.background = SCORE_HISTORY_COLORS[index % SCORE_HISTORY_COLORS.length];
+    swatch.style.background = teamColor(team.color, index).value;
     item.append(swatch, document.createTextNode(team.name));
     legend.append(item);
   });

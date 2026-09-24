@@ -26,6 +26,15 @@ def game_state(revision=1):
     }
 
 
+def colored_game_state(revision=1):
+    state = game_state(revision)
+    state["version"] = 6
+    state["teams"] = [
+        {**team, "color": color} for team, color in zip(state["teams"], ("sun", "cyan"), strict=True)
+    ]
+    return state
+
+
 def legacy_document():
     return {
         "version": 1,
@@ -56,7 +65,7 @@ class InstanceStateStoreTests(unittest.TestCase):
         self.assertEqual(2, saved["version"])
         self.assertEqual(4, saved["session"]["revision"])
         self.assertEqual(["q1"], saved["session"]["games"]["listing"]["completedQuestionIds"])
-        self.assertEqual(game_state(4), self.store.read("game"))
+        self.assertEqual(colored_game_state(4), self.store.read("game"))
         self.assertIsNone(self.store.read("ordering"))
 
     def test_rejects_incomplete_or_invalid_documents(self):

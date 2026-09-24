@@ -8,6 +8,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from quizshow.team_colors import TEAM_COLOR_IDS, TEAM_COLORS
+
 GAME_IDS = frozenset({"jeopardy", "ordering", "listing", "sync"})
 
 
@@ -36,6 +38,7 @@ class Team(BaseModel):
 
     name: str = Field(min_length=1, max_length=40)
     score: int = 0
+    color: str = ""
 
 
 class ScoreHistoryEntry(BaseModel):
@@ -71,9 +74,17 @@ class QuizSession(BaseModel):
 
     @model_validator(mode="after")
     def validate_invariants(self) -> QuizSession:
+        for index, team in enumerate(self.teams):
+            if not team.color:
+                team.color = TEAM_COLORS[index % len(TEAM_COLORS)]["id"]
+            if team.color not in TEAM_COLOR_IDS:
+                raise ValueError("team color must be from the palette")
         names = [team.name.casefold() for team in self.teams]
         if len(names) != len(set(names)):
             raise ValueError("team names must be unique")
+        colors = [team.color for team in self.teams]
+        if len(colors) != len(set(colors)):
+            raise ValueError("team colors must be unique")
         if self.active_game is not None and self.active_game not in GAME_IDS:
             raise ValueError("active_game must be a supported game")
         if not self.shown_rule_game_ids.issubset(GAME_IDS):

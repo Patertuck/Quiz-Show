@@ -28,6 +28,7 @@ from quizshow.presentation import (
     validate_presentation_logos,  # noqa: F401
     validate_quiz_media_source,  # noqa: F401
 )
+from quizshow.team_colors import TEAM_COLORS, first_available, team_color
 from sync_game import SyncState
 
 BIND_HOST = "0.0.0.0"
@@ -96,7 +97,7 @@ def validate_state(state: object) -> dict:
     """Validate the stable portion of the browser-to-server state contract."""
     if not isinstance(state, dict):
         raise ValueError("State must be a JSON object.")
-    if state.get("version") not in {1, 2, 3, 4, 5}:
+    if state.get("version") not in {1, 2, 3, 4, 5, 6}:
         raise ValueError("Unsupported state version.")
     if not isinstance(state.get("updatedAt"), str) or not state["updatedAt"]:
         raise ValueError("updatedAt must be a non-empty string.")
@@ -164,6 +165,15 @@ def validate_state(state: object) -> dict:
                 or any(not isinstance(game, str) or game not in HUB_GAME_IDS for game in shown_rules)
                 or len(shown_rules) != len(set(shown_rules))):
             raise ValueError("shownRuleGameIds must contain unique valid game ids.")
+    if state["version"] == 5:
+        state = {**state, "version": 6, "teams": [
+            {**team, "color": TEAM_COLORS[index]["id"]} for index, team in enumerate(teams)
+        ]}
+        teams = state["teams"]
+    if state["version"] >= 6:
+        colors = [team.get("color") for team in teams]
+        if any(color not in {item["id"] for item in TEAM_COLORS} for color in colors) or len(colors) != len(set(colors)):
+            raise ValueError("Team colors must be unique palette colors.")
     if any(score != teams[index]["score"] for index, score in enumerate(history[-1]["scores"])):
         raise ValueError("The final scoreHistory entry must match the current team scores.")
     return state
@@ -311,6 +321,15 @@ class TeamLobbyState:
         self.version += 1
         self.condition.notify_all()
 
+    def _new_color(self) -> str:
+        return first_available({team["color"] for team in self.teams})
+
+    def _set_color(self, team: dict, value: object) -> None:
+        color = team_color(value)
+        if any(item["id"] != team["id"] and item["color"] == color for item in self.teams):
+            raise ValueError("Diese Teamfarbe wird bereits verwendet.")
+        team["color"] = color
+
     def reset(self) -> None:
         with self.condition:
             self.phase = "uninitialized"
@@ -337,6 +356,11 @@ class TeamLobbyState:
                 return self._snapshot_unlocked("host")
             self.teams = []
             self.memberships = {}
+            requested_colors = [item.get("color") for item in source if isinstance(item, dict) and item.get("color")]
+            if (any(color not in {item["id"] for item in TEAM_COLORS} for color in requested_colors)
+                    or len(requested_colors) != len(set(requested_colors))):
+                raise ValueError("Teamfarben müssen gültig und eindeutig sein.")
+            assigned_colors = set(requested_colors)
             for item in source:
                 if not isinstance(item, dict):
                     raise ValueError("Jedes Lobby-Team muss ein Objekt sein.")
@@ -346,9 +370,14 @@ class TeamLobbyState:
                 if (not isinstance(current_score, int) or isinstance(current_score, bool)
                         or not isinstance(starting_score, int) or isinstance(starting_score, bool)):
                     raise ValueError("Teampunkte müssen Ganzzahlen sein.")
+                color = item.get("color")
+                if not color:
+                    color = first_available(assigned_colors)
+                    assigned_colors.add(color)
                 self.teams.append({
                     "id": secrets.token_urlsafe(8), "name": name, "ownerDeviceId": None,
                     "currentScore": current_score, "startingScore": starting_score,
+                    "color": color,
                 })
             self.phase = "open"
             self._changed()
@@ -369,6 +398,7 @@ class TeamLobbyState:
                 self.teams.append({
                     "id": secrets.token_urlsafe(8), "name": self._name(payload.get("name")),
                     "ownerDeviceId": None, "currentScore": 0, "startingScore": 0,
+                    "color": self._new_color(),
                 })
             elif action == "rename":
                 team = self._team(payload.get("teamId"))
@@ -377,6 +407,8 @@ class TeamLobbyState:
                 team = self._team(payload.get("teamId"))
                 self.teams.remove(team)
                 self.memberships = {device: selected for device, selected in self.memberships.items() if selected != team["id"]}
+            elif action == "set-color":
+                self._set_color(self._team(payload.get("teamId")), payload.get("color"))
             elif action == "lock":
                 if not self.teams:
                     raise ValueError("Erstellt mindestens ein Team, bevor das Spiel beginnt.")
@@ -403,9 +435,15 @@ class TeamLobbyState:
                 team = {
                     "id": secrets.token_urlsafe(8), "name": self._name(payload.get("name")),
                     "ownerDeviceId": device_id, "currentScore": 0, "startingScore": 0,
+                    "color": self._new_color(),
                 }
                 self.teams.append(team)
                 self.memberships[device_id] = team["id"]
+            elif action == "set-color":
+                team = self._team(payload.get("teamId"))
+                if self.memberships.get(device_id) != team["id"]:
+                    raise ValueError("Ihr könnt nur die Farbe eures eigenen Teams ändern.")
+                self._set_color(team, payload.get("color"))
             else:
                 raise ValueError("Unbekannte Team-Lobby-Aktion.")
             self._changed()
@@ -417,11 +455,13 @@ class TeamLobbyState:
             member_counts[team_id] = member_counts.get(team_id, 0) + 1
         teams = []
         for team in self.teams:
-            item = {"id": team["id"], "name": team["name"], "memberCount": member_counts.get(team["id"], 0)}
+            item = {"id": team["id"], "name": team["name"], "color": team["color"],
+                    "memberCount": member_counts.get(team["id"], 0)}
             if role == "host":
                 item.update({"currentScore": team["currentScore"], "startingScore": team["startingScore"]})
             teams.append(item)
-        snapshot = {"version": self.version, "phase": self.phase, "maxTeams": self.MAX_TEAMS, "teams": teams}
+        snapshot = {"version": self.version, "phase": self.phase, "maxTeams": self.MAX_TEAMS,
+                    "colorPalette": list(TEAM_COLORS), "teams": teams}
         if role == "player" and device_id:
             snapshot["selectedTeamId"] = self.memberships.get(device_id)
             snapshot["ownedTeamId"] = next((team["id"] for team in self.teams if team["ownerDeviceId"] == device_id), None)

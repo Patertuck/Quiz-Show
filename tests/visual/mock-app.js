@@ -18,8 +18,9 @@ export async function mockLiveSocket(page, snapshot) {
 
 export async function mockHost(page, { ordering = orderingBase, listing = listingBase, sync = syncLobby,
   activeQuestion = null, lobby = teamLobby, buzzer: buzzerState = buzzer, hostTeams = teams } = {}) {
+  hostTeams = hostTeams.map((team, index) => ({ ...team, color: team.color || teamLobby.colorPalette[index].id }));
   const saved = {
-    version: 5, updatedAt: "2026-01-01T12:00:00Z", revision: 5, gameStarted: true,
+    version: 6, updatedAt: "2026-01-01T12:00:00Z", revision: 5, gameStarted: true,
     teams: hostTeams, usedTiles: ["5:4"], activeQuestion, appliedAwards: [],
     scoreHistory: [
       { scores: hostTeams.map(() => 0), game: null },

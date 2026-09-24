@@ -37,6 +37,7 @@ async function animateAward(root, origin, award) {
   if (!reducedMotion()) {
     const badge = document.createElement("div");
     badge.className = `display-points-flight${deducted ? " deducted" : ""}`;
+    badge.style.setProperty("--team-color", getComputedStyle(card).getPropertyValue("--team-color"));
     badge.textContent = deducted
       ? `−${formatInteger(Math.abs(award.points))}`
       : `+${formatInteger(award.points)}`;

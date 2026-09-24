@@ -43,8 +43,9 @@ class SavedScoreHistoryTests(unittest.TestCase):
 
     def test_migrates_version_four_with_no_rules_shown(self):
         clean = main.validate_state(saved_state(version=4))
-        self.assertEqual(5, clean["version"])
+        self.assertEqual(6, clean["version"])
         self.assertEqual([], clean["shownRuleGameIds"])
+        self.assertEqual(["sun", "cyan"], [team["color"] for team in clean["teams"]])
 
     def test_accepts_unique_rule_game_ids(self):
         clean = main.validate_state(saved_state(version=5))

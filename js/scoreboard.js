@@ -1,5 +1,6 @@
 import { state, recordScoreHistory, saveState } from "./store.js";
 import { formatInteger } from "./format-number.js";
+import { applyTeamColor } from "./team-colors.js";
 
 let container;
 let scoreDialog;
@@ -47,6 +48,7 @@ export function renderScoreboard() {
     const card = document.createElement("section");
     card.className = "team";
     card.dataset.teamIndex = index;
+    applyTeamColor(card, team.color, index);
     card.title = `Punktestand von ${team.name} mit Rechtsklick bearbeiten`;
     card.addEventListener("contextmenu", (event) => {
       event.preventDefault();

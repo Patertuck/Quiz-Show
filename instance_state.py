@@ -93,7 +93,8 @@ class InstanceStateStore:
                 if isinstance(names, list) and names:
                     raw_teams = [{"name": name, "score": 0} for name in names]
                     break
-        teams = [Team(name=item["name"], score=item.get("score", 0)) for item in raw_teams]
+        teams = [Team(name=item["name"], score=item.get("score", 0), color=item.get("color", ""))
+                 for item in raw_teams]
 
         raw_history = game.get("scoreHistory", []) if isinstance(game, dict) else []
         history = [ScoreHistoryEntry(scores=entry.get("scores", []), game=entry.get("game")) for entry in raw_history]
@@ -165,7 +166,7 @@ class InstanceStateStore:
     @staticmethod
     def _legacy_game(session: QuizSession) -> dict:
         return {
-            "version": 5,
+            "version": 6,
             "updatedAt": session.updated_at.astimezone(UTC).isoformat().replace("+00:00", "Z"),
             "revision": session.revision,
             "gameStarted": session.game_started,

@@ -1,4 +1,5 @@
 import { animateScoreDistribution } from "./display-score-animation.js";
+import { applyTeamColor } from "./team-colors.js";
 import { gameDefinition } from "./game-catalog.js";
 import qrcode from "../assets/vendor/qrcode.js";
 import { scheduleTextFit } from "./fit-text.js";
@@ -78,6 +79,7 @@ function scoreboard(teams) {
     const rank = 1 + teams.filter((candidate) => candidate.score > team.score).length;
     const card = element("section", `display-team rank-${rank}`);
     card.dataset.teamIndex = teamIndex;
+    applyTeamColor(card, team.color, teamIndex);
     card.append(element("div", "display-team-name", team.name), element("div", "display-team-score", formatInteger(team.score)));
     board.append(card);
   });
@@ -108,8 +110,9 @@ function teamLobby() {
   join.append(element("h2", "", "QR-Code scannen"), code, element("p", "", presentation.joinUrl));
   const roster = element("main", "display-team-lobby-roster");
   if (teamLobbyState?.teams?.length) {
-    teamLobbyState.teams.forEach((team) => {
+    teamLobbyState.teams.forEach((team, index) => {
       const card = element("section", "display-team-lobby-team");
+      applyTeamColor(card, team.color, index);
       card.classList.toggle("fresh-activity", highlightedLobbyTeamIds.has(team.id));
       card.append(
         element("strong", "", team.name),

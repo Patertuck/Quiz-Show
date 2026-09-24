@@ -4,6 +4,7 @@ import { appendUniqueItem } from "./player/listing.js";
 import { connectPlayerSession } from "./player/live-session.js";
 import { moveOrder } from "./player/ordering.js";
 import { ownSyncParticipant as findOwnSyncParticipant } from "./player/sync.js";
+import { applyTeamColor } from "./team-colors.js";
 
 const waitingStep = document.querySelector("#waiting-step");
 const waitingLogo = document.querySelector(".player-waiting-logo");
@@ -187,6 +188,7 @@ function renderTeamLobby() {
   teamLobbyState.teams.forEach((team) => {
     const card = document.createElement("section");
     card.className = `team-lobby-phone-team${teamLobbyState.selectedTeamId === team.id ? " selected" : ""}`;
+    applyTeamColor(card, team.color);
     const name = document.createElement("strong");
     name.textContent = team.name;
     card.append(name);
@@ -198,6 +200,41 @@ function renderTeamLobby() {
     join.disabled = teamLobbyState.selectedTeamId === team.id;
     join.addEventListener("click", () => teamLobbyAction("join", { teamId: team.id }));
     card.append(meta, join);
+    if (teamLobbyState.selectedTeamId === team.id) {
+      const colors = document.createElement("div");
+      colors.className = "team-lobby-phone-colors";
+      const currentColor = teamLobbyState.colorPalette.find((color) => color.id === team.color);
+      const trigger = document.createElement("button");
+      trigger.type = "button";
+      trigger.className = "team-lobby-color-trigger";
+      trigger.style.setProperty("--choice-color", currentColor.value);
+      trigger.title = `Teamfarbe: ${currentColor.label}`;
+      trigger.setAttribute("aria-label", `Teamfarbe ändern. Aktuell ${currentColor.label}`);
+      trigger.setAttribute("aria-expanded", "false");
+      const options = document.createElement("div");
+      options.className = "team-lobby-color-options";
+      options.hidden = true;
+      trigger.addEventListener("click", () => {
+        const opening = options.hidden;
+        options.hidden = !opening;
+        trigger.setAttribute("aria-expanded", String(opening));
+      });
+      teamLobbyState.colorPalette.forEach((color) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.style.setProperty("--choice-color", color.value);
+        button.className = team.color === color.id ? "selected" : "";
+        const owner = teamLobbyState.teams.find((candidate) => candidate.id !== team.id && candidate.color === color.id);
+        button.disabled = Boolean(owner);
+        button.title = owner ? `${color.label}: ${owner.name}` : color.label;
+        button.setAttribute("aria-label", button.title);
+        button.setAttribute("aria-pressed", String(team.color === color.id));
+        button.addEventListener("click", () => teamLobbyAction("set-color", { teamId: team.id, color: color.id }));
+        options.append(button);
+      });
+      colors.append(trigger, options);
+      card.append(colors);
+    }
     teamLobbyChoices.append(card);
   });
   teamLobbyCreateForm.hidden = Boolean(teamLobbyState.ownedTeamId)
