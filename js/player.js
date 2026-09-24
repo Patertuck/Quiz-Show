@@ -77,8 +77,22 @@ let listingSubmissionQueued = false;
 let listingSaveError = "";
 let activeDrag = null;
 let deferredOrderingState = null;
+let wasConnected = false;
+let playerConnected = false;
 const playerIdentity = loadPlayerIdentity();
 const deviceId = playerIdentity.deviceId;
+
+function haptic(pattern) {
+  try { navigator.vibrate?.(pattern); } catch { /* Haptics are optional. */ }
+}
+
+function confirmStatus(element, message, vibrate = false) {
+  element.textContent = message;
+  element.classList.remove("feedback-confirmed");
+  void element.offsetWidth;
+  element.classList.add("feedback-confirmed");
+  if (vibrate) haptic([45, 30, 70]);
+}
 
 function showTeamSelection() {
   cancelDrag(false);
@@ -162,6 +176,7 @@ function renderTeams() {
 }
 
 async function teamLobbyAction(action, extra = {}) {
+  if (!playerConnected) return false;
   teamLobbyStatus.textContent = "";
   try {
     const payload = await playerCommands.teamLobby({ action, deviceId, ...extra });
@@ -171,6 +186,7 @@ async function teamLobbyAction(action, extra = {}) {
     return true;
   } catch (error) {
     teamLobbyStatus.textContent = error.message;
+    haptic([80, 40, 80]);
     return false;
   }
 }
@@ -444,7 +460,7 @@ function startPointerDrag(event, row, startIndex, order) {
 
 async function submitOrder(order) {
   const round = orderingState?.round;
-  if (!round || selectedTeamIndex === null || round.phase !== "active") return;
+  if (!playerConnected || !round || selectedTeamIndex === null || round.phase !== "active") return;
   orderingStatus.textContent = "";
   try {
     const payload = await playerCommands.ordering({
@@ -452,9 +468,10 @@ async function submitOrder(order) {
       teamIndex: selectedTeamIndex, deviceId, order
     });
     if (payload.state) orderingState = payload.state;
-    orderingStatus.textContent = "";
+    confirmStatus(orderingStatus, "✓ Gespeichert");
   } catch (error) {
     orderingStatus.textContent = error.message || "Die Spielleitung konnte nicht erreicht werden.";
+    haptic([80, 40, 80]);
   }
   render();
 }
@@ -541,7 +558,7 @@ function focusListingEntry() {
 
 function saveListingItems(items, submit = false) {
   const round = listingState?.round;
-  if (!round || selectedTeamIndex === null || round.phase !== "active"
+  if (!playerConnected || !round || selectedTeamIndex === null || round.phase !== "active"
       || round.teamSubmitted || listingSubmissionQueued) return listingSaveChain;
   const requestData = {
     roundId: round.id,
@@ -559,8 +576,10 @@ function saveListingItems(items, submit = false) {
   listingSaveChain = listingSaveChain.catch(() => undefined).then(async () => {
     const payload = await playerCommands.listing(requestData);
     if (payload.state) listingState = payload.state;
+    if (submit) confirmStatus(listingStatus, "✓ Liste abgegeben und gesperrt", true);
   }).catch((error) => {
     listingSaveError = error.message || "Die Spielleitung konnte nicht erreicht werden.";
+    haptic([80, 40, 80]);
   }).finally(() => {
     listingPendingSaves -= 1;
     if (listingPendingSaves === 0 && listingState?.round?.id === listingLocalRoundId) {
@@ -634,8 +653,8 @@ function renderListing() {
     listingStatus.textContent = "Eure Liste wurde abgegeben.";
   } else if (listingPendingSaves > 0) {
     listingStatus.textContent = "Wird gespeichert …";
-  } else {
-    listingStatus.textContent = "";
+  } else if (!listingStatus.classList.contains("feedback-confirmed")) {
+    listingStatus.textContent = "✓ Gespeichert";
   }
   focusListingEntry();
 }
@@ -773,14 +792,15 @@ function renderSync() {
 
 async function saveSyncVote(selectedParticipantId) {
   const round = syncState?.round;
-  if (!round || round.phase !== "active") return;
+  if (!playerConnected || !round || round.phase !== "active") return;
   try {
     const payload = await playerCommands.syncVote({ deviceId, roundId: round.id, selectedParticipantId });
     if (payload.state) syncState = payload.state;
-    if (navigator.vibrate) navigator.vibrate(40);
+    haptic(40);
     render();
   } catch (error) {
     syncStatus.textContent = error.message || "Die Auswahl konnte nicht gespeichert werden.";
+    haptic([80, 40, 80]);
   }
 }
 
@@ -846,7 +866,7 @@ teamLobbyCreateForm.addEventListener("submit", (event) => {
   teamLobbyAction("create", { name }).then((created) => { if (created) teamLobbyName.value = ""; });
 });
 buzzButton.addEventListener("click", async () => {
-  if (!currentState?.round.open || selectedTeamIndex === null || submitting) return;
+  if (!playerConnected || !currentState?.round.open || selectedTeamIndex === null || submitting) return;
   submitting = true;
   let errorMessage = "";
   render();
@@ -858,10 +878,11 @@ buzzButton.addEventListener("click", async () => {
       deviceId
     });
     if (result.state) currentState = result.state;
-    if (navigator.vibrate) navigator.vibrate(100);
+    haptic([70, 25, 100]);
   } catch (error) {
     if (error.payload?.state) currentState = error.payload.state;
     errorMessage = error.message || "Die Quiz-Spielleitung konnte nicht erreicht werden. Prüft die WLAN-Verbindung.";
+    haptic([80, 40, 80]);
   } finally {
     submitting = false;
     render();
@@ -870,14 +891,28 @@ buzzButton.addEventListener("click", async () => {
 });
 
 function setPlayerConnection(connected) {
-  connectionStatus.textContent = connected ? "Verbunden" : "Verbindung wird wiederhergestellt…";
+  playerConnected = connected;
+  connectionStatus.textContent = connected ? (wasConnected ? "Wieder verbunden" : "Verbunden") : "Verbindung wird wiederhergestellt…";
   connectionStatus.classList.toggle("connected", connected);
+  document.body.classList.toggle("player-disconnected", !connected);
+  if (connected) {
+    if (wasConnected) {
+      connectionStatus.classList.add("reconnected");
+      setTimeout(() => {
+        connectionStatus.classList.remove("reconnected");
+        connectionStatus.textContent = "Verbunden";
+      }, 1800);
+    }
+    wasConnected = true;
+  }
 }
 
 liveConnection = connectPlayerSession({
   identity: () => ({ deviceId, teamIndex: selectedTeamIndex }),
   onConnectionChange: setPlayerConnection,
   onSnapshot: (snapshot) => {
+    const orderingJustLocked = orderingState?.round?.phase === "active" && snapshot.ordering?.round?.phase !== "active";
+    const listingJustLocked = listingState?.round?.phase === "active" && snapshot.listing?.round?.phase !== "active";
     currentState = snapshot.buzzer;
     teamLobbyState = snapshot.teamLobby;
     presentationState = snapshot.presentation;
@@ -885,6 +920,8 @@ liveConnection = connectPlayerSession({
     listingState = snapshot.listing;
     syncState = snapshot.sync;
     render();
+    if (orderingJustLocked) confirmStatus(orderingStatus, "✓ Reihenfolge gesperrt", true);
+    if (listingJustLocked) confirmStatus(listingStatus, "✓ Liste gesperrt", true);
   }
 });
 

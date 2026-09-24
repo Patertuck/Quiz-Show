@@ -9,6 +9,11 @@ header { display: flex; min-width: 0; align-items: center; justify-content: spac
 h1 { min-width: 0; margin: 0; color: #fff45c; font-size: clamp(1.45rem, 7vw, 2.25rem); }
 .connection-status { max-width: 52%; flex: 0 1 auto; padding: 0.35rem 0.6rem; overflow: hidden; border-radius: 999px; background: #733; font-size: 0.75rem; font-weight: bold; text-overflow: ellipsis; white-space: nowrap; }
 .connection-status.connected { background: #176d40; }
+.connection-status.reconnected { animation: feedback-pop 420ms ease-out; background: #158957; }
+.player-disconnected::before { position: fixed; z-index: 2000; top: max(4.5rem, calc(env(safe-area-inset-top) + 4rem)); left: 50%; width: min(28rem, calc(100% - 2rem)); padding: .8rem 1rem; border: 2px solid #ffcc66; border-radius: .8rem; background: #581d20ee; color: #fff; font-weight: 900; text-align: center; content: "Verbindung unterbrochen · Eingaben sind kurz gesperrt"; box-shadow: 0 .8rem 2rem #0008; transform: translateX(-50%); }
+.player-disconnected .player-card button, .player-disconnected .player-card input { pointer-events: none; filter: saturate(.4); opacity: .65; }
+.feedback-confirmed { animation: feedback-pop 360ms ease-out; color: #9df1bd; }
+@keyframes feedback-pop { 0% { opacity: .35; transform: scale(.94); } 55% { transform: scale(1.035); } 100% { opacity: 1; transform: none; } }
 .player-card { min-width: 0; align-self: stretch; padding: clamp(1rem, 5vw, 1.7rem); border: 1px solid rgb(255 255 255 / 24%); border-radius: 1.25rem; background: rgb(4 9 42 / 62%); box-shadow: 0 1rem 3rem rgb(0 0 0 / 28%); }
 .waiting-player { display: flex; flex-direction: column; justify-content: center; text-align: center; }
 .player-waiting-logo { display: block; width: min(24rem, 76vw); max-height: min(58vh, 24rem); margin: 0 auto 1.25rem; border-radius: 1rem; object-fit: contain; box-shadow: 0 1rem 2.5rem rgb(0 0 0 / 32%); }
