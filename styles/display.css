@@ -127,6 +127,9 @@ body { margin: 0; overflow: hidden; background: var(--blue); color: #fff; }
 .display-points-flight.deducted { border-color: #ff8f9c; background: linear-gradient(145deg, #a52e45, #551323); color: #fff; box-shadow: 0 .45rem 1.2rem #0008, 0 0 1rem #ff657766; }
 .display-scoreboard { position: fixed; z-index: 5; right: 0; bottom: 0; left: 0; display: flex; height: var(--scoreboard-height); gap: 0.65rem; align-items: stretch; padding: 0.65rem; overflow: hidden; background: linear-gradient(180deg, #101b59, #080f35); box-shadow: 0 -0.35rem 1.2rem rgb(0 0 0 / 38%); }
 .display-team { display: grid; min-width: 0; flex: 1 1 0; grid-template-rows: 1.7rem 1fr; align-items: center; padding: 0.45rem 0.55rem; border: 2px solid var(--team-color, #5264bd); border-top-width: .35rem; border-radius: 0.75rem; background: linear-gradient(180deg, color-mix(in srgb, var(--team-color, #263ca3) 22%, #263ca3), #18287d); box-shadow: 0 0.35rem 0.8rem rgb(0 0 0 / 28%); }
+.jeopardy-transition-overlay { z-index: 40; margin: 0; overflow: hidden; pointer-events: none; transform-origin: top left; }
+.jeopardy-transition-backdrop { z-index: 35; }
+.jeopardy-transition-target { position: relative; z-index: 40; overflow: hidden; transform-origin: top left; }
 .display-team.points-arrived { animation: display-score-arrival 520ms ease-out; }
 .display-team.points-deducted { animation: display-score-deduction 520ms ease-out; }
 .display-team-name { overflow: hidden; font-size: clamp(0.65rem, 1.4vw, 0.95rem); font-weight: 800; text-align: center; text-overflow: ellipsis; white-space: nowrap; }

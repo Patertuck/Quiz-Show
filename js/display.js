@@ -7,7 +7,12 @@ import { formatInteger } from "./format-number.js";
 import { createScoreHistoryChart } from "./score-history-chart.js";
 import { element, retryingLogo } from "./display/dom.js";
 import { connectDisplaySession } from "./display/live-session.js";
-import { displaySceneKey, manualScoreChanges, scoreChanges as calculateScoreChanges } from "./display/scene.js";
+import {
+  displaySceneKey,
+  jeopardyTransitionPlan,
+  manualScoreChanges,
+  scoreChanges as calculateScoreChanges
+} from "./display/scene.js";
 import {
   playBuzzerSound,
   playWinnerCheer,
@@ -45,8 +50,12 @@ let listingTicker;
 let syncTicker;
 let displayScoreAnimationActive = false;
 const SCREEN_TRANSITION_DURATION_MS = 650;
+const JEOPARDY_TRANSITION_DURATION_MS = 900;
 let lastRenderedSceneKey = null;
+let lastRenderedScreen = null;
+let lastRenderedQuestionId = null;
 let activeScreenTransition = null;
+let activeJeopardyAnimation = null;
 let fallbackTransitionTimer;
 const presentationQueue = [];
 const animatedOrderingRounds = new Set();
@@ -173,11 +182,13 @@ function jeopardyBoard() {
   categories.forEach((category) => board.append(element("div", "display-category", category)));
   values.forEach((value, row) => categories.forEach((_, category) => {
     const tileId = `${category}:${row}`;
-    board.append(element(
+    const tile = element(
       "div",
       `display-tile${used.has(tileId) ? " used" : ""}${highlightedTile === tileId ? " highlighted" : ""}`,
       formatInteger(value)
-    ));
+    );
+    tile.dataset.tileId = tileId;
+    board.append(tile);
   }));
   screen.append(board);
   requestAnimationFrame(() => fitBoard(board, categories.length, values.length));
@@ -742,6 +753,86 @@ function renderImmediately() {
   }
   if (presentation.screen === "team-lobby") highlightedLobbyTeamIds = new Set();
   updateBuzzerBanner();
+  lastRenderedScreen = presentation.screen;
+  lastRenderedQuestionId = presentation.screen === "jeopardy-question" ? presentation.question?.id : null;
+}
+
+function displayTile(tileId) {
+  return Array.from(root.querySelectorAll(".display-tile")).find((tile) => tile.dataset.tileId === tileId) || null;
+}
+
+function transitionOverlay(source) {
+  const bounds = source.getBoundingClientRect();
+  const overlay = source.cloneNode(true);
+  overlay.classList.add("jeopardy-transition-overlay");
+  overlay.setAttribute("aria-hidden", "true");
+  Object.assign(overlay.style, {
+    position: "fixed",
+    top: `${bounds.top}px`,
+    left: `${bounds.left}px`,
+    width: `${bounds.width}px`,
+    height: `${bounds.height}px`
+  });
+  return { bounds, overlay };
+}
+
+function cancelJeopardyAnimation() {
+  activeJeopardyAnimation?.cancel();
+  activeJeopardyAnimation = null;
+  document.querySelectorAll(".jeopardy-transition-overlay").forEach((overlay) => overlay.remove());
+  root.querySelectorAll(".jeopardy-transition-target").forEach((target) => {
+    target.classList.remove("jeopardy-transition-target");
+  });
+}
+
+function runJeopardyTransition(plan) {
+  cancelJeopardyAnimation();
+  const source = plan.direction === "opening" ? displayTile(plan.tileId) : root.querySelector(".display-question");
+  if (!source || !plan.tileId) {
+    renderImmediately();
+    return;
+  }
+
+  const sourceBounds = source.getBoundingClientRect();
+  const overlaySource = plan.direction === "opening" ? root.querySelector(".display-board-screen") : source;
+  const { overlay } = transitionOverlay(overlaySource);
+  renderImmediately();
+  const target = plan.direction === "opening" ? root.querySelector(".display-question") : displayTile(plan.tileId);
+  if (!target) return;
+  const targetBounds = target.getBoundingClientRect();
+
+  if (plan.direction === "opening") {
+    const backdrop = overlay;
+    backdrop.classList.add("jeopardy-transition-backdrop");
+    document.body.append(backdrop);
+    target.classList.add("jeopardy-transition-target");
+    const dx = sourceBounds.left - targetBounds.left;
+    const dy = sourceBounds.top - targetBounds.top;
+    const scaleX = sourceBounds.width / targetBounds.width;
+    const scaleY = sourceBounds.height / targetBounds.height;
+    activeJeopardyAnimation = target.animate([
+      { transform: `translate(${dx}px, ${dy}px) scale(${scaleX}, ${scaleY})`, borderRadius: ".15rem" },
+      { transform: "none", borderRadius: "0" }
+    ], { duration: JEOPARDY_TRANSITION_DURATION_MS, easing: "cubic-bezier(.2,.78,.18,1)", fill: "both" });
+  } else {
+    document.body.append(overlay);
+    const dx = targetBounds.left - sourceBounds.left;
+    const dy = targetBounds.top - sourceBounds.top;
+    const scaleX = targetBounds.width / sourceBounds.width;
+    const scaleY = targetBounds.height / sourceBounds.height;
+    activeJeopardyAnimation = overlay.animate([
+      { transform: "none", opacity: 1, borderRadius: "0" },
+      { transform: `translate(${dx}px, ${dy}px) scale(${scaleX}, ${scaleY})`, opacity: .35, borderRadius: ".15rem" }
+    ], { duration: JEOPARDY_TRANSITION_DURATION_MS, easing: "cubic-bezier(.2,.78,.18,1)", fill: "both" });
+  }
+
+  const animation = activeJeopardyAnimation;
+  animation.finished.catch(() => undefined).finally(() => {
+    if (activeJeopardyAnimation !== animation) return;
+    activeJeopardyAnimation = null;
+    overlay.remove();
+    target.classList.remove("jeopardy-transition-target");
+  });
 }
 
 function render() {
@@ -749,12 +840,20 @@ function render() {
   syncDisplayBackgroundMusic();
   const nextSceneKey = sceneKey();
   const shouldAnimate = lastRenderedSceneKey !== null
-    && nextSceneKey !== lastRenderedSceneKey
-    && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    && nextSceneKey !== lastRenderedSceneKey;
   lastRenderedSceneKey = nextSceneKey;
 
   if (!shouldAnimate) {
+    cancelJeopardyAnimation();
     renderImmediately();
+    return;
+  }
+
+  const jeopardyPlan = jeopardyTransitionPlan(lastRenderedScreen, lastRenderedQuestionId, presentation);
+  if (jeopardyPlan) {
+    activeScreenTransition?.skipTransition();
+    activeScreenTransition = null;
+    runJeopardyTransition(jeopardyPlan);
     return;
   }
 
@@ -763,7 +862,9 @@ function render() {
     const transition = document.startViewTransition(renderImmediately);
     activeScreenTransition = transition;
     transition.finished.finally(() => {
-      if (activeScreenTransition === transition) activeScreenTransition = null;
+      if (activeScreenTransition === transition) {
+        activeScreenTransition = null;
+      }
     });
     return;
   }
@@ -879,7 +980,7 @@ async function drainPresentationQueue() {
 function receivePresentation(nextPresentation) {
   const latest = presentationQueue.at(-1) ?? presentation;
   if (latest?.serverSessionId === nextPresentation.serverSessionId
-      && latest?.version !== undefined && nextPresentation.version <= latest.version) return;
+      && latest?.version !== undefined && nextPresentation.version <= latest.version) return false;
   if (latest?.serverSessionId && latest.serverSessionId !== nextPresentation.serverSessionId) {
     presentationQueue.length = 0;
   }
@@ -889,6 +990,7 @@ function receivePresentation(nextPresentation) {
     presentation = nextPresentation;
     render();
   });
+  return true;
 }
 
 function receiveBuzzerState(nextBuzzer, initial = false) {
@@ -941,16 +1043,28 @@ function setDisplayConnection(connected) {
   connection.classList.toggle("connected", connected);
 }
 
+function liveGameStateChanged(screen, previous, next) {
+  const key = {
+    "team-lobby": "teamLobby",
+    ordering: "ordering",
+    listing: "listing",
+    sync: "sync"
+  }[screen];
+  return Boolean(key) && previous[key]?.version !== next[key]?.version;
+}
+
 const liveConnection = connectDisplaySession({
   onConnectionChange: setDisplayConnection,
   onSnapshot: (snapshot) => {
-    receivePresentation(snapshot.presentation);
-    receiveBuzzerState(snapshot.buzzer, !buzzerInitialized);
+    const previousGameState = { teamLobby: teamLobbyState, ordering: orderingState, listing: listingState, sync: syncState };
+    const gameStateChanged = liveGameStateChanged(presentation?.screen, previousGameState, snapshot);
     receiveTeamLobbyState(snapshot.teamLobby);
     orderingState = snapshot.ordering;
     listingState = snapshot.listing;
     syncState = snapshot.sync;
-    if (!displayScoreAnimationActive) render();
+    receiveBuzzerState(snapshot.buzzer, !buzzerInitialized);
+    const presentationQueued = receivePresentation(snapshot.presentation);
+    if (!presentationQueued && gameStateChanged && !displayScoreAnimationActive) render();
   }
 });
 

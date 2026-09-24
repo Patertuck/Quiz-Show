@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { expectNoViewportOverflow, expectVisibleControlsUsable } from "./layout.js";
 import {
-  basePresentation, buzzer, config, listingActive, listingBase, listingResults, listingReview,
+  basePresentation, buzzer, config, listingActive, listingBase, listingResults, listingReview, liveSnapshot,
   orderingActive, orderingBase, orderingResults, selection, syncActive, syncLobby, syncResults,
   teamLobby, teamNames
 } from "./fixtures.js";
@@ -168,6 +168,43 @@ const displayCases = [
   ["sync-results", displayPresentation("sync"), { sync: syncResults }],
   ["victory", displayPresentation("victory", { steps: teamNames.map((name, index) => ({ kind: index < 3 ? "podium" : "standing", rank: index + 1, names: name, score: 600 - index * 100 })), revealedCount: 6 })]
 ];
+
+test("display animates a Jeopardy tile into its question and back", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const board = displayPresentation("jeopardy-board", {
+    version: 10,
+    board: {
+      categories: config.games.jeopardy.categories.map(({ name }) => name),
+      values: config.games.jeopardy.values,
+      usedTiles: [],
+      highlightedTile: "2:2"
+    }
+  });
+  const live = await mockLiveSocket(page, liveSnapshot(board));
+  await page.goto("/display.html");
+  await expect(page.locator('.display-tile[data-tile-id="2:2"]')).toBeVisible();
+
+  const question = displayPresentation("jeopardy-question", {
+    version: 11,
+    question: {
+      id: "2:2", value: config.games.jeopardy.values[2], question: "Animationsfrage",
+      questionImage: null, questionAudio: null, answerRevealed: false,
+      answer: null, answerImage: null, answerAudio: null, audioCommand: null
+    }
+  });
+  live.send(liveSnapshot(question));
+  await expect(page.locator(".display-question.jeopardy-transition-target")).toBeVisible();
+  await expect.poll(() => page.locator(".display-question").evaluate((node) => node.getAnimations().length)).toBeGreaterThan(0);
+  live.send(liveSnapshot(question, { buzzer: { ...buzzer, version: 2 } }));
+  await expect(page.locator(".display-question.jeopardy-transition-target")).toBeVisible();
+  await expect(page.locator(".display-question.jeopardy-transition-target")).toHaveCount(0, { timeout: 1500 });
+
+  live.send(liveSnapshot({ ...board, version: 12, board: { ...board.board, usedTiles: ["2:2"] } }));
+  await expect(page.locator(".jeopardy-transition-overlay")).toBeVisible();
+  await expect(page.locator(".jeopardy-transition-overlay")).toHaveCount(0, { timeout: 1500 });
+  await expect(page.locator('.display-tile[data-tile-id="2:2"].used')).toBeVisible();
+});
 
 for (const viewport of desktopViewports) {
   for (const [name, presentation, overrides = {}] of displayCases) {

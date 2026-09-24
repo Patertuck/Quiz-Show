@@ -29,6 +29,16 @@ export function displaySceneKey(presentation, { ordering, listing, sync } = {}) 
   return presentation.screen;
 }
 
+export function jeopardyTransitionPlan(previousScreen, previousQuestionId, nextPresentation) {
+  if (previousScreen === "jeopardy-board" && nextPresentation?.screen === "jeopardy-question") {
+    return { direction: "opening", tileId: nextPresentation.question?.id };
+  }
+  if (previousScreen === "jeopardy-question" && nextPresentation?.screen === "jeopardy-board") {
+    return { direction: "closing", tileId: previousQuestionId };
+  }
+  return null;
+}
+
 export function scoreChanges(currentPresentation, nextPresentation) {
   return nextPresentation.teams.map((team, teamIndex) => ({
     teamIndex,

@@ -6,7 +6,9 @@ import {
 const json = (body, status = 200) => ({ status, contentType: "application/json", body: JSON.stringify(body) });
 
 export async function mockLiveSocket(page, snapshot) {
+  let connectedSocket = null;
   await page.routeWebSocket("**/ws/live**", (socket) => {
+    connectedSocket = socket;
     socket.send(JSON.stringify({ type: "snapshot", data: snapshot }));
     socket.onMessage((message) => {
       try {
@@ -14,6 +16,12 @@ export async function mockLiveSocket(page, snapshot) {
       } catch { /* A malformed client message should not affect a visual fixture. */ }
     });
   });
+  return {
+    send(nextSnapshot) {
+      if (!connectedSocket) throw new Error("The mocked live socket is not connected.");
+      connectedSocket.send(JSON.stringify({ type: "snapshot", data: nextSnapshot }));
+    }
+  };
 }
 
 export async function mockHost(page, { ordering = orderingBase, listing = listingBase, sync = syncLobby,
