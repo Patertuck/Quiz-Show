@@ -12,6 +12,7 @@ class SyncStateTest(unittest.TestCase):
         self.path = Path(self.temp.name) / "state.json"
         self.state = SyncState(InstanceStateStore(self.path))
         self.state.configure(["Rot", "Blau", "Grün"], ["q1", "q2"])
+        self.state.control({"action": "standard-distribution"})
 
     def tearDown(self):
         self.temp.cleanup()
@@ -20,7 +21,7 @@ class SyncStateTest(unittest.TestCase):
         status, payload = self.state.register({
             "deviceId": device,
             "teamsRevision": self.state.teams_revision,
-            "teamIndex": team,
+            "syncTeamId": self.state.sync_teams[team]["id"],
             "name": name,
         })
         self.assertEqual(status, 200)
@@ -45,7 +46,7 @@ class SyncStateTest(unittest.TestCase):
         status, payload = self.state.register({
             "deviceId": "device-0001",
             "teamsRevision": self.state.teams_revision,
-            "teamIndex": 1,
+            "syncTeamId": self.state.sync_teams[1]["id"],
             "name": "Anni",
         })
         self.assertEqual(status, 200)
@@ -62,7 +63,7 @@ class SyncStateTest(unittest.TestCase):
         status, _ = self.state.register({
             "deviceId": "device-0004",
             "teamsRevision": self.state.teams_revision,
-            "teamIndex": 0,
+            "syncTeamId": self.state.sync_teams[0]["id"],
             "name": "David",
         })
         self.assertEqual(status, 409)
@@ -76,7 +77,7 @@ class SyncStateTest(unittest.TestCase):
         status, payload = self.state.reconnect({
             "deviceId": "replacement-device",
             "participantId": anna,
-            "teamIndex": 0,
+            "syncTeamId": self.state.sync_teams[0]["id"],
             "teamsRevision": self.state.teams_revision,
         })
         self.assertEqual(status, 409)
@@ -85,7 +86,7 @@ class SyncStateTest(unittest.TestCase):
         status, payload = self.state.reconnect({
             "deviceId": "replacement-device",
             "participantId": anna,
-            "teamIndex": 0,
+            "syncTeamId": self.state.sync_teams[0]["id"],
             "teamsRevision": self.state.teams_revision,
         })
         self.assertEqual(status, 200)
@@ -124,7 +125,7 @@ class SyncStateTest(unittest.TestCase):
             self.state.reconnect({
                 "deviceId": "replacement-device",
                 "participantId": anna,
-                "teamIndex": 1,
+                "syncTeamId": self.state.sync_teams[1]["id"],
                 "teamsRevision": self.state.teams_revision,
             })
 
@@ -220,15 +221,16 @@ class SyncStateTest(unittest.TestCase):
     def test_host_can_seed_and_vote_test_players(self):
         self.register("real-device-0001", 0, "Anna")
         snapshot = self.state.control({"action": "seed-test-players"})
-        self.assertEqual(len([item for item in snapshot["participants"] if item["teamIndex"] == 0]), 1)
-        self.assertEqual(len([item for item in snapshot["participants"] if item["teamIndex"] == 1]), 2)
-        self.assertTrue(all(item["isTest"] for item in snapshot["participants"] if item["teamIndex"] == 1))
+        first_id, second_id = self.state.sync_teams[0]["id"], self.state.sync_teams[1]["id"]
+        self.assertEqual(len([item for item in snapshot["participants"] if item["syncTeamId"] == first_id]), 1)
+        self.assertEqual(len([item for item in snapshot["participants"] if item["syncTeamId"] == second_id]), 2)
+        self.assertTrue(all(item["isTest"] for item in snapshot["participants"] if item["syncTeamId"] == second_id))
         self.state.control({"action": "lock-roster"})
         round_id = self.prepare_and_start()
         self.state.vote({
             "deviceId": "real-device-0001",
             "roundId": round_id,
-            "selectedParticipantId": next(item["id"] for item in snapshot["participants"] if item["teamIndex"] == 0),
+            "selectedParticipantId": next(item["id"] for item in snapshot["participants"] if item["syncTeamId"] == first_id),
         })
         self.state.control({"action": "vote-test-players"})
         result = self.expire()
@@ -244,6 +246,84 @@ class SyncStateTest(unittest.TestCase):
     def test_only_completed_prompt_can_be_reopened(self):
         with self.assertRaisesRegex(ValueError, "nicht abgeschlossen"):
             self.state.control({"action": "reopen-question", "questionId": "q1"})
+
+    def test_players_create_join_and_rename_a_sync_team(self):
+        self.state.control({"action": "reset-game"})
+        status, created = self.state.player_team_control({
+            "action": "create", "deviceId": "device-0001", "name": "Banana",
+        })
+        self.assertEqual(200, status)
+        sync_team_id = created["syncTeamId"]
+        self.state.register({
+            "deviceId": "device-0001", "teamsRevision": self.state.teams_revision,
+            "syncTeamId": sync_team_id, "name": "Anna",
+        })
+        self.state.register({
+            "deviceId": "device-0002", "teamsRevision": self.state.teams_revision,
+            "syncTeamId": sync_team_id, "name": "Beat",
+        })
+        status, renamed = self.state.player_team_control({
+            "action": "rename", "deviceId": "device-0002",
+            "syncTeamId": sync_team_id, "name": "Bananen",
+        })
+        self.assertEqual(200, status)
+        self.assertEqual("Bananen", renamed["state"]["syncTeams"][0]["name"])
+
+    def test_combined_sync_team_awards_every_mapped_quiz_team(self):
+        banana = self.state.sync_teams[0]
+        self.state.control({
+            "action": "map-quiz-team", "quizTeamIndex": 1, "syncTeamId": banana["id"],
+        })
+        anna = self.register("device-0001", 0, "Anna")
+        self.state.register({
+            "deviceId": "device-0002", "teamsRevision": self.state.teams_revision,
+            "syncTeamId": banana["id"], "name": "Beat",
+        })
+        self.register("device-0003", 2, "Clara")
+        self.state.control({"action": "lock-roster"})
+        round_id = self.prepare_and_start()
+        for device in ("device-0001", "device-0002"):
+            self.state.vote({
+                "deviceId": device, "roundId": round_id, "selectedParticipantId": anna,
+            })
+        self.expire()
+        awards = {item["teamIndex"]: item["points"] for item in self.state.awards()["awards"]}
+        self.assertEqual({0: 100, 1: 100, 2: 0}, awards)
+
+    def test_host_can_delete_sync_team_and_its_registrations_before_lock(self):
+        removed_team = self.state.sync_teams[0]
+        self.register("device-0001", 0, "Anna")
+        snapshot = self.state.control({
+            "action": "delete-sync-team", "syncTeamId": removed_team["id"],
+        })
+        self.assertNotIn(removed_team["id"], [team["id"] for team in snapshot["syncTeams"]])
+        self.assertEqual([], snapshot["participants"])
+        with self.assertRaisesRegex(ValueError, "genau einem"):
+            self.state.control({"action": "lock-roster"})
+
+    def test_host_cannot_delete_sync_team_after_lock(self):
+        self.register("device-0001", 0, "Anna")
+        self.register("device-0002", 1, "Beat")
+        self.register("device-0003", 2, "Clara")
+        self.state.control({"action": "lock-roster"})
+        with self.assertRaisesRegex(ValueError, "gesperrt"):
+            self.state.control({
+                "action": "delete-sync-team", "syncTeamId": self.state.sync_teams[0]["id"],
+            })
+
+    def test_host_can_delete_participant_before_lock_but_not_after(self):
+        anna = self.register("device-0001", 0, "Anna")
+        self.state.connect("device-0001")
+        snapshot = self.state.control({"action": "delete-participant", "participantId": anna})
+        self.assertEqual([], snapshot["participants"])
+        self.assertEqual({}, self.state.connections)
+
+        self.register("device-0001", 0, "Anna")
+        self.register("device-0002", 1, "Beat")
+        clara = self.register("device-0003", 2, "Clara")
+        self.state.control({"action": "lock-roster"})
+        with self.assertRaisesRegex(ValueError, "gesperrt"):
+            self.state.control({"action": "delete-participant", "participantId": clara})
 
 
 if __name__ == "__main__":

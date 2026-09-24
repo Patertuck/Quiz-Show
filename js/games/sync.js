@@ -79,20 +79,50 @@ function renderLobby() {
     : "Alle Mitspielenden wählen auf dem Handy ihr Team und tragen ihren Namen ein.";
   const teams = document.createElement("div");
   teams.className = "sync-roster";
-  syncState.teams.forEach((team, teamIndex) => {
+  syncState.syncTeams.forEach((team) => {
     const card = document.createElement("section");
     card.className = "sync-roster-team";
     const title = document.createElement("h2");
-    title.textContent = team;
+    title.textContent = team.name;
     card.append(title);
-    const members = syncState.participants.filter((item) => item.teamIndex === teamIndex);
+    const members = syncState.participants.filter((item) => item.syncTeamId === team.id);
     if (!members.length) card.append(Object.assign(document.createElement("p"), { textContent: "Noch niemand registriert" }));
     members.forEach((member) => {
       const row = document.createElement("div");
       row.className = `sync-roster-person${connected.has(member.id) ? " connected" : ""}`;
-      row.textContent = member.name;
+      const name = document.createElement("span");
+      name.textContent = member.name;
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "sync-delete-person";
+      remove.textContent = "×";
+      remove.title = `${member.name} entfernen`;
+      remove.setAttribute("aria-label", `${member.name} aus dem Sync-Up-Team entfernen`);
+      remove.addEventListener("click", () => confirmDeleteParticipant(member, team, remove));
+      row.append(name, remove);
       card.append(row);
     });
+    const mapping = document.createElement("div");
+    mapping.className = "sync-team-mapping";
+    syncState.teams.forEach((quizTeam, quizTeamIndex) => {
+      const label = document.createElement("label");
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.checked = team.quizTeamIndices.includes(quizTeamIndex);
+      input.disabled = syncState.rosterLocked;
+      input.addEventListener("change", async () => {
+        if (!input.checked) { input.checked = true; return; }
+        try { await request("map-quiz-team", { syncTeamId: team.id, quizTeamIndex }); }
+        catch (error) { statusLine.textContent = error.message; }
+      });
+      label.append(input, ` ${quizTeam}`);
+      mapping.append(label);
+    });
+    card.append(mapping);
+    if (!syncState.rosterLocked) {
+      card.append(button("Team löschen", "danger-button sync-delete-team", (trigger) =>
+        confirmDeleteSyncTeam(team, members.length, trigger)));
+    }
     teams.append(card);
   });
   const actions = document.createElement("div");
@@ -100,12 +130,54 @@ function renderLobby() {
   if (!syncState.rosterLocked) {
     actions.append(
       button("Teilnehmerliste sperren", "primary-button", () => request("lock-roster")),
-      button("Testspieler hinzufügen", "secondary-button", () => request("seed-test-players"))
+      button("Testspieler hinzufügen", "secondary-button", () => request("seed-test-players")),
+      button("Standardverteilung", "secondary-button", confirmStandardDistribution)
     );
   } else {
     actions.append(button("Teilnehmerliste entsperren", "secondary-button", () => request("unlock-roster")));
   }
   content.replaceChildren(teams, actions);
+}
+
+async function confirmDeleteParticipant(participant, team, trigger) {
+  const confirmed = await confirmAction({
+    title: `«${participant.name}» entfernen?`,
+    message: `${participant.name} wird aus dem Sync-Up-Team «${team.name}» entfernt und kann sich neu registrieren.`,
+    confirmLabel: "Person entfernen",
+    cancelLabel: "Behalten"
+  });
+  if (confirmed) await request("delete-participant", { participantId: participant.id });
+  else trigger.disabled = false;
+}
+
+async function confirmDeleteSyncTeam(team, memberCount, trigger) {
+  const mappedNames = team.quizTeamIndices.map((index) => syncState.teams[index]).join(", ");
+  const details = [
+    memberCount ? `${memberCount} registrierte ${memberCount === 1 ? "Person wird" : "Personen werden"} entfernt.` : "",
+    mappedNames ? `Die Zuordnung von ${mappedNames} wird aufgehoben.` : ""
+  ].filter(Boolean).join(" ");
+  const confirmed = await confirmAction({
+    title: `«${team.name}» löschen?`,
+    message: details || "Dieses Sync-Up-Team wird gelöscht.",
+    confirmLabel: "Team löschen",
+    cancelLabel: "Behalten"
+  });
+  if (confirmed) await request("delete-sync-team", { syncTeamId: team.id });
+  else trigger.disabled = false;
+}
+
+async function confirmStandardDistribution(trigger) {
+  let confirmed = true;
+  if (syncState.syncTeams.length || syncState.participants.length) {
+    confirmed = await confirmAction({
+      title: "Standardverteilung erstellen?",
+      message: "Alle bisherigen Sync-Up-Teams und Registrierungen werden ersetzt. Die Quizpunkte bleiben erhalten.",
+      confirmLabel: "Standardverteilung erstellen",
+      cancelLabel: "Behalten"
+    });
+  }
+  if (confirmed) await request("standard-distribution");
+  else trigger.disabled = false;
 }
 
 function renderOverview() {
@@ -203,11 +275,11 @@ function resultTeams(round) {
     const card = document.createElement("section");
     card.className = `sync-result-team${result.synced ? " synced" : ""}`;
     const title = document.createElement("h2");
-    title.textContent = syncState.teams[result.teamIndex];
+    title.textContent = syncState.syncTeams.find((team) => team.id === result.syncTeamId)?.name || "?";
     const points = document.createElement("strong");
     points.className = "sync-result-points";
     points.textContent = `+${formatInteger(result.points)}`;
-    card.dataset.teamIndex = result.teamIndex;
+    card.dataset.syncTeamId = result.syncTeamId;
     card.append(title, points);
     result.votes.forEach((vote) => {
       const voter = participantName(vote.participantId);

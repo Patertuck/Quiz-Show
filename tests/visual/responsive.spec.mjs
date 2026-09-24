@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import { expectNoViewportOverflow, expectVisibleControlsUsable } from "./layout.js";
 import {
   basePresentation, buzzer, config, listingActive, listingBase, listingResults, listingReview, liveSnapshot,
-  orderingActive, orderingBase, orderingResults, selection, syncActive, syncLobby, syncResults,
+  orderingActive, orderingBase, orderingResults, participants, selection, syncActive, syncLobby, syncResults,
   teamLobby, teamNames
 } from "./fixtures.js";
 import { displayPresentation, mockHost, mockLiveSocket, mockPlayer, playerSnapshot } from "./mock-app.js";
@@ -132,6 +132,26 @@ test("phone team color picker renders the selected color and palette", async ({ 
     .toHaveCSS("background-color", "rgb(77, 227, 255)");
   expect(await picker.locator(".team-lobby-color-options button:disabled").first().evaluate((element) =>
     getComputedStyle(element, "::after").content)).toContain("🔒");
+});
+
+test("Sync Up phone separates team selection from personal naming", async ({ page }) => {
+  await mockPlayer(page, playerSnapshot(displayPresentation("sync"), { sync: syncLobby }));
+  await page.goto("/player.html");
+  await expect(page.locator("#sync-team-selection")).toBeVisible();
+  await expect(page.locator("#sync-name-selection")).toBeHidden();
+  await page.locator("#sync-team-choices button").first().click();
+  await expect(page.locator("#sync-team-selection")).toBeHidden();
+  await expect(page.locator("#sync-name-selection")).toBeVisible();
+});
+
+test("joined Sync Up players get separate edit actions", async ({ page }) => {
+  const joined = { ...syncLobby, selfParticipantId: participants[0].id };
+  await mockPlayer(page, playerSnapshot(displayPresentation("sync"), { sync: joined }));
+  await page.goto("/player.html");
+  await expect(page.locator("#sync-member-actions button")).toHaveCount(3);
+  await expect(page.locator("#sync-member-actions")).toBeVisible();
+  await page.locator("#sync-show-team-rename").click();
+  await expect(page.locator("#sync-team-rename-form")).toBeVisible();
 });
 
 test("Jeopardy buzzer distinguishes current team and waiting queue", async ({ page }) => {

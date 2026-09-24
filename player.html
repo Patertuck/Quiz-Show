@@ -87,27 +87,44 @@
       <p id="listing-phone-status" class="buzz-status" role="status" aria-live="polite"></p>
     </section>
     <section id="sync-register-step" class="player-card sync-phone" hidden>
-      <div class="selected-team-row">
-        <strong id="sync-register-team"></strong>
-        <button id="sync-register-change-team" type="button">Team wechseln</button>
+      <div id="sync-team-selection">
+        <h2>Sync-Up-Team wählen</h2>
+        <div id="sync-team-choices" class="sync-account-choices"></div>
+        <form id="sync-team-create-form" class="sync-register-form">
+          <label for="sync-team-name">Neues Sync-Up-Team</label>
+          <input id="sync-team-name" maxlength="40" required placeholder="Teamname">
+          <button type="submit">Team erstellen</button>
+        </form>
       </div>
-      <h2>Für Sync Up registrieren</h2>
-      <form id="sync-register-form" class="sync-register-form">
-        <label for="sync-name">Dein Name</label>
-        <input id="sync-name" maxlength="40" autocomplete="name" required placeholder="Name">
-        <button type="submit">Registrieren</button>
-      </form>
-      <section id="sync-existing-accounts" class="sync-existing-accounts" hidden>
-        <h3>Bestehendes Konto wieder verbinden</h3>
-        <div id="sync-account-choices" class="sync-account-choices"></div>
-      </section>
+      <div id="sync-name-selection" hidden>
+        <div class="selected-team-row">
+          <strong id="sync-register-team"></strong>
+          <button id="sync-registration-back" type="button">Anderes Team</button>
+        </div>
+        <h2>Wie heisst du?</h2>
+        <form id="sync-register-form" class="sync-register-form">
+          <label class="sr-only" for="sync-name">Dein Name</label>
+          <input id="sync-name" maxlength="40" autocomplete="name" required placeholder="Dein Name">
+          <button type="submit">Beitreten</button>
+        </form>
+      </div>
       <p id="sync-register-status" class="buzz-status" role="status" aria-live="polite"></p>
     </section>
     <section id="sync-step" class="player-card sync-phone" hidden>
-      <div class="selected-team-row">
-        <strong id="sync-team"></strong>
-        <button id="sync-edit-registration" type="button">Ändern</button>
+      <strong id="sync-team" class="sync-current-player"></strong>
+      <div id="sync-member-actions" class="sync-member-actions">
+        <button id="sync-edit-registration" type="button">Team wechseln</button>
+        <button id="sync-show-team-rename" type="button">Team umbenennen</button>
+        <button id="sync-rename-self" type="button">Meinen Namen ändern</button>
       </div>
+      <form id="sync-team-rename-form" class="sync-register-form" hidden>
+        <label class="sr-only" for="sync-team-rename">Sync-Up-Team umbenennen</label>
+        <input id="sync-team-rename" maxlength="40" required>
+        <div class="sync-edit-actions">
+          <button type="submit">Speichern</button>
+          <button id="sync-cancel-team-rename" type="button">Abbrechen</button>
+        </div>
+      </form>
       <h2 id="sync-prompt">Sync Up</h2>
       <output id="sync-countdown" aria-label="Verbleibende Sekunden"></output>
       <div id="sync-person-choices" class="sync-person-choices"></div>

@@ -593,10 +593,10 @@ function sync() {
     const connected = new Set(syncState?.connectedParticipantIds || []);
     status.textContent = "Alle Mitspielenden wählen auf dem Handy ihr Team und tragen ihren Namen ein.";
     const teams = element("div", "sync-roster");
-    syncState?.teams.forEach((team, teamIndex) => {
+    syncState?.syncTeams.forEach((team) => {
       const card = element("section", "sync-roster-team");
-      card.append(element("h2", "", team));
-      const members = syncState.participants.filter((person) => person.teamIndex === teamIndex);
+      card.append(element("h2", "", team.name));
+      const members = syncState.participants.filter((person) => person.syncTeamId === team.id);
       if (!members.length) card.append(element("p", "", "Noch niemand registriert"));
       members.forEach((person) => card.append(element(
         "div", `sync-roster-person${connected.has(person.id) ? " connected" : ""}`, person.name
@@ -628,9 +628,9 @@ function sync() {
   const teams = element("div", "sync-result-teams");
   round.results.forEach((result) => {
     const card = element("section", `sync-result-team${result.synced ? " synced" : ""}`);
-    card.dataset.teamIndex = result.teamIndex;
+    card.dataset.syncTeamId = result.syncTeamId;
     card.append(
-      element("h2", "", syncState.teams[result.teamIndex]),
+      element("h2", "", syncState.syncTeams.find((team) => team.id === result.syncTeamId)?.name || "?"),
       element("strong", "sync-result-points", `+${formatInteger(result.points)}`)
     );
     result.votes.forEach((vote) => {
@@ -1031,13 +1031,20 @@ function syncAnimationPlan(nextPresentation) {
   if (!presentation || presentation.screen !== "sync" || nextPresentation.screen !== "sync"
       || !round || animatedSyncRounds.has(round.id)
       || !["results", "distributed"].includes(round.phase) || !Array.isArray(round.results)) return null;
-  const expectedPoints = new Map(round.results.map(({ teamIndex, points }) => [teamIndex, points]));
+  const resultBySyncTeam = new Map(round.results.map((result) => [result.syncTeamId, result]));
+  const expectedPoints = new Map();
+  syncState.syncTeams.forEach((team) => team.quizTeamIndices.forEach((teamIndex) => {
+    expectedPoints.set(teamIndex, resultBySyncTeam.get(team.id)?.points || 0);
+  }));
   const awards = scoreChanges(nextPresentation);
   if (!awards.some(({ points }) => points > 0)
       || awards.some(({ points, teamIndex }) => points !== (expectedPoints.get(teamIndex) || 0))) return null;
-  const origins = awards.map(({ teamIndex }) => root.querySelector(
-    `.sync-result-team[data-team-index="${teamIndex}"] .sync-result-points`
-  )?.getBoundingClientRect() || null);
+  const origins = awards.map(({ teamIndex }) => {
+    const syncTeam = syncState.syncTeams.find((team) => team.quizTeamIndices.includes(teamIndex));
+    return root.querySelector(
+      `.sync-result-team[data-sync-team-id="${syncTeam?.id}"] .sync-result-points`
+    )?.getBoundingClientRect() || null;
+  });
   animatedSyncRounds.add(round.id);
   return { awards: awards.filter(({ points }) => points > 0), origins };
 }

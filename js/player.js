@@ -45,14 +45,24 @@ const listingSubmit = document.querySelector("#listing-submit");
 const listingStatus = document.querySelector("#listing-phone-status");
 const syncRegisterStep = document.querySelector("#sync-register-step");
 const syncRegisterTeam = document.querySelector("#sync-register-team");
+const syncTeamSelection = document.querySelector("#sync-team-selection");
+const syncNameSelection = document.querySelector("#sync-name-selection");
+const syncRegistrationBack = document.querySelector("#sync-registration-back");
+const syncTeamChoices = document.querySelector("#sync-team-choices");
+const syncTeamCreateForm = document.querySelector("#sync-team-create-form");
+const syncTeamName = document.querySelector("#sync-team-name");
 const syncRegisterForm = document.querySelector("#sync-register-form");
 const syncName = document.querySelector("#sync-name");
 const syncRegisterStatus = document.querySelector("#sync-register-status");
-const syncExistingAccounts = document.querySelector("#sync-existing-accounts");
-const syncAccountChoices = document.querySelector("#sync-account-choices");
 const syncStep = document.querySelector("#sync-step");
 const syncTeam = document.querySelector("#sync-team");
 const syncEditRegistration = document.querySelector("#sync-edit-registration");
+const syncShowTeamRename = document.querySelector("#sync-show-team-rename");
+const syncRenameSelf = document.querySelector("#sync-rename-self");
+const syncCancelTeamRename = document.querySelector("#sync-cancel-team-rename");
+const syncMemberActions = document.querySelector("#sync-member-actions");
+const syncTeamRenameForm = document.querySelector("#sync-team-rename-form");
+const syncTeamRename = document.querySelector("#sync-team-rename");
 const syncPrompt = document.querySelector("#sync-prompt");
 const syncCountdown = document.querySelector("#sync-countdown");
 const syncChoices = document.querySelector("#sync-person-choices");
@@ -68,6 +78,8 @@ let selectedTeamIndex = null;
 let submitting = false;
 let liveConnection;
 let editingSyncRegistration = false;
+let selectedSyncTeamId = null;
+let syncRegistrationStage = "teams";
 let orderingTimer;
 let listingPendingSaves = 0;
 let listingSaveChain = Promise.resolve();
@@ -693,55 +705,37 @@ function ownSyncParticipant() { return findOwnSyncParticipant(syncState); }
 function showSyncRegistration() {
   editingSyncRegistration = true;
   const own = ownSyncParticipant();
+  if (own && !selectedSyncTeamId) selectedSyncTeamId = own.syncTeamId;
+  if (!syncState?.syncTeams.some((team) => team.id === selectedSyncTeamId)) selectedSyncTeamId = null;
   const closed = Boolean(syncState?.rosterLocked && !own);
-  syncRegisterTeam.textContent = currentState?.teams[selectedTeamIndex] || "";
-  syncName.value = own?.name || "";
-  syncName.disabled = closed;
-  syncRegisterForm.querySelector("button[type=submit]").disabled = closed;
-  syncRegisterForm.hidden = closed;
-  syncRegisterStatus.textContent = closed ? "Wähle dein bestehendes Spielerkonto." : "";
-  renderSyncAccountChoices(own);
-  syncRegisterStep.hidden = false;
-  syncStep.hidden = true;
-  queueMicrotask(() => syncName.focus({ preventScroll: true }));
-}
-
-function renderSyncAccountChoices(own) {
-  const activeIds = new Set(syncState?.connectedParticipantIds || []);
-  const accounts = (syncState?.participants || []).filter((person) =>
-    person.teamIndex === selectedTeamIndex && person.id !== own?.id && !person.isTest
-  );
-  syncExistingAccounts.hidden = !accounts.length || Boolean(own);
-  syncAccountChoices.replaceChildren();
-  accounts.forEach((person) => {
-    const active = activeIds.has(person.id);
+  const selectedTeam = syncState?.syncTeams.find((team) => team.id === selectedSyncTeamId);
+  syncRegisterTeam.textContent = selectedTeam?.name || "";
+  syncTeamChoices.replaceChildren();
+  (syncState?.syncTeams || []).forEach((team) => {
     const choice = document.createElement("button");
     choice.type = "button";
-    choice.className = "sync-account-choice";
-    choice.textContent = active ? `${person.name} · aktiv` : person.name;
-    choice.disabled = active;
-    choice.addEventListener("click", () => reconnectSyncParticipant(person.id));
-    syncAccountChoices.append(choice);
-  });
-}
-
-async function reconnectSyncParticipant(participantId) {
-  syncRegisterStatus.textContent = "Wird wieder verbunden …";
-  try {
-    const payload = await playerCommands.syncReconnect({
-      deviceId,
-      participantId,
-      teamIndex: selectedTeamIndex,
-      teamsRevision: syncState.teamsRevision
+    choice.className = `sync-account-choice${team.id === selectedSyncTeamId ? " selected" : ""}`;
+    choice.textContent = team.name;
+    choice.addEventListener("click", () => {
+      selectedSyncTeamId = team.id;
+      syncRegistrationStage = "name";
+      showSyncRegistration();
     });
-    if (payload.state) syncState = payload.state;
-    editingSyncRegistration = false;
-    connectSyncEvents();
-    render();
-  } catch (error) {
-    syncRegisterStatus.textContent = error.message || "Das Spielerkonto konnte nicht verbunden werden.";
-    renderSyncAccountChoices(ownSyncParticipant());
-  }
+    syncTeamChoices.append(choice);
+  });
+  syncName.value = own?.name || "";
+  syncName.disabled = closed || !selectedTeam;
+  const registrationSubmit = syncRegisterForm.querySelector("button[type=submit]");
+  registrationSubmit.disabled = closed || !selectedTeam;
+  registrationSubmit.textContent = own?.syncTeamId === selectedSyncTeamId ? "Name speichern" : "Beitreten";
+  syncTeamSelection.hidden = syncRegistrationStage !== "teams";
+  syncNameSelection.hidden = syncRegistrationStage !== "name" || !selectedTeam;
+  syncRegisterForm.hidden = closed || !selectedTeam;
+  syncTeamCreateForm.hidden = Boolean(syncState?.rosterLocked);
+  syncRegisterStatus.textContent = closed ? "Wähle dein bestehendes Spielerkonto." : "";
+  syncRegisterStep.hidden = false;
+  syncStep.hidden = true;
+  if (syncRegistrationStage === "name") queueMicrotask(() => syncName.focus({ preventScroll: true }));
 }
 
 function renderSync() {
@@ -753,11 +747,14 @@ function renderSync() {
   }
   syncRegisterStep.hidden = true;
   syncStep.hidden = false;
-  syncTeam.textContent = `${syncState.teams[own.teamIndex]} · ${own.name}`;
-  syncEditRegistration.hidden = syncState.rosterLocked;
+  const ownTeam = syncState.syncTeams.find((team) => team.id === own.syncTeamId);
+  syncTeam.textContent = `${ownTeam?.name || "?"} · ${own.name}`;
+  syncTeamRename.value = ownTeam?.name || "";
+  syncTeamRenameForm.hidden = true;
+  syncMemberActions.hidden = syncState.rosterLocked;
   const round = syncState.round;
   syncChoices.replaceChildren();
-  const teammates = syncState.participants.filter((item) => item.teamIndex === own.teamIndex);
+  const teammates = syncState.participants.filter((item) => item.syncTeamId === own.syncTeamId);
   const active = round?.phase === "active";
   teammates.forEach((person) => {
     const choice = document.createElement("button");
@@ -814,18 +811,70 @@ document.querySelector("#change-team").addEventListener("click", showTeamSelecti
 document.querySelector("#waiting-change-team").addEventListener("click", showTeamSelection);
 document.querySelector("#ordering-change-team").addEventListener("click", showTeamSelection);
 document.querySelector("#listing-change-team").addEventListener("click", showTeamSelection);
-document.querySelector("#sync-register-change-team").addEventListener("click", showTeamSelection);
-syncEditRegistration.addEventListener("click", showSyncRegistration);
+syncEditRegistration.addEventListener("click", () => {
+  selectedSyncTeamId = null;
+  syncRegistrationStage = "teams";
+  showSyncRegistration();
+});
+syncRegistrationBack.addEventListener("click", () => {
+  syncRegistrationStage = "teams";
+  showSyncRegistration();
+});
+syncRenameSelf.addEventListener("click", () => {
+  selectedSyncTeamId = ownSyncParticipant()?.syncTeamId || null;
+  syncRegistrationStage = "name";
+  showSyncRegistration();
+});
+syncShowTeamRename.addEventListener("click", () => {
+  syncTeamRenameForm.hidden = false;
+  syncMemberActions.hidden = true;
+  syncTeamRename.focus({ preventScroll: true });
+});
+syncCancelTeamRename.addEventListener("click", () => {
+  syncTeamRenameForm.hidden = true;
+  syncMemberActions.hidden = false;
+});
+syncTeamCreateForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const name = syncTeamName.value.trim();
+  if (!name) return;
+  syncRegisterStatus.textContent = "Team wird erstellt …";
+  try {
+    const payload = await playerCommands.syncTeam({ action: "create", deviceId, name });
+    if (payload.state) syncState = payload.state;
+    selectedSyncTeamId = payload.syncTeamId;
+    syncRegistrationStage = "name";
+    syncTeamName.value = "";
+    showSyncRegistration();
+  } catch (error) {
+    syncRegisterStatus.textContent = error.message || "Das Team konnte nicht erstellt werden.";
+  }
+});
+syncTeamRenameForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const own = ownSyncParticipant();
+  const name = syncTeamRename.value.trim();
+  if (!own || !name) return;
+  try {
+    const payload = await playerCommands.syncTeam({
+      action: "rename", deviceId, syncTeamId: own.syncTeamId, name
+    });
+    if (payload.state) syncState = payload.state;
+    render();
+  } catch (error) {
+    syncStatus.textContent = error.message || "Das Team konnte nicht umbenannt werden.";
+  }
+});
 syncRegisterForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const name = syncName.value.trim();
-  if (!name || selectedTeamIndex === null || !syncState) return;
+  if (!name || !selectedSyncTeamId || !syncState) return;
   syncRegisterStatus.textContent = "Wird registriert …";
   try {
     const payload = await playerCommands.syncRegister({
       deviceId,
       teamsRevision: syncState.teamsRevision,
-      teamIndex: selectedTeamIndex,
+      syncTeamId: selectedSyncTeamId,
       name
     });
     if (payload.state) syncState = payload.state;

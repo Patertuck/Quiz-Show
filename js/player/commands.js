@@ -19,6 +19,7 @@ export const playerCommands = {
   buzz: (payload) => sendPlayerCommand("buzz", payload),
   ordering: (payload) => sendPlayerCommand("ordering", payload),
   listing: (payload) => sendPlayerCommand("listing", payload),
+  syncTeam: (payload) => sendPlayerCommand("sync-team", payload),
   syncRegister: (payload) => sendPlayerCommand("sync-register", payload),
   syncReconnect: (payload) => sendPlayerCommand("sync-reconnect", payload),
   syncVote: (payload) => sendPlayerCommand("sync-vote", payload)

@@ -101,18 +101,21 @@ export const listingResults = { ...listingBase, round: {
   results: teamNames.map((_, teamIndex) => ({ teamIndex, place: teamIndex + 1, acceptedCount: 18 - teamIndex, points: Math.max(0, 300 - teamIndex * 50), items: listingItems }))
 } };
 
+export const syncTeams = teamNames.map((name, teamIndex) => ({
+  id: `sync-team-${teamIndex}`, name, quizTeamIndices: [teamIndex]
+}));
 export const participants = teamNames.flatMap((_, teamIndex) => Array.from({ length: 3 }, (_, index) => ({
-  id: `person-${teamIndex}-${index}`, name: `Person ${teamIndex + 1}.${index + 1} mit langem Namen`, teamIndex, deviceId: `device-${teamIndex}-${index}`
+  id: `person-${teamIndex}-${index}`, name: `Person ${teamIndex + 1}.${index + 1} mit langem Namen`, syncTeamId: syncTeams[teamIndex].id, deviceId: `device-${teamIndex}-${index}`
 })));
-export const syncLobby = { version: 2, teams: teamNames, rosterLocked: false, participants, connectedParticipantIds: participants.map(({ id }) => id), round: null };
-export const syncActive = { ...syncLobby, rosterLocked: true, round: {
+export const syncLobby = { version: 2, teams: teamNames, syncTeams, teamsRevision: "visual", rosterLocked: false, participants, connectedParticipantIds: participants.map(({ id }) => id), completedQuestionIds: [], round: null };
+export const syncActive = { ...syncLobby, rosterLocked: true, selfParticipantId: participants[0].id, round: {
   id: "sync-round", questionId: "q-1", prompt: questions[0].prompt, phase: "active", deadlineAt: Date.now() + 7_000,
   timeLimitSeconds: 8, submittedCount: 12
 } };
 export const syncResults = { ...syncLobby, rosterLocked: true, round: {
-  ...syncActive.round, phase: "results", results: teamNames.map((_, teamIndex) => ({
-    teamIndex, synced: teamIndex % 2 === 0, points: teamIndex % 2 === 0 ? 100 : 0,
-    votes: participants.filter((person) => person.teamIndex === teamIndex).map((person, index, members) => ({ participantId: person.id, selectedParticipantId: members[(index + 1) % members.length].id }))
+  ...syncActive.round, phase: "results", results: syncTeams.map((team, teamIndex) => ({
+    syncTeamId: team.id, synced: teamIndex % 2 === 0, points: teamIndex % 2 === 0 ? 100 : 0,
+    votes: participants.filter((person) => person.syncTeamId === team.id).map((person, index, members) => ({ participantId: person.id, selectedParticipantId: members[(index + 1) % members.length].id }))
   }))
 } };
 

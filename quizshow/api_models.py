@@ -21,7 +21,7 @@ class HostCommandEnvelope(BaseModel):
 class PlayerCommandEnvelope(BaseModel):
     model_config = ConfigDict(extra="forbid")
     type: Literal[
-        "team-lobby", "buzz", "ordering", "listing", "sync-register", "sync-reconnect", "sync-vote"
+        "team-lobby", "buzz", "ordering", "listing", "sync-team", "sync-register", "sync-reconnect", "sync-vote"
     ]
     payload: dict[str, Any]
 

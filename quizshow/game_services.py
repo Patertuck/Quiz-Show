@@ -54,6 +54,7 @@ class GameServices:
             "buzz": self.buzzer.buzz,
             "ordering": self.ordering.update_order,
             "listing": self.listing.update_submission,
+            "sync-team": self.sync.player_team_control,
             "sync-register": self.sync.register,
             "sync-reconnect": self.sync.reconnect,
             "sync-vote": self.sync.vote,

@@ -18,6 +18,7 @@ class SyncState:
         self.teams: list[str] = []
         self.teams_revision = ""
         self.question_ids: list[str] = []
+        self.sync_teams: list[dict] = []
         self.roster_locked = False
         self.participants: list[dict] = []
         self.completed: list[str] = []
@@ -37,11 +38,12 @@ class SyncState:
         data = self.store.read("sync")
         if data is None:
             return
-        if data.get("version") != 1:
-            raise ValueError("Der Sync-Up-Spielstand hat eine ungültige Version.")
+        if data.get("version") != 2:
+            return
         self.teams = data.get("teams", [])
         self.teams_revision = self._team_revision(self.teams)
         self.question_ids = data.get("questionIds", [])
+        self.sync_teams = data.get("syncTeams", [])
         self.roster_locked = data.get("rosterLocked", False)
         self.participants = data.get("participants", [])
         self.completed = data.get("completedQuestionIds", [])
@@ -56,6 +58,7 @@ class SyncState:
         self.teams = []
         self.teams_revision = ""
         self.question_ids = []
+        self.sync_teams = []
         self.roster_locked = False
         self.participants = []
         self.completed = []
@@ -69,9 +72,10 @@ class SyncState:
 
     def _save_unlocked(self) -> None:
         data = {
-            "version": 1,
+            "version": 2,
             "teams": self.teams,
             "questionIds": self.question_ids,
+            "syncTeams": self.sync_teams,
             "rosterLocked": self.roster_locked,
             "participants": self.participants,
             "completedQuestionIds": self.completed,
@@ -98,6 +102,7 @@ class SyncState:
 
     def _reset_game_unlocked(self) -> None:
         self.roster_locked = False
+        self.sync_teams = []
         self.participants = []
         self.completed = []
         self.round = None
@@ -123,38 +128,81 @@ class SyncState:
     def _participant_by_device_unlocked(self, device_id: str) -> dict | None:
         return next((item for item in self.participants if item["deviceId"] == device_id), None)
 
+    def _sync_team_unlocked(self, sync_team_id: object) -> dict:
+        if not isinstance(sync_team_id, str):
+            raise ValueError("Ein gültiges Sync-Up-Team ist erforderlich.")
+        team = next((item for item in self.sync_teams if item["id"] == sync_team_id), None)
+        if team is None:
+            raise ValueError("Dieses Sync-Up-Team existiert nicht mehr.")
+        return team
+
+    def _sync_team_name_unlocked(self, value: object, excluding_id: str | None = None) -> str:
+        if not isinstance(value, str) or not value.strip() or len(value.strip()) > 40:
+            raise ValueError("Der Teamname muss 1 bis 40 Zeichen enthalten.")
+        name = value.strip()
+        if any(item["id"] != excluding_id and item["name"].casefold() == name.casefold()
+               for item in self.sync_teams):
+            raise ValueError("Dieser Sync-Up-Teamname wird bereits verwendet.")
+        return name
+
+    def player_team_control(self, payload: dict) -> tuple[int, dict]:
+        action = payload.get("action")
+        device_id = payload.get("deviceId")
+        if not isinstance(device_id, str) or not 8 <= len(device_id) <= 100:
+            raise ValueError("Eine gültige deviceId ist erforderlich.")
+        with self.condition:
+            if self.roster_locked:
+                return 409, {"error": "Die Teilnehmerliste wurde bereits gesperrt.",
+                             "state": self._snapshot_unlocked("player", device_id)}
+            if action == "create":
+                team = {"id": secrets.token_urlsafe(9),
+                        "name": self._sync_team_name_unlocked(payload.get("name")),
+                        "quizTeamIndices": []}
+                self.sync_teams.append(team)
+                self._changed_unlocked()
+                return 200, {"created": True, "syncTeamId": team["id"],
+                             "state": self._snapshot_unlocked("player", device_id)}
+            if action == "rename":
+                participant = self._participant_by_device_unlocked(device_id)
+                team = self._sync_team_unlocked(payload.get("syncTeamId"))
+                if not participant or participant["syncTeamId"] != team["id"]:
+                    raise ValueError("Nur Mitglieder können dieses Sync-Up-Team umbenennen.")
+                team["name"] = self._sync_team_name_unlocked(payload.get("name"), team["id"])
+                self._changed_unlocked()
+                return 200, {"renamed": True, "state": self._snapshot_unlocked("player", device_id)}
+            raise ValueError("Unbekannte Sync-Up-Teamaktion.")
+
     def register(self, payload: dict) -> tuple[int, dict]:
         device_id = payload.get("deviceId")
-        team_index = payload.get("teamIndex")
+        sync_team_id = payload.get("syncTeamId")
         name = payload.get("name")
         if not isinstance(device_id, str) or not 8 <= len(device_id) <= 100:
             raise ValueError("Eine gültige deviceId ist erforderlich.")
-        if not isinstance(team_index, int) or isinstance(team_index, bool):
-            raise ValueError("teamIndex muss eine Ganzzahl sein.")
         if not isinstance(name, str) or not name.strip() or len(name.strip()) > 40:
             raise ValueError("Der Name muss 1 bis 40 Zeichen enthalten.")
         clean_name = name.strip()
         with self.condition:
-            if payload.get("teamsRevision") != self.teams_revision or not 0 <= team_index < len(self.teams):
+            if payload.get("teamsRevision") != self.teams_revision:
                 return 409, {"error": "Die Teamliste wurde geändert. Wählt euer Team erneut.", "state": self._snapshot_unlocked("public")}
+            sync_team = self._sync_team_unlocked(sync_team_id)
             existing = self._participant_by_device_unlocked(device_id)
             if self.roster_locked:
                 if existing:
                     return 200, {"registered": True, "participantId": existing["id"], "state": self._snapshot_unlocked("player", device_id)}
                 return 409, {"error": "Die Teilnehmerliste wurde bereits gesperrt.", "state": self._snapshot_unlocked("public")}
             duplicate = next((item for item in self.participants
-                              if item["teamIndex"] == team_index
+                              if item["syncTeamId"] == sync_team["id"]
                               and item["name"].casefold() == clean_name.casefold()
                               and item is not existing), None)
             if duplicate:
                 raise ValueError("Dieser Name wird in eurem Team bereits verwendet.")
             if existing:
-                existing.update({"teamIndex": team_index, "name": clean_name})
+                existing.update({"syncTeamId": sync_team["id"], "name": clean_name})
             else:
                 existing = {
                     "id": secrets.token_urlsafe(9),
                     "deviceId": device_id,
-                    "teamIndex": team_index,
+                    "syncTeamId": sync_team["id"],
                     "name": clean_name,
                 }
                 self.participants.append(existing)
@@ -164,17 +212,16 @@ class SyncState:
     def reconnect(self, payload: dict) -> tuple[int, dict]:
         device_id = payload.get("deviceId")
         participant_id = payload.get("participantId")
-        team_index = payload.get("teamIndex")
+        sync_team_id = payload.get("syncTeamId")
         if not isinstance(device_id, str) or not 8 <= len(device_id) <= 100:
             raise ValueError("Eine gültige deviceId ist erforderlich.")
         if not isinstance(participant_id, str) or not participant_id:
             raise ValueError("Eine gültige participantId ist erforderlich.")
-        if not isinstance(team_index, int) or isinstance(team_index, bool):
-            raise ValueError("teamIndex muss eine Ganzzahl sein.")
         with self.condition:
-            if payload.get("teamsRevision") != self.teams_revision or not 0 <= team_index < len(self.teams):
+            if payload.get("teamsRevision") != self.teams_revision:
                 return 409, {"error": "Die Teamliste wurde geändert. Wählt euer Team erneut.",
                              "state": self._snapshot_unlocked("player", device_id)}
+            sync_team = self._sync_team_unlocked(sync_team_id)
             existing_device = self._participant_by_device_unlocked(device_id)
             if existing_device:
                 return 200, {
@@ -183,7 +230,7 @@ class SyncState:
                     "state": self._snapshot_unlocked("player", device_id),
                 }
             participant = next((item for item in self.participants
-                                if item["id"] == participant_id and item["teamIndex"] == team_index), None)
+                                if item["id"] == participant_id and item["syncTeamId"] == sync_team["id"]), None)
             if not participant:
                 raise ValueError("Dieses Spielerkonto gehört nicht zu eurem Team.")
             if self.connections.get(participant_id, 0) > 0:
@@ -223,12 +270,14 @@ class SyncState:
         if int(time.time() * 1000) < self.round["deadlineAt"]:
             return
         results = []
-        for team_index in range(len(self.teams)):
-            members = [item for item in self.participants if item["teamIndex"] == team_index]
+        for sync_team in self.sync_teams:
+            members = [item for item in self.participants if item["syncTeamId"] == sync_team["id"]]
+            if not members:
+                continue
             selections = [self.round["votes"].get(item["id"]) for item in members]
             synced = bool(members) and all(selections) and len(set(selections)) == 1
             results.append({
-                "teamIndex": team_index,
+                "syncTeamId": sync_team["id"],
                 "synced": synced,
                 "points": self.round["pointsPerSync"] if synced else 0,
                 "selectedParticipantId": selections[0] if synced else None,
@@ -258,7 +307,7 @@ class SyncState:
             if not self.round or self.round["phase"] != "active" or payload.get("roundId") != self.round["id"]:
                 return 409, {"error": "Die Abstimmung ist geschlossen.", "state": self._snapshot_unlocked("player", device_id)}
             selected = next((item for item in self.participants if item["id"] == selected_id), None)
-            if not selected or selected["teamIndex"] != participant["teamIndex"]:
+            if not selected or selected["syncTeamId"] != participant["syncTeamId"]:
                 raise ValueError("Ihr könnt nur eine Person aus eurem eigenen Team wählen.")
             self.round["votes"][participant["id"]] = selected_id
             self._changed_unlocked()
@@ -279,10 +328,18 @@ class SyncState:
             if action == "lock-roster":
                 if self.roster_locked:
                     raise ValueError("Die Teilnehmerliste ist bereits gesperrt.")
-                missing = [self.teams[index] for index in range(len(self.teams))
-                           if not any(item["teamIndex"] == index for item in self.participants)]
-                if missing:
-                    raise ValueError(f"Mindestens eine Person fehlt bei: {', '.join(missing)}.")
+                mapped = [index for team in self.sync_teams for index in team["quizTeamIndices"]]
+                if sorted(mapped) != list(range(len(self.teams))):
+                    raise ValueError("Jedes Quizteam muss genau einem Sync-Up-Team zugeordnet sein.")
+                empty = [team["name"] for team in self.sync_teams
+                         if team["quizTeamIndices"] and not any(
+                             item["syncTeamId"] == team["id"] for item in self.participants)]
+                if empty:
+                    raise ValueError(f"Mindestens eine Person fehlt bei: {', '.join(empty)}.")
+                unmapped = {item["syncTeamId"] for item in self.participants}.difference(
+                    team["id"] for team in self.sync_teams if team["quizTeamIndices"])
+                if unmapped:
+                    raise ValueError("Alle belegten Sync-Up-Teams müssen Quizteams erhalten.")
                 self.roster_locked = True
             elif action == "unlock-roster":
                 if self.completed or self.round:
@@ -290,6 +347,53 @@ class SyncState:
                 self.roster_locked = False
             elif action == "reset-game":
                 self._reset_game_unlocked()
+            elif action == "standard-distribution":
+                self._reset_game_unlocked()
+                self.sync_teams = [
+                    {"id": secrets.token_urlsafe(9), "name": name, "quizTeamIndices": [index]}
+                    for index, name in enumerate(self.teams)
+                ]
+            elif action == "map-quiz-team":
+                if self.roster_locked:
+                    raise ValueError("Die Zuordnung ist bereits gesperrt.")
+                quiz_team_index = payload.get("quizTeamIndex")
+                if (not isinstance(quiz_team_index, int) or isinstance(quiz_team_index, bool)
+                        or not 0 <= quiz_team_index < len(self.teams)):
+                    raise ValueError("Ein gültiges Quizteam ist erforderlich.")
+                destination = self._sync_team_unlocked(payload.get("syncTeamId"))
+                for team in self.sync_teams:
+                    team["quizTeamIndices"] = [index for index in team["quizTeamIndices"]
+                                               if index != quiz_team_index]
+                destination["quizTeamIndices"].append(quiz_team_index)
+            elif action == "delete-sync-team":
+                if self.roster_locked:
+                    raise ValueError("Die Teilnehmerliste ist bereits gesperrt.")
+                team = self._sync_team_unlocked(payload.get("syncTeamId"))
+                removed_ids = {item["id"] for item in self.participants
+                               if item["syncTeamId"] == team["id"]}
+                self.participants = [item for item in self.participants
+                                     if item["syncTeamId"] != team["id"]]
+                self.sync_teams.remove(team)
+                self.connections = {participant_id: count for participant_id, count in self.connections.items()
+                                    if participant_id not in removed_ids}
+                self.poll_connections = {
+                    client_id: connection for client_id, connection in self.poll_connections.items()
+                    if connection[0] not in removed_ids
+                }
+            elif action == "delete-participant":
+                if self.roster_locked:
+                    raise ValueError("Die Teilnehmerliste ist bereits gesperrt.")
+                participant_id = payload.get("participantId")
+                participant = next((item for item in self.participants
+                                    if item["id"] == participant_id), None)
+                if participant is None:
+                    raise ValueError("Diese Person ist nicht mehr registriert.")
+                self.participants.remove(participant)
+                self.connections.pop(participant["id"], None)
+                self.poll_connections = {
+                    client_id: connection for client_id, connection in self.poll_connections.items()
+                    if connection[0] != participant["id"]
+                }
             elif action == "reopen-question":
                 if self.round:
                     raise ValueError("Beendet zuerst die aktuelle Sync-Up-Runde.")
@@ -300,14 +404,14 @@ class SyncState:
             elif action == "seed-test-players":
                 if self.roster_locked:
                     raise ValueError("Entsperrt zuerst die Teilnehmerliste.")
-                for team_index in range(len(self.teams)):
-                    if any(item["teamIndex"] == team_index for item in self.participants):
+                for team_index, sync_team in enumerate(self.sync_teams):
+                    if any(item["syncTeamId"] == sync_team["id"] for item in self.participants):
                         continue
                     for player_index in range(2):
                         self.participants.append({
                             "id": secrets.token_urlsafe(9),
                             "deviceId": f"sync-test-{self.game_id}-{team_index}-{player_index}",
-                            "teamIndex": team_index,
+                            "syncTeamId": sync_team["id"],
                             "name": f"Test {team_index + 1}.{player_index + 1}",
                             "isTest": True,
                         })
@@ -342,8 +446,8 @@ class SyncState:
             elif action == "vote-test-players":
                 if not self.round or self.round["phase"] != "active":
                     raise ValueError("Testantworten sind nur während der Abstimmung möglich.")
-                for team_index in range(len(self.teams)):
-                    members = [item for item in self.participants if item["teamIndex"] == team_index]
+                for sync_team in self.sync_teams:
+                    members = [item for item in self.participants if item["syncTeamId"] == sync_team["id"]]
                     target = members[0]["id"] if members else None
                     for participant in members:
                         if participant.get("isTest") and target:
@@ -374,12 +478,16 @@ class SyncState:
                 raise ValueError("Die Rundenergebnisse sind nicht bereit.")
             return {
                 "awardId": f"sync:{self.round['id']}",
-                "awards": [{"teamIndex": item["teamIndex"], "points": item["points"]}
-                           for item in self.round["results"]],
+                "awards": [
+                    {"teamIndex": quiz_team_index, "points": result["points"]}
+                    for result in self.round["results"]
+                    for quiz_team_index in self._sync_team_unlocked(
+                        result["syncTeamId"])["quizTeamIndices"]
+                ],
             }
 
     def _public_participants_unlocked(self) -> list[dict]:
-        return [{"id": item["id"], "teamIndex": item["teamIndex"], "name": item["name"],
+        return [{"id": item["id"], "syncTeamId": item["syncTeamId"], "name": item["name"],
                  "isTest": bool(item.get("isTest"))}
                 for item in self.participants]
 
@@ -392,6 +500,7 @@ class SyncState:
             "version": self.version,
             "teams": self.teams,
             "teamsRevision": self.teams_revision,
+            "syncTeams": self.sync_teams,
             "rosterLocked": self.roster_locked,
             "participants": public_participants,
             "completedQuestionIds": self.completed,

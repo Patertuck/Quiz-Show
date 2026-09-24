@@ -94,13 +94,18 @@ h1 { min-width: 0; margin: 0; color: #fff45c; font-size: clamp(1.45rem, 7vw, 2.2
 .listing-submit:disabled { cursor: wait; opacity: .62; }
 .listing-remove { display: grid; width: 2.75rem; height: 2.75rem; flex: 0 0 auto; place-items: center; padding: .65rem; border: 1px solid #ef98a1; border-radius: .7rem; background: linear-gradient(#fff2f3, #ffdce0); color: #a61f32; box-shadow: 0 .15rem .35rem #63101d24; }
 .sync-register-form { display: grid; gap: .75rem; }
+.sync-register-form + .sync-register-form { margin-top: 1rem; }
 .sync-register-form input { min-height: 3rem; padding: .7rem; border: 2px solid #9aa6d8; border-radius: .7rem; font: inherit; }
 .sync-register-form button { min-height: 2.75rem; padding: .65rem .8rem; border-radius: .6rem; background: #fff45c; color: #17206a; font-weight: 900; }
-.sync-existing-accounts { margin-top: 1rem; }
-.sync-existing-accounts h3 { margin: 0 0 .7rem; text-align: center; }
+.sync-account-choice.selected { outline: 3px solid #fff45c; }
 .sync-account-choices { display: grid; gap: .6rem; }
 .sync-account-choice { min-height: 3rem; padding: .65rem; border: 2px solid #ffffff66; border-radius: .7rem; background: #263c9b; color: #fff; font-weight: 800; }
 .sync-account-choice:disabled { border-color: #ffffff22; background: #555d7c; color: #d8dbea; cursor: not-allowed; opacity: .65; }
+.sync-current-player { display: block; margin-bottom: .75rem; font-size: 1.1rem; text-align: center; }
+.sync-member-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .45rem; margin-bottom: 1rem; }
+.sync-member-actions button, .sync-edit-actions button { min-height: 2.75rem; padding: .5rem; border: 1px solid #ffffff66; border-radius: .6rem; background: #263c9b; color: #fff; font-size: .78rem; font-weight: 800; }
+.sync-edit-actions { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+.sync-team-rename-form { margin-bottom: 1rem; }
 .sync-phone > h2 { text-align: center; }
 #sync-countdown { display: grid; width: 5rem; aspect-ratio: 1; place-items: center; margin: .5rem auto; border: .3rem solid #ffe16d; border-radius: 50%; color: #ffe16d; font-size: 2.4rem; font-weight: 900; }
 .sync-person-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; }
