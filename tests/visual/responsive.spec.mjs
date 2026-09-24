@@ -206,6 +206,28 @@ test("display animates a Jeopardy tile into its question and back", async ({ pag
   await expect(page.locator('.display-tile[data-tile-id="2:2"].used')).toBeVisible();
 });
 
+test("display expands a game logo when entering and shrinks it when returning", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const hub = displayPresentation("hub", { version: 20, games: gameList, highlightedGame: "ordering" });
+  const live = await mockLiveSocket(page, liveSnapshot(hub));
+  await page.goto("/display.html");
+  await expect(page.locator('.display-hub-game[data-game="ordering"] img')).toBeVisible();
+
+  const ordering = displayPresentation("ordering", { version: 21, questionSelection: selection, orderingMap: null });
+  live.send(liveSnapshot(ordering));
+  await expect(page.locator(".game-transition-logo")).toBeVisible();
+  await expect.poll(() => page.locator(".game-transition-logo").evaluate((node) => node.getAnimations().length)).toBeGreaterThan(0);
+  await expect(page.locator(".game-transition-logo")).toHaveCount(0, { timeout: 1500 });
+  await expect(page.locator(".display-ordering")).toBeVisible();
+
+  live.send(liveSnapshot({ ...hub, version: 22, highlightedGame: null }));
+  const returningLogo = page.locator('.display-hub-game[data-game="ordering"] img');
+  await expect(returningLogo).toBeVisible();
+  await expect.poll(() => returningLogo.evaluate((node) => node.getAnimations().length)).toBeGreaterThan(0);
+  await expect.poll(() => returningLogo.evaluate((node) => node.getAnimations().length), { timeout: 1500 }).toBe(0);
+});
+
 for (const viewport of desktopViewports) {
   for (const [name, presentation, overrides = {}] of displayCases) {
     test(`display ${name} fits ${viewport.width}x${viewport.height}`, async ({ page }) => {

@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   displaySceneKey,
+  gameTransitionPlan,
   jeopardyTransitionPlan,
   manualScoreChanges,
   scoreChanges
@@ -24,6 +25,13 @@ test("Jeopardy transitions connect a question with its board tile", () => {
     { direction: "closing", tileId: "2:3" }
   );
   assert.equal(jeopardyTransitionPlan("hub", null, { screen: "jeopardy-board" }), null);
+});
+
+test("game transitions connect hub logos with their game screens", () => {
+  assert.deepEqual(gameTransitionPlan("hub", "ordering"), { direction: "opening", gameId: "ordering" });
+  assert.deepEqual(gameTransitionPlan("jeopardy-question", "hub"), { direction: "closing", gameId: "jeopardy" });
+  assert.equal(gameTransitionPlan("ordering", "listing"), null);
+  assert.equal(gameTransitionPlan("hub", "score-history"), null);
 });
 
 test("score changes retain old and new values", () => {

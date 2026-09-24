@@ -9,6 +9,7 @@ import { element, retryingLogo } from "./display/dom.js";
 import { connectDisplaySession } from "./display/live-session.js";
 import {
   displaySceneKey,
+  gameTransitionPlan,
   jeopardyTransitionPlan,
   manualScoreChanges,
   scoreChanges as calculateScoreChanges
@@ -49,12 +50,14 @@ let orderingTicker;
 let listingTicker;
 let syncTicker;
 let displayScoreAnimationActive = false;
-const SCREEN_TRANSITION_DURATION_MS = 650;
+const SCREEN_TRANSITION_DURATION_MS = 320;
+const GAME_TRANSITION_DURATION_MS = 450;
 const JEOPARDY_TRANSITION_DURATION_MS = 900;
 let lastRenderedSceneKey = null;
 let lastRenderedScreen = null;
 let lastRenderedQuestionId = null;
 let activeScreenTransition = null;
+let activeGameTransition = null;
 let activeJeopardyAnimation = null;
 let fallbackTransitionTimer;
 const presentationQueue = [];
@@ -761,6 +764,11 @@ function displayTile(tileId) {
   return Array.from(root.querySelectorAll(".display-tile")).find((tile) => tile.dataset.tileId === tileId) || null;
 }
 
+function displayGameLogo(gameId) {
+  return Array.from(root.querySelectorAll(".display-hub-game")).find((card) => card.dataset.game === gameId)
+    ?.querySelector("img") || null;
+}
+
 function transitionOverlay(source) {
   const bounds = source.getBoundingClientRect();
   const overlay = source.cloneNode(true);
@@ -783,6 +791,93 @@ function cancelJeopardyAnimation() {
   root.querySelectorAll(".jeopardy-transition-target").forEach((target) => {
     target.classList.remove("jeopardy-transition-target");
   });
+}
+
+function cancelGameTransition() {
+  activeGameTransition?.animations.forEach((animation) => animation.cancel());
+  activeGameTransition = null;
+  document.querySelectorAll(".game-transition-overlay").forEach((overlay) => overlay.remove());
+  root.querySelectorAll(".game-transition-target").forEach((target) => {
+    target.classList.remove("game-transition-target");
+    target.style.removeProperty("opacity");
+  });
+}
+
+function finishGameTransition(transition) {
+  if (activeGameTransition !== transition) return;
+  activeGameTransition = null;
+  transition.animations.forEach((animation) => animation.cancel());
+  transition.nodes.forEach((node) => node.remove());
+  transition.target?.classList.remove("game-transition-target");
+  transition.target?.style.removeProperty("opacity");
+}
+
+function runGameTransition(plan) {
+  cancelGameTransition();
+  const opening = plan.direction === "opening";
+  const sourceLogo = opening ? displayGameLogo(plan.gameId) : null;
+  const sourceScreen = root.querySelector(".display-screen");
+  if (!sourceScreen || (opening && !sourceLogo)) {
+    renderImmediately();
+    return;
+  }
+
+  const sourceScreenOverlay = transitionOverlay(sourceScreen).overlay;
+  const sourceLogoOverlay = sourceLogo ? transitionOverlay(sourceLogo).overlay : null;
+  renderImmediately();
+  const targetScreen = root.querySelector(".display-screen");
+  const targetLogo = opening ? null : displayGameLogo(plan.gameId);
+  if (!targetScreen || (!opening && !targetLogo)) {
+    sourceScreenOverlay.remove();
+    sourceLogoOverlay?.remove();
+    return;
+  }
+
+  sourceScreenOverlay.classList.add("game-transition-overlay", "game-transition-backdrop");
+  if (opening) {
+    const backdropLogo = Array.from(sourceScreenOverlay.querySelectorAll(".display-hub-game"))
+      .find((card) => card.dataset.game === plan.gameId)?.querySelector("img");
+    if (backdropLogo) backdropLogo.style.opacity = "0";
+  }
+  document.body.append(sourceScreenOverlay);
+  const animations = [];
+  const nodes = [sourceScreenOverlay];
+  targetScreen.classList.add("game-transition-target");
+
+  if (opening) {
+    sourceLogoOverlay.classList.add("game-transition-overlay", "game-transition-logo");
+    document.body.append(sourceLogoOverlay);
+    nodes.push(sourceLogoOverlay);
+    animations.push(sourceLogoOverlay.animate([
+      { transform: "none", opacity: 1 },
+      { transform: "scale(1.09)", opacity: 1, offset: .46 },
+      { transform: "scale(1.1)", opacity: 0 }
+    ], { duration: GAME_TRANSITION_DURATION_MS, easing: "cubic-bezier(.22,.72,.2,1)", fill: "both" }));
+    animations.push(sourceScreenOverlay.animate([
+      { opacity: 1 }, { opacity: .78, offset: .32 }, { opacity: 0 }
+    ], { duration: GAME_TRANSITION_DURATION_MS, easing: "ease-out", fill: "both" }));
+    animations.push(targetScreen.animate([
+      { opacity: 0, transform: "scale(1.015)" },
+      { opacity: 1, transform: "scale(1)" }
+    ], { duration: GAME_TRANSITION_DURATION_MS, easing: "ease-out", fill: "both" }));
+  } else {
+    animations.push(targetLogo.animate([
+      { transform: "scale(1.1)", opacity: .25 },
+      { transform: "scale(1)", opacity: 1 }
+    ], { duration: GAME_TRANSITION_DURATION_MS, easing: "cubic-bezier(.22,.72,.2,1)", fill: "both" }));
+    animations.push(sourceScreenOverlay.animate([
+      { opacity: 1 }, { opacity: 0 }
+    ], { duration: GAME_TRANSITION_DURATION_MS, easing: "ease-out", fill: "both" }));
+    animations.push(targetScreen.animate([
+      { opacity: 0, transform: "scale(.99)" },
+      { opacity: 1, transform: "scale(1)" }
+    ], { duration: GAME_TRANSITION_DURATION_MS, easing: "ease-out", fill: "both" }));
+  }
+
+  const transition = { animations, nodes, target: targetScreen };
+  activeGameTransition = transition;
+  Promise.all(animations.map((animation) => animation.finished.catch(() => undefined)))
+    .finally(() => finishGameTransition(transition));
 }
 
 function runJeopardyTransition(plan) {
@@ -844,13 +939,22 @@ function render() {
   lastRenderedSceneKey = nextSceneKey;
 
   if (!shouldAnimate) {
-    cancelJeopardyAnimation();
     renderImmediately();
+    return;
+  }
+
+  const gamePlan = gameTransitionPlan(lastRenderedScreen, presentation.screen);
+  if (gamePlan) {
+    cancelJeopardyAnimation();
+    activeScreenTransition?.skipTransition();
+    activeScreenTransition = null;
+    runGameTransition(gamePlan);
     return;
   }
 
   const jeopardyPlan = jeopardyTransitionPlan(lastRenderedScreen, lastRenderedQuestionId, presentation);
   if (jeopardyPlan) {
+    cancelGameTransition();
     activeScreenTransition?.skipTransition();
     activeScreenTransition = null;
     runJeopardyTransition(jeopardyPlan);
@@ -858,6 +962,8 @@ function render() {
   }
 
   if (typeof document.startViewTransition === "function") {
+    cancelGameTransition();
+    cancelJeopardyAnimation();
     activeScreenTransition?.skipTransition();
     const transition = document.startViewTransition(renderImmediately);
     activeScreenTransition = transition;
@@ -869,6 +975,8 @@ function render() {
     return;
   }
 
+  cancelGameTransition();
+  cancelJeopardyAnimation();
   renderImmediately();
   clearTimeout(fallbackTransitionTimer);
   root.querySelectorAll(":scope > *").forEach((node) => node.classList.add("display-transition-enter"));

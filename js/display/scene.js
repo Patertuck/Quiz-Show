@@ -39,6 +39,22 @@ export function jeopardyTransitionPlan(previousScreen, previousQuestionId, nextP
   return null;
 }
 
+export function gameTransitionPlan(previousScreen, nextScreen) {
+  const gameForScreen = (screen) => {
+    if (["jeopardy-board", "jeopardy-question"].includes(screen)) return "jeopardy";
+    return ["ordering", "listing", "sync"].includes(screen) ? screen : null;
+  };
+  if (previousScreen === "hub") {
+    const gameId = gameForScreen(nextScreen);
+    return gameId ? { direction: "opening", gameId } : null;
+  }
+  if (nextScreen === "hub") {
+    const gameId = gameForScreen(previousScreen);
+    return gameId ? { direction: "closing", gameId } : null;
+  }
+  return null;
+}
+
 export function scoreChanges(currentPresentation, nextPresentation) {
   return nextPresentation.teams.map((team, teamIndex) => ({
     teamIndex,
