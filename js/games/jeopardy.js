@@ -12,6 +12,8 @@ export async function mount(root, { showRules } = {}) {
   const board = root.querySelector("#board");
   const questionContent = root.querySelector("#question-content");
   const answerContent = root.querySelector("#answer-content");
+  const privateSolutionLabel = root.querySelector("#jeopardy-private-solution-label");
+  const privateSolutionButton = root.querySelector("#private-solution-button");
   const questionValue = root.querySelector("#question-value");
   const revealButton = root.querySelector("#reveal-button");
   const audioControls = root.querySelector("#audio-controls");
@@ -31,6 +33,7 @@ export async function mount(root, { showRules } = {}) {
   const rulesButton = root.querySelector("#jeopardy-rules-button");
   let buzzerState = null;
   let buzzerConnected = false;
+  let privateSolutionPreview = false;
   rulesButton.addEventListener("click", () => showRules().catch((error) => window.alert(error.message)));
   root.querySelector("#jeopardy-title").textContent = state.config.title;
   await publishJeopardy();
@@ -319,9 +322,15 @@ export async function mount(root, { showRules } = {}) {
     renderMedia(questionContent, item.question, item.questionImage);
     renderMedia(answerContent, item.answer, item.answerImage);
     renderAudioControls(item, answerRevealed);
-    questionContent.hidden = answerRevealed;
-    answerContent.hidden = !answerRevealed;
-    answerContent.classList.toggle("answer-only", answerRevealed);
+    const showingPrivateSolution = privateSolutionPreview && !answerRevealed;
+    questionContent.hidden = answerRevealed || showingPrivateSolution;
+    answerContent.hidden = !answerRevealed && !showingPrivateSolution;
+    answerContent.classList.toggle("answer-only", answerRevealed || showingPrivateSolution);
+    answerContent.classList.toggle("private-answer-preview", showingPrivateSolution);
+    privateSolutionLabel.hidden = !showingPrivateSolution;
+    privateSolutionButton.hidden = answerRevealed;
+    privateSolutionButton.textContent = showingPrivateSolution ? "Frage ansehen" : "Lösung ansehen";
+    privateSolutionButton.setAttribute("aria-pressed", String(showingPrivateSolution));
     revealButton.hidden = answerRevealed && !category.reviewQuestionAfterAnswer;
     revealButton.textContent = answerRevealed ? "Frage nochmals anzeigen" : "Antwort anzeigen";
     boardView.hidden = true;
@@ -333,6 +342,7 @@ export async function mount(root, { showRules } = {}) {
   function openQuestion(tile, categoryIndex, rowIndex) {
     state.activeValue = state.config.games.jeopardy.values[rowIndex];
     state.activeQuestion = { categoryIndex, rowIndex, answerRevealed: false };
+    privateSolutionPreview = false;
     state.usedTiles.add(`${categoryIndex}:${rowIndex}`);
     setTileUsed(tile, true);
     updateScoreControls();
@@ -343,6 +353,7 @@ export async function mount(root, { showRules } = {}) {
 
   revealButton.addEventListener("click", () => {
     const category = state.config.games.jeopardy.categories[state.activeQuestion.categoryIndex];
+    privateSolutionPreview = false;
     state.activeQuestion.answerRevealed = state.activeQuestion.answerRevealed
       ? !category.reviewQuestionAfterAnswer
       : true;
@@ -351,10 +362,16 @@ export async function mount(root, { showRules } = {}) {
     commandJeopardyAudio("stop").catch(() => undefined);
   });
 
+  privateSolutionButton.addEventListener("click", () => {
+    privateSolutionPreview = !privateSolutionPreview;
+    displayQuestion();
+  });
+
   root.querySelector("#continue-button").addEventListener("click", () => {
     if (currentRound()?.open) controlBuzzer("close").catch(() => undefined);
     commandJeopardyAudio("stop").catch(() => undefined);
     state.activeQuestion = null;
+    privateSolutionPreview = false;
     state.activeValue = 0;
     updateScoreControls();
     questionView.hidden = true;

@@ -21,6 +21,8 @@ let selectedQuestion = null;
 let selectedPreviewItems = [];
 let visibleMapItem = null;
 let rulesButton;
+let privateSolutionRoundId = null;
+let privateSolutionPreview = false;
 
 async function request(action, extra = {}) {
   const response = await hostFetch("/api/ordering/control", {
@@ -53,6 +55,15 @@ function button(label, className, onClick, disabled = false) {
 
 function itemText(itemId, round) {
   return round.shuffledItems.find((item) => item.id === itemId)?.text || itemId;
+}
+
+function privateSolutionToggle(label) {
+  const control = button(privateSolutionPreview ? label : "Lösung ansehen", "secondary-button ordering-private-solution-toggle", () => {
+    privateSolutionPreview = !privateSolutionPreview;
+    render(orderingState);
+  });
+  control.setAttribute("aria-pressed", String(privateSolutionPreview));
+  return control;
 }
 
 function remaining(round) {
@@ -250,16 +261,13 @@ function renderActive(round) {
     column.append(heading, list);
     columns.append(column);
   });
-  const answer = document.createElement("details");
-  answer.className = "ordering-private-answer";
-  answer.innerHTML = `<summary>Lösung für die Spielleitung</summary><ol>${round.correctItems.map((item) => `<li></li>`).join("")}</ol>`;
-  answer.querySelectorAll("li").forEach((li, index) => { li.textContent = round.correctItems[index].text; });
   const actions = document.createElement("div"); actions.className = "ordering-actions";
   actions.append(
+    privateSolutionToggle("Teams ansehen"),
     button("Antworten sperren", "primary-button", () => request("lock")),
     button("Runde abbrechen", "danger-button", confirmCancel)
   );
-  content.replaceChildren(timer, connected, columns, answer, actions);
+  content.replaceChildren(timer, connected, columns, actions);
 }
 
 function teamColumn(round, teamIndex) {
@@ -306,14 +314,24 @@ function renderResults(round) {
   orderingState.teams.forEach((_, index) => (index < split ? left : right).append(teamColumn(round, index)));
   const solution = document.createElement("section"); solution.className = "ordering-result-column ordering-solution";
   solution.style.setProperty("--ordering-count", round.correctItems.length);
-  const title = document.createElement("h2"); title.textContent = "Richtige Reihenfolge"; solution.append(title);
+  const title = document.createElement("h2");
+  if (privateSolutionPreview) {
+    const label = document.createElement("span"); label.textContent = "Richtige Reihenfolge";
+    const privateLabel = document.createElement("strong"); privateLabel.textContent = "Nur Spielleitung";
+    title.append(label, privateLabel);
+    solution.classList.add("private-preview");
+  } else {
+    title.textContent = "Richtige Reihenfolge";
+  }
+  solution.append(title);
   round.correctItems.forEach((item, slot) => {
     const revealed = round.revealed.includes(slot);
-    const control = button("", `ordering-result-cell solution-cell${revealed ? " revealed" : ""}`,
-      () => request("reveal", { slot }), revealed || round.phase === "distributed");
+    const privatelyVisible = privateSolutionPreview && !revealed;
+    const control = button("", `ordering-result-cell solution-cell${revealed ? " revealed" : ""}${privatelyVisible ? " private-preview" : ""}`,
+      () => request("reveal", { slot }), revealed || privatelyVisible || round.phase === "distributed");
     const label = document.createElement("span");
     label.className = "ordering-cell-text";
-    label.textContent = revealed ? item.text : `Position ${slot + 1} aufdecken`;
+    label.textContent = revealed || privatelyVisible ? item.text : `Position ${slot + 1} aufdecken`;
     control.append(label);
     solution.append(control);
   });
@@ -331,7 +349,13 @@ function renderResults(round) {
     mapActions.append(control);
   });
   const actions = document.createElement("div"); actions.className = "ordering-actions";
-  if (round.phase === "distributed") {
+  if (round.phase === "active") {
+    actions.append(
+      privateSolutionToggle("Teams ansehen"),
+      button("Antworten sperren", "primary-button", () => request("lock")),
+      button("Runde abbrechen", "danger-button", confirmCancel)
+    );
+  } else if (round.phase === "distributed") {
     actions.append(button("Zurück zu den Fragen", "primary-button", async () => {
       visibleMapItem = null;
       await publishOrdering(questionSelection(), null);
@@ -344,6 +368,7 @@ function renderResults(round) {
   }
   const footer = document.createElement("div"); footer.className = "ordering-results-footer";
   if (mapItems.length) footer.append(mapActions);
+  if (round.phase !== "active" && !allRevealed) actions.prepend(privateSolutionToggle("Ergebnisse ansehen"));
   footer.append(actions);
   layout.append(board, footer);
   content.replaceChildren(layout);
@@ -382,11 +407,17 @@ async function confirmCancel(trigger) {
 function render(snapshot) {
   orderingState = snapshot;
   const round = snapshot.round;
+  const nextRoundId = round?.id || null;
+  if (nextRoundId !== privateSolutionRoundId) {
+    privateSolutionRoundId = nextRoundId;
+    privateSolutionPreview = false;
+  }
+  if (round && round.revealed.length === round.correctItems.length) privateSolutionPreview = false;
   headingTitle.textContent = round?.title || "Order Up";
   rulesButton.hidden = Boolean(round);
   if (!round && selectedQuestion) renderPreview();
   else if (!round) renderOverview();
-  else if (round.phase === "active") renderActive(round);
+  else if (round.phase === "active" && !privateSolutionPreview) renderActive(round);
   else renderResults(round);
 }
 

@@ -22,9 +22,10 @@
 .ordering-live-columns { display: flex; width: 100%; min-height: 0; gap: .55rem; justify-content: center; overflow: hidden; }
 .ordering-live-team { flex: 1 1 0; max-width: 18rem; padding: .45rem; border-radius: .6rem; background: #ffffff14; }
 .ordering-live-team h2 { overflow: hidden; margin: 0 0 .35rem; font-size: 1rem; text-overflow: ellipsis; white-space: nowrap; }
-.ordering-live-team ol, .ordering-private-answer ol { margin: 0; padding-left: 1.8rem; }
+.ordering-live-team ol { margin: 0; padding-left: 1.8rem; }
 .ordering-live-team li { margin: .2rem 0; padding: .3rem; border-radius: .3rem; background: #fff; color: #321347; }
-.ordering-private-answer { padding: .35rem .7rem; border-radius: .4rem; background: #180824; font-size: .8rem; }
+.ordering-private-solution-toggle { border-color: #f5d96f; color: #48206d; font-weight: 900; }
+.ordering-private-solution-toggle[aria-pressed="true"] { background: #f5d96f; color: #291138; }
 .ordering-actions { display: flex; gap: .6rem; justify-content: center; }
 .ordering-map-actions { max-width: min(70rem, 100%); flex-wrap: wrap; }
 .ordering-map-actions button { padding: .45rem .7rem; font-size: .85rem; }
@@ -51,6 +52,11 @@
 .ordering-row-points.settled { animation: none; }
 .ordering-solution .solution-cell { border: 2px dashed #f5d96f; background: #3a1854; color: #fff; }
 .ordering-solution .solution-cell.revealed { border-style: solid; background: #f5d96f; color: #291138; }
+.ordering-solution.private-preview { padding: .25rem; border: 2px solid #f5d96f; border-radius: .55rem; background: #180824; }
+.ordering-solution.private-preview h2 { display: grid; grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 0; font-size: clamp(.58rem, .9vw, .78rem); line-height: 1.05; text-align: center; }
+.ordering-solution.private-preview h2 span { width: 100%; text-align: center; }
+.ordering-solution.private-preview h2 strong { color: #f5d96f; font-size: clamp(.42rem, .65vw, .58rem); letter-spacing: .04em; text-transform: uppercase; }
+.ordering-solution .solution-cell.private-preview { border-style: solid; border-color: #f5d96f; background: #fff8dc; color: #291138; cursor: default; opacity: 1; }
 @keyframes ordering-points-pop { from { opacity: 0; transform: scale(.65); } to { opacity: 1; transform: scale(1); } }
 @media (max-width: 800px) { .ordering-results { grid-template-columns: 1fr minmax(7rem, 10rem) 1fr; } .ordering-result-side { flex-direction: column; } }
 @media (prefers-reduced-motion: reduce) { .ordering-row-points { animation: none; } }

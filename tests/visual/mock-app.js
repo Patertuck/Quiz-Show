@@ -25,7 +25,8 @@ export async function mockLiveSocket(page, snapshot) {
 }
 
 export async function mockHost(page, { ordering = orderingBase, listing = listingBase, sync = syncLobby,
-  activeQuestion = null, lobby = teamLobby, buzzer: buzzerState = buzzer, hostTeams = teams } = {}) {
+  activeQuestion = null, lobby = teamLobby, buzzer: buzzerState = buzzer, hostTeams = teams,
+  quizConfig = config } = {}) {
   hostTeams = hostTeams.map((team, index) => ({ ...team, color: team.color || teamLobby.colorPalette[index].id }));
   const saved = {
     version: 6, updatedAt: "2026-01-01T12:00:00Z", revision: 5, gameStarted: true,
@@ -47,12 +48,12 @@ export async function mockHost(page, { ordering = orderingBase, listing = listin
   const snapshot = liveSnapshot({ ...basePresentation, teams: hostTeams, screen: "hub", games: Object.keys(config.games), highlightedGame: null }, {
     ordering, listing, sync, teamLobby: lobby, buzzer: buzzerState
   });
-  await mockLiveSocket(page, snapshot);
+  const live = await mockLiveSocket(page, snapshot);
   await page.route("**/*", async (route) => {
     const request = route.request();
     const url = new URL(request.url());
     const path = url.pathname;
-    if (path === "/visual-config.json") return route.fulfill(json(config));
+    if (path === "/visual-config.json") return route.fulfill(json(quizConfig));
     if (path === "/api/quiz-library") return route.fulfill(json(library));
     if (path === "/api/quiz-library/control") return route.fulfill(json(library));
     if (path === "/api/state") return route.fulfill(json(saved));
@@ -66,6 +67,7 @@ export async function mockHost(page, { ordering = orderingBase, listing = listin
     if (path === "/api/final-export") return route.fulfill(json({ created: true, directory: "visual-tests" }));
     return route.continue();
   });
+  return live;
 }
 
 export async function mockPlayer(page, snapshot) {

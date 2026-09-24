@@ -10,6 +10,8 @@
 #jeopardy-question-view { position: relative; display: grid; height: 100%; grid-template-rows: 1fr auto; place-items: center; gap: 1.5rem; padding: clamp(3.8rem, 7vw, 5rem) clamp(1rem, 4vw, 3rem) 1rem; background: var(--blue); text-align: center; }
 #question-layout { display: grid; width: min(86rem, 100%); min-height: 0; align-self: stretch; grid-template-columns: minmax(0, 1fr) minmax(13rem, 20rem); gap: clamp(1rem, 2.5vw, 2rem); align-items: center; }
 #card-content { display: grid; width: 100%; height: 100%; min-width: 0; min-height: 0; max-height: 100%; gap: 1.5rem; place-items: center; overflow: hidden; }
+.private-solution-label { padding: .35rem .7rem; border: 1px solid rgb(255 211 0 / 58%); border-radius: 999px; background: rgb(6 13 65 / 78%); color: var(--yellow); font-size: .72rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.media-block.private-answer-preview { color: #fff4b8; }
 #audio-controls { display: grid; width: min(42rem, 100%); gap: 0.55rem; padding: 0.8rem; border: 2px solid rgb(255 255 255 / 28%); border-radius: 0.75rem; background: rgb(6 13 65 / 62%); }
 #audio-controls h2, #audio-status { margin: 0; }
 #audio-controls h2 { color: var(--yellow); font-size: 1rem; }
@@ -29,6 +31,8 @@
 .image-error { padding: 0.75rem; border: 2px solid #ffbaba; color: #ffdddd; font-size: 1rem; }
 #question-controls { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.75rem; }
 #question-controls button { padding: 0.75rem 1.15rem; background: #fff; color: var(--blue-dark); font-weight: bold; }
+#question-controls .private-solution-button { border: 2px solid var(--yellow); background: var(--blue-dark); color: var(--yellow); }
+#question-controls .private-solution-button[aria-pressed="true"] { background: var(--yellow); color: var(--blue-dark); }
 #buzzer-panel { display: grid; width: 100%; max-height: 100%; min-height: 18rem; grid-template-rows: auto auto auto minmax(0, 1fr) auto; gap: 0.7rem; padding: 1rem; overflow: hidden; border: 1px solid rgb(255 255 255 / 24%); border-radius: 1rem; background: linear-gradient(155deg, rgb(14 26 105 / 94%), rgb(6 13 65 / 96%)); text-align: left; box-shadow: 0 1rem 2.5rem rgb(0 0 0 / 28%); }
 #buzzer-panel[data-state="buzzed"] { border-color: rgb(255 211 0 / 75%); box-shadow: 0 1rem 2.5rem rgb(0 0 0 / 28%), 0 0 1.5rem rgb(255 211 0 / 14%); }
 #buzzer-panel[data-state="error"] { border-color: #ff8c98; }

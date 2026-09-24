@@ -143,6 +143,80 @@ test("Jeopardy buzzer distinguishes current team and waiting queue", async ({ pa
   await expect(page.locator(".buzz-position").first()).toHaveText("2");
 });
 
+test("host can inspect a Jeopardy solution without publishing it", async ({ page }) => {
+  const longAnswer = Array.from({ length: 12 }, (_, index) =>
+    `Abschnitt ${index + 1} erklärt ausführlich einen wichtigen Teil der Musterlösung.`).join(" ");
+  const quizConfig = structuredClone(config);
+  quizConfig.games.jeopardy.categories[0].questions[0].answer = longAnswer;
+  const presentationUpdates = [];
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/api/presentation/state" && request.method() === "POST") {
+      presentationUpdates.push(request.postDataJSON());
+    }
+  });
+  await mockHost(page, { activeQuestion: { categoryIndex: 0, rowIndex: 0, answerRevealed: false }, quizConfig });
+  await page.goto("/#/jeopardy");
+  const toggle = page.locator("#private-solution-button");
+  await expect(toggle).toHaveText("Lösung ansehen");
+  const updatesBeforeOpening = presentationUpdates.length;
+  await toggle.click();
+  await expect(toggle).toHaveText("Frage ansehen");
+  await expect(page.locator("#jeopardy-private-solution-label")).toBeVisible();
+  await expect(page.locator("#answer-content")).toContainText(longAnswer);
+  await expect(page.locator("#question-content")).toBeHidden();
+  await expect(page.locator("#reveal-button")).toHaveText("Antwort anzeigen");
+  await expectNoViewportOverflow(page);
+  await expect.poll(() => page.locator("#answer-content").evaluate((element) => {
+    const card = element.closest("#card-content").getBoundingClientRect();
+    const answer = element.getBoundingClientRect();
+    return answer.top >= card.top - 1 && answer.bottom <= card.bottom + 1;
+  })).toBe(true);
+  expect(presentationUpdates).toHaveLength(updatesBeforeOpening);
+});
+
+test("host can inspect a locked Order Up solution without revealing a position", async ({ page }) => {
+  const lockedOrdering = {
+    ...orderingActive,
+    round: { ...orderingActive.round, phase: "locked", revealed: [], pointsRevealed: false }
+  };
+  const controlRequests = [];
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/api/ordering/control") controlRequests.push(request.postDataJSON());
+  });
+  const live = await mockHost(page, { ordering: lockedOrdering });
+  await page.goto("/#/ordering");
+  const toggle = page.locator(".ordering-private-solution-toggle");
+  await expect(toggle).toHaveText("Lösung ansehen");
+  const requestsBeforeOpening = controlRequests.length;
+  await toggle.click();
+  await expect(page.locator(".ordering-results")).toBeVisible();
+  await expect(page.locator(".ordering-solution.private-preview .solution-cell"))
+    .toHaveText(lockedOrdering.round.correctItems.map((item) => item.text));
+  await expect(page.locator(".ordering-private-solution-toggle")).toHaveText("Ergebnisse ansehen");
+  live.send(liveSnapshot(undefined, {
+    ordering: { ...lockedOrdering, version: lockedOrdering.version + 1, connectedTeamCount: 5 }
+  }));
+  await expect(page.locator(".ordering-solution.private-preview")).toBeVisible();
+  await page.locator(".ordering-private-solution-toggle").click();
+  await expect(page.locator(".ordering-solution .solution-cell").first()).toHaveText("Position 1 aufdecken");
+  await expectNoViewportOverflow(page);
+  expect(controlRequests).toHaveLength(requestsBeforeOpening);
+});
+
+test("Order Up active peek keeps round controls available", async ({ page }) => {
+  await mockHost(page, { ordering: orderingActive });
+  await page.goto("/#/ordering");
+  await page.locator(".ordering-private-solution-toggle").click();
+  await expect(page.locator(".ordering-results")).toBeVisible();
+  await expect(page.locator(".ordering-timer")).toHaveCount(0);
+  await expect(page.locator(".ordering-solution.private-preview .solution-cell"))
+    .toHaveText(orderingActive.round.correctItems.map((item) => item.text));
+  await expect(page.getByRole("button", { name: "Antworten sperren" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Runde abbrechen" })).toBeVisible();
+  await expect(page.locator(".ordering-private-solution-toggle")).toHaveText("Teams ansehen");
+  await expectNoViewportOverflow(page);
+});
+
 const gameList = Object.keys(config.games);
 const orderingSelection = { ...selection, selectedQuestion: { id: "q-1", title: selection.questions[0].title,
   prompt: config.games.ordering.questions[0].prompt, items: config.games.ordering.questions[0].items } };
