@@ -100,9 +100,31 @@ function scoreboard(teams) {
 
 function standby() {
   const screen = element("section", "display-screen display-standby");
+  const ambient = element("div", "display-standby-ambient");
+  ambient.setAttribute("aria-hidden", "true");
+  ambient.append(
+    element("div", "display-standby-rays"),
+    element("div", "display-standby-halo")
+  );
+  const sparkles = element("div", "display-standby-sparkles");
+  [
+    ["12%", "18%", ".75rem", "-1s"], ["83%", "15%", ".55rem", "-4s"],
+    ["91%", "48%", ".85rem", "-2.5s"], ["79%", "83%", ".65rem", "-5.5s"],
+    ["18%", "80%", ".5rem", "-3s"], ["7%", "54%", ".7rem", "-6s"]
+  ].forEach(([left, top, size, delay]) => {
+    const sparkle = document.createElement("i");
+    sparkle.style.setProperty("--sparkle-left", left);
+    sparkle.style.setProperty("--sparkle-top", top);
+    sparkle.style.setProperty("--sparkle-size", size);
+    sparkle.style.setProperty("--sparkle-delay", delay);
+    sparkles.append(sparkle);
+  });
+  ambient.append(sparkles);
   const content = element("div", "display-standby-content");
-  content.append(logoImage("display-standby-logo", presentation.logos.main));
-  screen.append(content);
+  const stage = element("div", "display-standby-logo-stage");
+  stage.append(logoImage("display-standby-logo", presentation.logos.main));
+  content.append(stage);
+  screen.append(ambient, content);
   return screen;
 }
 

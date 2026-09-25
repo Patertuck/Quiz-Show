@@ -13,7 +13,18 @@ async function verify(page, name, { phone = false, screenshot = true, allowVerti
   await expect(page.locator("body")).toBeVisible();
   await expectNoViewportOverflow(page, { allowVerticalScroll });
   await expectVisibleControlsUsable(page, phone ? 40 : 30, { allowOffscreen: allowVerticalScroll });
-  if (screenshot) await expect(page).toHaveScreenshot(`${name}.png`, { fullPage: phone });
+  if (screenshot) {
+    if (await page.locator("video").count()) {
+      await expect(page.locator("video").first()).toHaveCSS("opacity", "1");
+    }
+    await page.locator("video").evaluateAll(async (videos) => Promise.all(videos.map(async (video) => {
+      video.pause();
+      if (video.readyState < 2) await new Promise((resolve) => video.addEventListener("loadeddata", resolve, { once: true }));
+      video.currentTime = 0;
+      await new Promise((resolve) => video.addEventListener("seeked", resolve, { once: true }));
+    })));
+    await expect(page).toHaveScreenshot(`${name}.png`, { fullPage: phone });
+  }
 }
 
 const hostCases = [
@@ -276,6 +287,36 @@ const displayCases = [
   ["sync-results", displayPresentation("sync"), { sync: syncResults }],
   ["victory", displayPresentation("victory", { steps: teamNames.map((name, index) => ({ kind: index < 3 ? "podium" : "standing", rank: index + 1, names: name, score: 600 - index * 100 })), revealedCount: 6 })]
 ];
+
+test("display standby keeps the transparent logo still over the animated background", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await mockLiveSocket(page, liveSnapshot(displayPresentation("standby")));
+  await page.goto("/display.html");
+  await expect(page.locator(".display-standby-video")).toHaveCount(0);
+  const result = await page.locator(".display-standby-logo").evaluate(async (logo) => {
+    await logo.decode();
+    const canvas = document.createElement("canvas");
+    canvas.width = 64;
+    canvas.height = 64;
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    context.drawImage(logo, 0, 0, 64, 64);
+    const pixels = context.getImageData(0, 0, 64, 64).data;
+    const bounds = logo.getBoundingClientRect();
+    return {
+      cornerAlpha: pixels[3],
+      centerAlpha: pixels[(32 * 64 + 32) * 4 + 3],
+      animations: logo.getAnimations().length,
+      fits: bounds.top >= 0 && bounds.left >= 0 && bounds.right <= innerWidth && bounds.bottom <= innerHeight,
+    };
+  });
+  expect(result.cornerAlpha).toBeLessThan(8);
+  expect(result.centerAlpha).toBeGreaterThan(240);
+  expect(result.animations).toBe(0);
+  expect(result.fits).toBe(true);
+  expect(await page.locator(".display-standby-ambient").evaluate(
+    (element) => element.getAnimations({ subtree: true }).length
+  )).toBeGreaterThan(0);
+});
 
 test("display animates a Jeopardy tile into its question and back", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
