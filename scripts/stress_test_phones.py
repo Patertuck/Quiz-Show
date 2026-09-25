@@ -140,7 +140,7 @@ def run_sse(args: argparse.Namespace, team_count: int) -> tuple[int, int, list[f
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Simulate concurrent phones connected to a running Quizshow server.")
+    parser = argparse.ArgumentParser(description="Simulate concurrent phones connected to a running Quizzy server.")
     parser.add_argument("--base-url", default="http://127.0.0.1:8000", help="Quiz server URL (default: %(default)s)")
     parser.add_argument("--phones", type=int, default=15, help="Number of virtual phones (default: %(default)s)")
     parser.add_argument("--duration", type=float, default=10, help="Seconds to keep clients connected (default: %(default)s)")

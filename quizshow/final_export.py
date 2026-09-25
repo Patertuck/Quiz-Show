@@ -80,11 +80,13 @@ def save_final_export(payload: dict, state: dict, directory: Path) -> tuple[Path
     csv_bytes = final_export_csv(state)
     with FINAL_EXPORT_LOCK:
         directory.mkdir(parents=True, exist_ok=True)
-        existing = next(directory.glob(f"quizshow-*_{export_key}"), None)
+        existing = next((candidate
+                         for prefix in ("quizzy", "quizshow")
+                         for candidate in directory.glob(f"{prefix}-*_{export_key}")), None)
         if existing is not None and existing.is_dir():
             return existing, False
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        target = directory / f"quizshow-{timestamp}_{export_key}"
+        target = directory / f"quizzy-{timestamp}_{export_key}"
         temporary = directory / f".export-{secrets.token_hex(8)}"
         try:
             temporary.mkdir()

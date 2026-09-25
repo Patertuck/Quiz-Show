@@ -36,6 +36,8 @@ class FastApiTransportTests(unittest.TestCase):
 
         self.assertEqual(200, index.status_code)
         self.assertIn("text/html", index.headers["Content-Type"])
+        self.assertIn("<title>Quizzy</title>", index.text)
+        self.assertEqual("Quizzy", self.app.title)
         self.assertEqual("no-cache, max-age=0, must-revalidate", index.headers["Cache-Control"])
         self.assertEqual(200, presentation.status_code)
         self.assertEqual("no-store", presentation.headers["Cache-Control"])

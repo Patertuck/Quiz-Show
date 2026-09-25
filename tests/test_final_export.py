@@ -47,7 +47,19 @@ class FinalExportTests(unittest.TestCase):
             self.assertTrue(created)
             self.assertFalse(created_again)
             self.assertEqual(first, second)
+ke            self.assertTrue(first.name.startswith("quizzy-"))
             self.assertEqual({"podest.png", "punkteverlauf.png", "punkteverlauf.csv"}, {path.name for path in first.iterdir()})
+
+    def test_legacy_quizshow_export_is_reused(self):
+        payload = {"podiumPng": png(), "scoreHistoryPng": png()}
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary)
+            export_key = final_export.final_export_key(state())
+            legacy = output / f"quizshow-2026-01-01_12-00-00_{export_key}"
+            legacy.mkdir()
+            reused, created = final_export.save_final_export(payload, state(), output)
+            self.assertEqual(legacy, reused)
+            self.assertFalse(created)
 
     def test_changed_score_history_creates_new_export(self):
         payload = {"podiumPng": png(), "scoreHistoryPng": png()}

@@ -1,5 +1,5 @@
 {
-  "title": "Quiz Show",
+  "title": "Quizzy",
   "teams": [
     { "name": "Team 1", "startingScore": 0 },
     { "name": "Team 2", "startingScore": 0 }

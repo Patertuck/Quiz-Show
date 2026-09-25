@@ -1,4 +1,4 @@
-# Quizshow starten
+# Quizzy starten
 
 ## Architektur
 
@@ -85,7 +85,7 @@ Allgemeine Angaben wie `title` und `teams` stehen in `quiz-config.json` auf der 
 
 ```json
 {
-  "title": "Quizshow",
+  "title": "Quizzy",
   "teams": [{ "name": "Team 1", "startingScore": 0 }],
   "games": {
     "sync": {
@@ -133,4 +133,4 @@ Der normale Start bleibt unverändert:
 
 Die Spielleitung öffnet sich lokal. Handys verwenden den QR-Code in der Spielleitung und müssen sich normalerweise im selben WLAN befinden.
 
-Die Quizshow ist für den lokalen Rechner und Geräte im selben Netzwerk vorgesehen. Eine Freigabe über das Internet wird derzeit nicht unterstützt.
+Quizzy ist für den lokalen Rechner und Geräte im selben Netzwerk vorgesehen. Eine Freigabe über das Internet wird derzeit nicht unterstützt.

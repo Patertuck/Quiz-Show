@@ -1,4 +1,4 @@
-"""Quizshow backend package."""
+"""Quizzy backend package."""
 
 
 def create_app(*args, **kwargs):

@@ -352,7 +352,7 @@ class PresentationState:
         self.condition = threading.Condition()
         self.version = int(time.time() * 1000)
         self.server_session_id = f"{self.version}-{secrets.token_hex(8)}"
-        self.payload = validate_presentation({"screen": "standby", "title": "Quiz Show", "teams": []})
+        self.payload = validate_presentation({"screen": "standby", "title": "Quizzy", "teams": []})
 
     def update(self, payload: object) -> dict:
         clean = validate_presentation(payload)

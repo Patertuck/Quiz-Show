@@ -34,7 +34,7 @@ function teams() {
 function base(screen) {
   return {
     screen,
-    title: state.config?.title || "Quiz Show",
+    title: state.config?.title || "Quizzy",
     teams: teams(),
     logos: state.library?.activeLogoUrls,
     joinOverlay,

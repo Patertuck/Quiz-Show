@@ -44,7 +44,7 @@ def create_app(
                 await deadline_task
             await app.state.container.close()
 
-    app = FastAPI(title="Quizshow", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="Quizzy", version="0.1.0", lifespan=lifespan)
     install_exception_handlers(app)
     install_request_logging(app)
 

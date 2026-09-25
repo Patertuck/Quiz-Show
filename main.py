@@ -1,4 +1,4 @@
-"""Launch the quiz show with local/LAN access and optional public sharing."""
+"""Launch Quizzy with local/LAN access and optional public sharing."""
 
 from __future__ import annotations
 
@@ -854,7 +854,7 @@ def bind_active_instance() -> None:
     TEAM_LOBBY.reset()
     BUZZER.sync_teams(load_current_state())
     PRESENTATION.update({
-        "screen": "standby", "title": "Quizshow", "teams": [],
+        "screen": "standby", "title": "Quizzy", "teams": [],
         "logos": QUIZ_LIBRARY.logo_urls(),
     })
 
@@ -868,7 +868,7 @@ def main() -> None:
     BUZZER.sync_teams(load_current_state())
     try:
         require_websocket_runtime()
-        print(f"Quiz show running at {HOST_URL}")
+        print(f"Quizzy running at {HOST_URL}")
         join_info = current_join_info()
         print(f"Player view available at {join_info['joinUrl']}")
         print(f"Audience display available at {join_info['displayUrl']}")
@@ -885,7 +885,7 @@ def main() -> None:
     except RuntimeError as error:
         raise SystemExit(str(error)) from error
     except KeyboardInterrupt:
-        print("\nQuiz show stopped.")
+        print("\nQuizzy stopped.")
 
 
 if __name__ == "__main__":
