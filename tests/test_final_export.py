@@ -47,7 +47,7 @@ class FinalExportTests(unittest.TestCase):
             self.assertTrue(created)
             self.assertFalse(created_again)
             self.assertEqual(first, second)
-ke            self.assertTrue(first.name.startswith("quizzy-"))
+            self.assertTrue(first.name.startswith("quizzy-"))
             self.assertEqual({"podest.png", "punkteverlauf.png", "punkteverlauf.csv"}, {path.name for path in first.iterdir()})
 
     def test_legacy_quizshow_export_is_reused(self):
