@@ -117,6 +117,20 @@ test("host team colors stay compact until opened", async ({ page }) => {
     getComputedStyle(element, "::after").content)).toContain("🔒");
 });
 
+test("active game setup publishes the team lobby to the audience display", async ({ page }) => {
+  const presentations = [];
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/api/presentation/state" && request.method() === "PUT") {
+      presentations.push(request.postDataJSON());
+    }
+  });
+  await mockHost(page, { lobby: { ...teamLobby, phase: "locked" } });
+  await page.goto("/#/setup");
+  await expect(page.locator("#setup-view")).toBeVisible();
+  await expect.poll(() => presentations.find((presentation) => presentation.screen === "team-lobby"))
+    .toMatchObject({ screen: "team-lobby", joinUrl: "http://quiz.local/player" });
+});
+
 test("phone team color picker renders the selected color and palette", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await mockPlayer(page, playerSnapshot(displayPresentation("team-lobby", {

@@ -58,7 +58,7 @@ export async function mount(root, { navigate }) {
   root.querySelector("#setup-qr").innerHTML = code.createSvgTag({
     cellSize: 8, margin: 12, scalable: true, title: "QR-Code für Quizspieler"
   });
-  if (!editingActiveGame) await publishTeamLobby(joinInfo.joinUrl);
+  await publishTeamLobby(joinInfo.joinUrl);
 
   async function control(action, extra = {}) {
     message.textContent = "";
