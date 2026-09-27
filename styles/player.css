@@ -90,8 +90,6 @@ h1 { min-width: 0; margin: 0; color: #fff45c; font-size: clamp(1.45rem, 7vw, 2.2
 .listing-phone-items { display: grid; max-height: min(48vh, 27rem); gap: .5rem; margin: .65rem 0; padding: 0; overflow-y: auto; list-style: none; counter-reset: listing-item; }
 .listing-phone-items li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: .55rem; padding: .5rem .6rem; border: 1px solid #b9eeee; border-radius: .65rem; background: #f7ffff; color: #173b3d; font-weight: 750; overflow-wrap: anywhere; counter-increment: listing-item; }
 .listing-phone-items li::before { display: grid; width: 1.65rem; aspect-ratio: 1; place-items: center; border-radius: 50%; background: #d6f4f1; color: #12676b; content: counter(listing-item); font-size: .75rem; font-weight: 950; }
-.listing-submit { width: 100%; min-height: 3.1rem; margin-top: .15rem; border: 2px solid #ffe65c; border-radius: .7rem; background: #ffe65c; color: #143b42; font-size: 1rem; font-weight: 950; box-shadow: 0 .35rem .8rem #00191f66; }
-.listing-submit:disabled { cursor: wait; opacity: .62; }
 .listing-remove { display: grid; width: 2.75rem; height: 2.75rem; flex: 0 0 auto; place-items: center; padding: .65rem; border: 1px solid #ef98a1; border-radius: .7rem; background: linear-gradient(#fff2f3, #ffdce0); color: #a61f32; box-shadow: 0 .15rem .35rem #63101d24; }
 .sync-register-form { display: grid; gap: .75rem; }
 .sync-register-form + .sync-register-form { margin-top: 1rem; }

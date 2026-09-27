@@ -193,8 +193,6 @@ class ListingState:
                 return 409, {"error": "Eure Liste wurde bereits abgegeben.",
                              "state": self._snapshot_unlocked("team", team_index)}
             self.round["drafts"][team_index] = self._normalize_items(payload.get("items"))
-            if payload.get("submit") is True:
-                self.round["submitted"][team_index] = True
             self._changed_unlocked()
             return 200, {"saved": True, "state": self._snapshot_unlocked("team", team_index)}
 

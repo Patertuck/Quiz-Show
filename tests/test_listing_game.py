@@ -29,6 +29,13 @@ class ListingStateTests(unittest.TestCase):
         self.assertEqual([400, 300, 200, 100, 0], ListingState.placement_points(5))
         self.assertEqual([0], ListingState.placement_points(1))
 
+    def test_player_cannot_submit_list_before_timer_expires(self):
+        state = self.make_state()
+        state.start(QUESTION)
+        status, _payload = self.submit(state, 0, ["Hund"], submit=True)
+        self.assertEqual(200, status)
+        self.assertFalse(state.snapshot("host")["round"]["submitted"][0])
+
     def make_state(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)

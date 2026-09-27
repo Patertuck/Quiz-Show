@@ -41,7 +41,6 @@ const listingForm = document.querySelector("#listing-entry-form");
 const listingEntry = document.querySelector("#listing-entry");
 const listingAdd = listingForm.querySelector("button[type='submit']");
 const listingItems = document.querySelector("#listing-items");
-const listingSubmit = document.querySelector("#listing-submit");
 const listingStatus = document.querySelector("#listing-phone-status");
 const syncRegisterStep = document.querySelector("#sync-register-step");
 const syncRegisterTeam = document.querySelector("#sync-register-team");
@@ -85,7 +84,6 @@ let listingPendingSaves = 0;
 let listingSaveChain = Promise.resolve();
 let listingLocalRoundId = null;
 let listingLocalItems = [];
-let listingSubmissionQueued = false;
 let listingSaveError = "";
 let activeDrag = null;
 let deferredOrderingState = null;
@@ -560,7 +558,7 @@ const connectOrderingEvents = refreshLiveConnection;
 
 function focusListingEntry() {
   const round = listingState?.round;
-  if (!round || round.phase !== "active" || round.teamSubmitted || listingSubmissionQueued) return;
+  if (!round || round.phase !== "active" || round.teamSubmitted) return;
   requestAnimationFrame(() => {
     if (!listingEntry.hidden && !listingEntry.disabled && listingEntry.isConnected) {
       listingEntry.focus({ preventScroll: true });
@@ -568,27 +566,24 @@ function focusListingEntry() {
   });
 }
 
-function saveListingItems(items, submit = false) {
+function saveListingItems(items) {
   const round = listingState?.round;
   if (!playerConnected || !round || selectedTeamIndex === null || round.phase !== "active"
-      || round.teamSubmitted || listingSubmissionQueued) return listingSaveChain;
+      || round.teamSubmitted) return listingSaveChain;
   const requestData = {
     roundId: round.id,
     teamsRevision: listingState.teamsRevision,
     teamIndex: selectedTeamIndex,
-    items: [...items],
-    submit
+    items: [...items]
   };
   listingLocalItems = [...items];
   listingSaveError = "";
-  if (submit) listingSubmissionQueued = true;
   listingPendingSaves += 1;
   renderListing();
-  if (!submit) focusListingEntry();
+  focusListingEntry();
   listingSaveChain = listingSaveChain.catch(() => undefined).then(async () => {
     const payload = await playerCommands.listing(requestData);
     if (payload.state) listingState = payload.state;
-    if (submit) confirmStatus(listingStatus, "✓ Liste abgegeben und gesperrt", true);
   }).catch((error) => {
     listingSaveError = error.message || "Die Spielleitung konnte nicht erreicht werden.";
     haptic([80, 40, 80]);
@@ -596,10 +591,9 @@ function saveListingItems(items, submit = false) {
     listingPendingSaves -= 1;
     if (listingPendingSaves === 0 && listingState?.round?.id === listingLocalRoundId) {
       listingLocalItems = [...(listingState.round.teamItems || listingLocalItems)];
-      listingSubmissionQueued = listingState.round.teamSubmitted;
     }
     render();
-    if (!listingSubmissionQueued) focusListingEntry();
+    focusListingEntry();
   });
   return listingSaveChain;
 }
@@ -611,11 +605,10 @@ function renderListing() {
   if (listingLocalRoundId !== round.id) {
     listingLocalRoundId = round.id;
     listingLocalItems = [...(round.teamItems || [])];
-    listingSubmissionQueued = round.teamSubmitted;
     listingPendingSaves = 0;
     listingSaveChain = Promise.resolve();
     listingSaveError = "";
-  } else if (listingPendingSaves === 0 && !listingSubmissionQueued) {
+  } else if (listingPendingSaves === 0 && !round.teamSubmitted) {
     listingLocalItems = [...(round.teamItems || listingLocalItems)];
   }
   listingTeam.textContent = listingState.teams[selectedTeamIndex] || "";
@@ -625,9 +618,8 @@ function renderListing() {
     ? Math.max(0, Math.ceil((round.deadlineAt - Date.now()) / 1000))
     : "0";
   listingCountdown.dataset.deadline = active ? round.deadlineAt : "";
-  listingForm.hidden = !active || round.teamSubmitted || listingSubmissionQueued;
+  listingForm.hidden = !active || round.teamSubmitted;
   listingItems.hidden = !active;
-  listingSubmit.hidden = !active || round.teamSubmitted || listingSubmissionQueued;
   if (!active) {
     listingStatus.textContent = "Eure Liste ist gesperrt.";
     listingItemCount.textContent = `${listingLocalItems.length} Einträge`;
@@ -637,7 +629,6 @@ function renderListing() {
   listingItemCount.textContent = `${items.length} Einträge`;
   listingEntry.disabled = false;
   listingAdd.disabled = false;
-  listingSubmit.disabled = listingSubmissionQueued || listingPendingSaves > 0;
   listingItems.replaceChildren();
   items.forEach((text, index) => {
     const row = document.createElement("li");
@@ -651,7 +642,7 @@ function renderListing() {
       <svg aria-hidden="true" viewBox="0 0 24 24">
         <path d="M8 3h8l1 2h4v2H3V5h4l1-2Zm-2 6h12l-1 12H7L6 9Zm3 2v8h2v-8H9Zm4 0v8h2v-8h-2Z"/>
       </svg>`;
-    remove.disabled = round.teamSubmitted || listingSubmissionQueued;
+    remove.disabled = round.teamSubmitted;
     remove.addEventListener("click", () => {
       saveListingItems(items.filter((_, itemIndex) => itemIndex !== index));
       focusListingEntry();
@@ -661,7 +652,7 @@ function renderListing() {
   });
   if (listingSaveError) {
     listingStatus.textContent = listingSaveError;
-  } else if (round.teamSubmitted || listingSubmissionQueued) {
+  } else if (round.teamSubmitted) {
     listingStatus.textContent = "Eure Liste wurde abgegeben.";
   } else if (listingPendingSaves > 0) {
     listingStatus.textContent = "Wird gespeichert …";
@@ -685,7 +676,6 @@ function renderListingPreview() {
   listingAdd.disabled = true;
   listingItems.hidden = false;
   listingItems.replaceChildren();
-  listingSubmit.hidden = true;
   for (let index = 0; index < 3; index += 1) {
     const row = document.createElement("li");
     row.className = "preview-placeholder";
@@ -902,11 +892,6 @@ listingForm.addEventListener("submit", (event) => {
   listingEntry.value = "";
   listingEntry.focus({ preventScroll: true });
   saveListingItems(appended.items);
-});
-listingSubmit.addEventListener("click", () => {
-  const round = listingState?.round;
-  if (!round || round.phase !== "active" || round.teamSubmitted || listingSubmissionQueued) return;
-  saveListingItems(listingLocalItems, true);
 });
 teamLobbyCreateForm.addEventListener("submit", (event) => {
   event.preventDefault();
