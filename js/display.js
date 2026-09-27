@@ -317,8 +317,91 @@ function orderingScoringExample(example) {
   return screen;
 }
 
+function rulesExampleShell(gameId, kicker, title, subtitle) {
+  const screen = element("section", `display-screen display-rules-example display-rules-example-${gameId}`);
+  const card = element("div", "display-rules-example-card");
+  const heading = element("header", "display-rules-example-heading");
+  heading.append(
+    element("span", "display-rules-example-kicker", kicker),
+    element("h1", "", title),
+    element("p", "", subtitle)
+  );
+  card.append(heading);
+  screen.append(card);
+  return { screen, card };
+}
+
+function jeopardyRulesExample(example) {
+  const { screen, card } = rulesExampleShell(
+    "jeopardy", "JEOPARDY · BEISPIEL", "Allgemeinwissen", "So laufen Frage, Buzzer und Wertung ab."
+  );
+  const flow = element("div", "display-rules-example-flow jeopardy");
+  const tile = element("section", "display-rules-example-block tile");
+  tile.append(element("small", "", "Gewähltes Feld"), element("strong", "", formatInteger(example.value)));
+  const question = element("section", "display-rules-example-block question");
+  question.append(element("small", "", "Frage"), element("strong", "", "Wie viele Minuten hat eine Stunde?"));
+  const answer = element("section", "display-rules-example-block answer");
+  answer.append(element("small", "", "BUZZ · Antwort"), element("strong", "", "60 Minuten"));
+  flow.append(tile, element("span", "display-rules-example-arrow", "→"), question, element("span", "display-rules-example-arrow", "→"), answer);
+  const results = element("div", "display-rules-example-results");
+  results.append(
+    element("strong", "correct", `Richtig: +${formatInteger(example.value)}`),
+    element("strong", "wrong", `Falsch: −${formatInteger(example.value)}`)
+  );
+  card.append(flow, results);
+  return screen;
+}
+
+function listingRulesExample(example) {
+  const { screen, card } = rulesExampleShell(
+    "listing", "LIST IT · BEISPIEL", "Nennt Obstsorten", "Doppelte und ungültige Antworten bringen keinen zusätzlichen Treffer."
+  );
+  const answers = element("div", "display-rules-example-answers");
+  [["Apfel", "correct", "gültig"], ["Birne", "correct", "gültig"], ["Apfel", "duplicate", "doppelt"], ["Auto", "wrong", "ungültig"]]
+    .forEach(([answer, status, label]) => {
+      const item = element("div", `display-rules-example-answer ${status}`);
+      item.append(element("strong", "", answer), element("span", "", label));
+      answers.append(item);
+    });
+  const summary = element("strong", "display-rules-example-summary", "2 gültige Begriffe");
+  const podium = element("div", "display-rules-example-podium");
+  example.placementPoints.forEach((points, index) => {
+    const place = element("div", `place-${index + 1}`);
+    place.append(element("span", "", `${index + 1}. Platz`), element("strong", "", `+${formatInteger(points)}`));
+    podium.append(place);
+  });
+  card.append(answers, summary, podium);
+  return screen;
+}
+
+function syncRulesExample(example) {
+  const { screen, card } = rulesExampleShell(
+    "sync", "SYNC UP · BEISPIEL", "Wer organisiert am ehesten einen Quizabend?", "Alle wählen heimlich eine Person aus dem eigenen Team."
+  );
+  const votes = element("div", "display-rules-example-votes");
+  ["Lea", "Noah", "Mia"].forEach((name) => {
+    const vote = element("section", "display-rules-example-vote");
+    vote.append(element("span", "", name), element("strong", "", "Lea"));
+    votes.append(vote);
+  });
+  const result = element("div", "display-rules-example-sync-result");
+  result.append(
+    element("span", "", "3 von 3 wählen Lea"),
+    element("strong", "", `Kompletter Sync: +${formatInteger(example.pointsPerSync)} Punkte`)
+  );
+  card.append(votes, result);
+  return screen;
+}
+
+function rulesExample() {
+  const example = presentation.example;
+  if (example.gameId === "ordering") return orderingScoringExample(example);
+  if (example.gameId === "jeopardy") return jeopardyRulesExample(example);
+  if (example.gameId === "listing") return listingRulesExample(example);
+  return syncRulesExample(example);
+}
+
 function ordering() {
-  if (presentation.scoringExample) return orderingScoringExample(presentation.scoringExample);
   const screen = element("section", "display-screen display-ordering");
   const round = orderingState?.round;
   if (!round) {
@@ -801,7 +884,7 @@ function sceneKey() {
 function renderImmediately() {
   if (!presentation) return;
   document.title = `${presentation.title} — Publikumsansicht`;
-  document.body.classList.toggle("with-scoreboard", ["hub", "jeopardy-board", "jeopardy-question", "ordering", "listing", "sync"].includes(presentation.screen));
+  document.body.classList.toggle("with-scoreboard", ["hub", "jeopardy-board", "jeopardy-question", "ordering", "listing", "sync", "rules-example"].includes(presentation.screen));
   const renderers = {
     standby,
     "team-lobby": teamLobby,
@@ -811,6 +894,7 @@ function renderImmediately() {
     ordering,
     listing,
     sync,
+    "rules-example": rulesExample,
     victory,
     "score-history": scoreHistory
   };

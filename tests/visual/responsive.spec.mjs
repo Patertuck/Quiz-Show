@@ -94,7 +94,7 @@ test("host ordering preview keeps its actions visible at short desktop height", 
   await expectVisibleControlsUsable(page, 30);
 });
 
-test("host can publish the Order Up scoring example from the rules", async ({ page }) => {
+test("host can publish an audience example from every game's rules", async ({ page }) => {
   const presentations = [];
   page.on("request", (request) => {
     if (new URL(request.url()).pathname === "/api/presentation/state" && request.method() === "PUT") {
@@ -102,23 +102,28 @@ test("host can publish the Order Up scoring example from the rules", async ({ pa
     }
   });
   await mockHost(page, { ordering: orderingBase });
-  await page.goto("/#/ordering");
-  await page.locator("#ordering-rules-button").click();
-  const toggle = page.locator(".rules-ordering-example-toggle");
-  await expect(toggle).toHaveText("Beispiel auf Display zeigen");
-  await toggle.click();
-  await expect(toggle).toHaveText("Beispiel wird angezeigt");
-  await expect.poll(() => presentations.find((item) => item.scoringExample)).toMatchObject({
-    screen: "ordering",
-    scoringExample: { scoringMode: "relative", pointsPerCorrect: 50 }
-  });
+  const cases = [
+    ["jeopardy", { gameId: "jeopardy", value: 100 }],
+    ["ordering", { gameId: "ordering", scoringMode: "relative", pointsPerCorrect: 50 }],
+    ["listing", { gameId: "listing", placementPoints: [300, 200, 100] }],
+    ["sync", { gameId: "sync", pointsPerSync: 100 }]
+  ];
+  for (const [gameId, example] of cases) {
+    await page.goto(`/#/${gameId}`);
+    await page.locator(`#${gameId}-rules-button`).click();
+    const toggle = page.locator(".rules-example-toggle");
+    await expect(toggle).toHaveText("Beispiel auf Display zeigen");
+    await toggle.click();
+    await expect(toggle).toHaveText("Beispiel wird angezeigt");
+    await expect.poll(() => presentations.find((item) => item.example?.gameId === gameId)).toMatchObject({
+      screen: "rules-example", example
+    });
+  }
 });
 
 test("audience display renders a clear Order Up scoring example", async ({ page }) => {
-  const presentation = displayPresentation("ordering", {
-    questionSelection: null,
-    orderingMap: null,
-    scoringExample: { scoringMode: "relative", pointsPerCorrect: 50 }
+  const presentation = displayPresentation("rules-example", {
+    example: { gameId: "ordering", scoringMode: "relative", pointsPerCorrect: 50 }
   });
   await mockLiveSocket(page, liveSnapshot(presentation, { ordering: orderingBase }));
   await page.goto("/display.html");
@@ -127,6 +132,24 @@ test("audience display renders a clear Order Up scoring example", async ({ page 
   await expect(page.getByText("2 von 3 Paaren richtig", { exact: false })).toBeVisible();
   await expectNoViewportOverflow(page);
 });
+
+for (const [gameId, example, expectedText] of [
+  ["jeopardy", { gameId: "jeopardy", value: 100 }, "Wie viele Minuten hat eine Stunde?"],
+  ["listing", { gameId: "listing", placementPoints: [300, 200, 100] }, "2 gültige Begriffe"],
+  ["sync", { gameId: "sync", pointsPerSync: 100 }, "3 von 3 wählen Lea"]
+]) {
+  test(`audience display renders the ${gameId} rules example`, async ({ page }) => {
+    const presentation = displayPresentation("rules-example", { example });
+    await mockLiveSocket(page, liveSnapshot(presentation));
+    await page.goto("/display.html");
+    await expect(page.getByText(expectedText, { exact: true })).toBeVisible();
+    await expect(page.locator(`.display-rules-example-${gameId}`)).toBeVisible();
+    for (const viewport of desktopViewports) {
+      await page.setViewportSize(viewport);
+      await expectNoViewportOverflow(page);
+    }
+  });
+}
 
 test("team names save on Enter without separate save buttons", async ({ page }) => {
   const renameRequests = [];

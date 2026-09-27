@@ -11,7 +11,7 @@ from quiz_library import LOGO_FILENAMES
 from quizshow.team_colors import TEAM_COLOR_IDS, TEAM_COLORS
 
 TILE_ID_PATTERN = re.compile(r"^\d+:\d+$")
-PRESENTATION_SCREENS = {"standby", "team-lobby", "hub", "jeopardy-board", "jeopardy-question", "ordering", "listing", "sync", "victory", "score-history"}
+PRESENTATION_SCREENS = {"standby", "team-lobby", "hub", "jeopardy-board", "jeopardy-question", "ordering", "listing", "sync", "rules-example", "victory", "score-history"}
 HUB_GAME_IDS = {"jeopardy", "ordering", "listing", "sync"}
 
 def validate_quiz_media_source(value: str, field: str) -> str:
@@ -124,7 +124,36 @@ def validate_presentation(payload: object) -> dict:
         if not re.fullmatch(r"https?://[^/\s]+/player", join_url):
             raise ValueError("Presentation join URL is invalid.")
         clean["joinOverlay"] = {"joinUrl": join_url}
-    if payload["screen"] == "hub":
+    if payload["screen"] == "rules-example":
+        example = payload.get("example")
+        if not isinstance(example, dict) or example.get("gameId") not in HUB_GAME_IDS:
+            raise ValueError("Rules example is invalid.")
+        game_id = example["gameId"]
+        clean_example = {"gameId": game_id}
+        if game_id == "jeopardy":
+            value = example.get("value")
+            if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+                raise ValueError("Jeopardy rules example is invalid.")
+            clean_example["value"] = value
+        elif game_id == "ordering":
+            points = example.get("pointsPerCorrect")
+            if (example.get("scoringMode") not in {"relative", "exact"}
+                    or not isinstance(points, int) or isinstance(points, bool) or points <= 0):
+                raise ValueError("Order Up rules example is invalid.")
+            clean_example.update({"scoringMode": example["scoringMode"], "pointsPerCorrect": points})
+        elif game_id == "listing":
+            points = example.get("placementPoints")
+            if (not isinstance(points, list) or not points
+                    or any(not isinstance(item, int) or isinstance(item, bool) or item < 0 for item in points)):
+                raise ValueError("List It rules example is invalid.")
+            clean_example["placementPoints"] = points
+        else:
+            points = example.get("pointsPerSync")
+            if not isinstance(points, int) or isinstance(points, bool) or points <= 0:
+                raise ValueError("Sync Up rules example is invalid.")
+            clean_example["pointsPerSync"] = points
+        clean["example"] = clean_example
+    elif payload["screen"] == "hub":
         games = payload.get("games")
         if (not isinstance(games, list) or not games
                 or any(not isinstance(game, str) or game not in HUB_GAME_IDS for game in games)
@@ -217,20 +246,6 @@ def validate_presentation(payload: object) -> dict:
             "audioCommand": clean_audio_command,
         }
     elif payload["screen"] == "ordering":
-        scoring_example = payload.get("scoringExample")
-        clean_scoring_example = None
-        if scoring_example is not None:
-            if (not isinstance(scoring_example, dict)
-                    or scoring_example.get("scoringMode") not in {"relative", "exact"}
-                    or not isinstance(scoring_example.get("pointsPerCorrect"), int)
-                    or isinstance(scoring_example.get("pointsPerCorrect"), bool)
-                    or scoring_example["pointsPerCorrect"] <= 0):
-                raise ValueError("Order Up scoring example is invalid.")
-            clean_scoring_example = {
-                "scoringMode": scoring_example["scoringMode"],
-                "pointsPerCorrect": scoring_example["pointsPerCorrect"],
-            }
-        clean["scoringExample"] = clean_scoring_example
         ordering_map = payload.get("orderingMap")
         clean_ordering_map = None
         if ordering_map is not None:

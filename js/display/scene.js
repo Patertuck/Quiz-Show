@@ -1,5 +1,6 @@
 export function displaySceneKey(presentation, { ordering, listing, sync } = {}) {
   if (!presentation) return null;
+  if (presentation.screen === "rules-example") return `rules-example:${presentation.example?.gameId}`;
   if (presentation.screen === "jeopardy-question") {
     return `${presentation.screen}:${presentation.question?.id}:${presentation.question?.answerRevealed ? "answer" : "question"}`;
   }

@@ -11,6 +11,7 @@ import {
 
 test("display scene keys describe the meaningful activity phase", () => {
   assert.equal(displaySceneKey({ screen: "ordering" }, { ordering: { round: { id: 4, phase: "active" } } }), "ordering:4:active");
+  assert.equal(displaySceneKey({ screen: "rules-example", example: { gameId: "listing" } }), "rules-example:listing");
   assert.equal(displaySceneKey({ screen: "sync" }, { sync: { rosterLocked: false } }), "sync:lobby");
   assert.equal(displaySceneKey({ screen: "jeopardy-question", question: { id: "q1", answerRevealed: true } }), "jeopardy-question:q1:answer");
 });

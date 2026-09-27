@@ -148,13 +148,15 @@ export function publishOrdering(questionSelection = null, orderingMap = null) {
   return publishPresentation({ ...base("ordering"), questionSelection, orderingMap });
 }
 
-export function publishOrderingScoringExample({ scoringMode, pointsPerCorrect }) {
-  return publishPresentation({
-    ...base("ordering"),
-    questionSelection: null,
-    orderingMap: null,
-    scoringExample: { scoringMode, pointsPerCorrect }
-  });
+export function publishRulesExample(graphic) {
+  const example = graphic.kind === "jeopardy"
+    ? { gameId: "jeopardy", value: graphic.values[0] }
+    : graphic.kind === "ordering"
+      ? { gameId: "ordering", scoringMode: graphic.scoringMode, pointsPerCorrect: graphic.pointsPerCorrect }
+      : graphic.kind === "podium"
+        ? { gameId: "listing", placementPoints: graphic.points }
+        : { gameId: "sync", pointsPerSync: graphic.points };
+  return publishPresentation({ ...base("rules-example"), example });
 }
 
 export function publishListing(questionSelection = null) {

@@ -11,6 +11,7 @@
 .rules-buzzer { display: grid; width: clamp(4.5rem, 11vh, 7rem); aspect-ratio: 1; place-items: center; border: .45rem solid #f7b4ba; border-radius: 50%; background: #c52f45; font-size: clamp(.8rem, 2.2vh, 1.25rem); font-weight: 900; }
 .rules-order-card.correct { border-color: #6ee4a0; background: #176a4a; color: #fff; }
 .game-rules-graphic.ordering { flex-direction: column; }
+.rules-example-toggle { flex-basis: 100%; margin-top: .25rem; border-color: #aebaff; }
 .rules-ordering-example-toggle { border-color: #aebaff; }
 .rules-ordering-example-hint { color: #dce2ff; font-weight: 800; }
 .rules-ordering-cards { display: flex; gap: .5rem; }

@@ -15,7 +15,7 @@ import { hostFetch, setActiveInstanceName } from "./slot-api.js";
 import { buildGameRules, renderGameRules } from "./game-rules.js";
 import { createHostRoutes } from "./host/routes.js";
 import { loadTemplate } from "./host/templates.js";
-import { publishManualScoreAdjustment, publishOrderingScoringExample } from "./presentation-host.js";
+import { publishManualScoreAdjustment, publishRulesExample } from "./presentation-host.js";
 
 const app = document.querySelector("#app");
 const scoreboardElement = document.querySelector("#scoreboard");
@@ -78,9 +78,7 @@ async function showGameRules(gameId, automatic = false) {
   app.replaceChildren(renderGameRules(model, {
     actionLabel: automatic ? "Spiel starten" : "Zurück zum Spiel",
     onBack: () => navigate("hub"),
-    onShowExample: gameId === "ordering"
-      ? () => publishOrderingScoringExample(model.graphic)
-      : null,
+    onShowExample: () => publishRulesExample(model.graphic),
     onAction: async (trigger) => {
       trigger.disabled = true;
       const wasShown = hasShownGameRules(gameId);

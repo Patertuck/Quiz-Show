@@ -95,7 +95,6 @@ function element(tag, className = "", text = null) {
 
 function renderGraphic(graphic, onShowExample = null) {
   const area = element("div", `game-rules-graphic ${graphic.kind}`);
-  if (graphic.kind !== "ordering") area.setAttribute("aria-hidden", "true");
   if (graphic.kind === "jeopardy") {
     area.append(
       element("span", "rules-tile", formatInteger(graphic.values[0])),
@@ -103,22 +102,7 @@ function renderGraphic(graphic, onShowExample = null) {
       element("span", "rules-tile", formatInteger(graphic.values[1]))
     );
   } else if (graphic.kind === "ordering") {
-    const hint = element("span", "rules-ordering-example-hint", "Beispiel: Alter – älteste Person zuerst");
-    const show = element("button", "secondary-button rules-ordering-example-toggle", "Beispiel auf Display zeigen");
-    show.type = "button";
-    show.addEventListener("click", async () => {
-      show.disabled = true;
-      try {
-        await onShowExample?.();
-        show.textContent = "Beispiel wird angezeigt";
-      } catch (error) {
-        show.textContent = "Erneut versuchen";
-        console.error("Wertungsbeispiel konnte nicht angezeigt werden:", error);
-      } finally {
-        show.disabled = false;
-      }
-    });
-    area.append(hint, show);
+    area.append(element("span", "rules-ordering-example-hint", "Beispiel: Alter – älteste Person zuerst"));
   } else if (graphic.kind === "podium") {
     area.append(element("strong", "rules-graphic-label", graphic.label));
     const podium = element("div", "rules-podium");
@@ -134,6 +118,21 @@ function renderGraphic(graphic, onShowExample = null) {
     ["●", "●", "●"].forEach((value) => votes.append(element("span", "", value)));
     area.append(votes, element("span", "rules-sync-arrow", "→"), element("strong", "rules-sync-result", `+${formatInteger(graphic.points)}`));
   }
+  const show = element("button", `secondary-button rules-example-toggle rules-${graphic.kind}-example-toggle`, "Beispiel auf Display zeigen");
+  show.type = "button";
+  show.addEventListener("click", async () => {
+    show.disabled = true;
+    try {
+      await onShowExample?.();
+      show.textContent = "Beispiel wird angezeigt";
+    } catch (error) {
+      show.textContent = "Erneut versuchen";
+      console.error("Spielbeispiel konnte nicht angezeigt werden:", error);
+    } finally {
+      show.disabled = false;
+    }
+  });
+  area.append(show);
   return area;
 }
 

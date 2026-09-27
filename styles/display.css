@@ -155,6 +155,44 @@ body { margin: 0; overflow: hidden; background: var(--blue); color: #fff; }
 .display-ordering-example-check.wrong { border-color: #ff8f9c; background: #7b2639; }
 .display-ordering-example-result { padding: clamp(.55rem, 1.5vh, .85rem); border-radius: .8rem; background: #ffe16d; color: #301441; font-size: clamp(1rem, 2.5vw, 1.7rem); font-variant-numeric: tabular-nums; }
 @media (max-width: 700px) { .display-ordering-example-rows { grid-template-columns: 1fr; } }
+.display-rules-example { display: grid; place-items: center; padding: clamp(.75rem, 2.5vh, 1.75rem); background: radial-gradient(circle at 50% 0%, #314bc4 0%, #18267e 52%, #090f3d 100%); }
+.display-rules-example-card { display: grid; width: min(76rem, 96vw); max-height: 100%; gap: clamp(.6rem, 1.8vh, 1.15rem); padding: clamp(.9rem, 2.3vw, 1.8rem); overflow: hidden; border: 3px solid #ffe16d; border-radius: 1.35rem; background: #080e3de8; box-shadow: 0 1.2rem 3rem #02051d99, 0 0 1.8rem #ffe16d44; text-align: center; }
+.display-rules-example-heading { display: grid; gap: .2rem; }
+.display-rules-example-kicker { color: #ffe16d; font-size: clamp(.72rem, 1.4vw, 1rem); font-weight: 950; letter-spacing: .12em; }
+.display-rules-example-heading h1 { margin: 0; color: #fff; font-size: clamp(1.45rem, 3.8vw, 3rem); line-height: 1.08; }
+.display-rules-example-heading p { margin: 0; color: #dce4ff; font-size: clamp(.8rem, 1.8vw, 1.15rem); font-weight: 800; }
+.display-rules-example-flow { display: grid; grid-template-columns: minmax(6rem, .55fr) auto minmax(13rem, 1.5fr) auto minmax(10rem, 1fr); gap: clamp(.35rem, 1vw, .8rem); align-items: stretch; }
+.display-rules-example-block { display: grid; min-width: 0; gap: .25rem; place-content: center; padding: clamp(.55rem, 1.6vw, 1rem); border: 2px solid #8db1ff; border-radius: .9rem; background: linear-gradient(155deg, #344fc2, #23358e); }
+.display-rules-example-block small { color: #cbd5ff; font-weight: 900; text-transform: uppercase; }
+.display-rules-example-block strong { font-size: clamp(.95rem, 2.2vw, 1.5rem); }
+.display-rules-example-block.tile { border-color: #ffe16d; color: #ffe16d; }
+.display-rules-example-block.tile strong { font-size: clamp(1.5rem, 4vw, 3rem); }
+.display-rules-example-block.answer { border-color: #79e8a6; background: linear-gradient(155deg, #23835a, #15583e); }
+.display-rules-example-arrow { align-self: center; color: #ffe16d; font-size: clamp(1.5rem, 4vw, 3rem); font-weight: 950; }
+.display-rules-example-results { display: grid; grid-template-columns: 1fr 1fr; gap: .65rem; }
+.display-rules-example-results strong, .display-rules-example-summary { padding: .65rem; border: 2px solid; border-radius: .8rem; font-size: clamp(.95rem, 2.2vw, 1.4rem); }
+.display-rules-example-results .correct { border-color: #79e8a6; background: #176a4a; }
+.display-rules-example-results .wrong { border-color: #ff8f9c; background: #7b2639; }
+.display-rules-example-answers { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .6rem; }
+.display-rules-example-answer { display: grid; gap: .15rem; padding: clamp(.55rem, 1.5vh, .85rem); border: 2px solid; border-radius: .8rem; }
+.display-rules-example-answer strong { font-size: clamp(1rem, 2.4vw, 1.55rem); }
+.display-rules-example-answer span { font-size: clamp(.7rem, 1.3vw, .9rem); font-weight: 900; text-transform: uppercase; }
+.display-rules-example-answer.correct { border-color: #79e8a6; background: #176a4a; }
+.display-rules-example-answer.duplicate { border-color: #ffe16d; background: #705b18; }
+.display-rules-example-answer.wrong { border-color: #ff8f9c; background: #7b2639; }
+.display-rules-example-summary { border-color: #79e8a6; background: #dfffea; color: #17462f; }
+.display-rules-example-podium { display: flex; min-height: 0; flex-wrap: wrap; justify-content: center; gap: .4rem; overflow: hidden; }
+.display-rules-example-podium div { display: grid; min-width: 6rem; flex: 1 1 6rem; gap: .1rem; padding: .45rem; border-radius: .65rem; background: #39499a; }
+.display-rules-example-podium span { color: #dce4ff; font-size: clamp(.7rem, 1.3vw, .9rem); font-weight: 800; }
+.display-rules-example-podium strong { color: #ffe16d; font-size: clamp(.9rem, 2vw, 1.3rem); }
+.display-rules-example-votes { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(.5rem, 2vw, 1rem); }
+.display-rules-example-vote { display: grid; gap: .35rem; padding: clamp(.65rem, 2vw, 1.2rem); border: 2px solid #8db1ff; border-radius: 1rem; background: #ffffff0d; }
+.display-rules-example-vote span { color: #cbd5ff; font-weight: 800; }
+.display-rules-example-vote strong { padding: .45rem; border-radius: 999px; background: #23835a; color: #fff; font-size: clamp(1.1rem, 3vw, 2rem); }
+.display-rules-example-sync-result { display: grid; gap: .35rem; padding: .7rem; border: 3px solid #79e8a6; border-radius: 1rem; background: #176a4a; }
+.display-rules-example-sync-result span { font-weight: 800; }
+.display-rules-example-sync-result strong { color: #ffe16d; font-size: clamp(1rem, 2.6vw, 1.7rem); }
+@media (max-width: 700px) { .display-rules-example-flow { grid-template-columns: 1fr; } .display-rules-example-arrow { display: none; } .display-rules-example-answers { grid-template-columns: 1fr 1fr; } }
 .display-points-flight { position: fixed; z-index: 30; min-width: 4.5rem; padding: .45rem .75rem; border: 2px solid var(--team-color, #ffe16d); border-radius: 999px; background: linear-gradient(145deg, color-mix(in srgb, var(--team-color, #6f35a0) 58%, #24113b), #21102f); color: #fff; font-size: clamp(1rem, 2.2vw, 1.5rem); font-variant-numeric: tabular-nums; font-weight: 900; text-align: center; pointer-events: none; box-shadow: 0 .45rem 1.2rem #0008, 0 0 1rem color-mix(in srgb, var(--team-color, #ffe16d) 55%, transparent); }
 .display-points-flight.deducted { border-color: #ff8f9c; background: linear-gradient(145deg, #a52e45, #551323); color: #fff; box-shadow: 0 .45rem 1.2rem #0008, 0 0 1rem #ff657766; }
 .display-scoreboard { position: fixed; z-index: 5; right: 0; bottom: 0; left: 0; display: flex; height: var(--scoreboard-height); gap: 0.65rem; align-items: stretch; padding: 0.65rem; overflow: hidden; background: linear-gradient(180deg, #101b59, #080f35); box-shadow: 0 -0.35rem 1.2rem rgb(0 0 0 / 38%); }
