@@ -94,18 +94,38 @@ test("host ordering preview keeps its actions visible at short desktop height", 
   await expectVisibleControlsUsable(page, 30);
 });
 
-test("host can toggle the Order Up scoring example in the rules", async ({ page }) => {
+test("host can publish the Order Up scoring example from the rules", async ({ page }) => {
+  const presentations = [];
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/api/presentation/state" && request.method() === "PUT") {
+      presentations.push(request.postDataJSON());
+    }
+  });
   await mockHost(page, { ordering: orderingBase });
   await page.goto("/#/ordering");
   await page.locator("#ordering-rules-button").click();
   const toggle = page.locator(".rules-ordering-example-toggle");
-  await expect(toggle).toHaveText("Wertungsbeispiel anzeigen");
-  const example = page.locator(".rules-ordering-example");
-  await expect(example).toBeHidden();
+  await expect(toggle).toHaveText("Beispiel auf Display zeigen");
   await toggle.click();
-  await expect(example).toBeVisible();
-  await expect(toggle).toHaveText("Wertungsbeispiel ausblenden");
-  await expect(example.locator(".rules-ordering-calculation")).toContainText("8 von 10 Paaren richtig");
+  await expect(toggle).toHaveText("Beispiel wird angezeigt");
+  await expect.poll(() => presentations.find((item) => item.scoringExample)).toMatchObject({
+    screen: "ordering",
+    scoringExample: { scoringMode: "relative", pointsPerCorrect: 50 }
+  });
+});
+
+test("audience display renders a clear Order Up scoring example", async ({ page }) => {
+  const presentation = displayPresentation("ordering", {
+    questionSelection: null,
+    orderingMap: null,
+    scoringExample: { scoringMode: "relative", pointsPerCorrect: 50 }
+  });
+  await mockLiveSocket(page, liveSnapshot(presentation, { ordering: orderingBase }));
+  await page.goto("/display.html");
+  await expect(page.locator(".display-ordering-example-card")).toBeVisible();
+  await expect(page.getByText("Anna", { exact: true })).toHaveCount(2);
+  await expect(page.getByText("2 von 3 Paaren richtig", { exact: false })).toBeVisible();
+  await expectNoViewportOverflow(page);
 });
 
 test("team names save on Enter without separate save buttons", async ({ page }) => {

@@ -217,6 +217,20 @@ def validate_presentation(payload: object) -> dict:
             "audioCommand": clean_audio_command,
         }
     elif payload["screen"] == "ordering":
+        scoring_example = payload.get("scoringExample")
+        clean_scoring_example = None
+        if scoring_example is not None:
+            if (not isinstance(scoring_example, dict)
+                    or scoring_example.get("scoringMode") not in {"relative", "exact"}
+                    or not isinstance(scoring_example.get("pointsPerCorrect"), int)
+                    or isinstance(scoring_example.get("pointsPerCorrect"), bool)
+                    or scoring_example["pointsPerCorrect"] <= 0):
+                raise ValueError("Order Up scoring example is invalid.")
+            clean_scoring_example = {
+                "scoringMode": scoring_example["scoringMode"],
+                "pointsPerCorrect": scoring_example["pointsPerCorrect"],
+            }
+        clean["scoringExample"] = clean_scoring_example
         ordering_map = payload.get("orderingMap")
         clean_ordering_map = None
         if ordering_map is not None:

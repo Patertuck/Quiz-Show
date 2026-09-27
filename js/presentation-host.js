@@ -148,6 +148,15 @@ export function publishOrdering(questionSelection = null, orderingMap = null) {
   return publishPresentation({ ...base("ordering"), questionSelection, orderingMap });
 }
 
+export function publishOrderingScoringExample({ scoringMode, pointsPerCorrect }) {
+  return publishPresentation({
+    ...base("ordering"),
+    questionSelection: null,
+    orderingMap: null,
+    scoringExample: { scoringMode, pointsPerCorrect }
+  });
+}
+
 export function publishListing(questionSelection = null) {
   return publishPresentation({ ...base("listing"), questionSelection });
 }

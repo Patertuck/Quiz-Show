@@ -93,7 +93,7 @@ function element(tag, className = "", text = null) {
   return node;
 }
 
-function renderGraphic(graphic) {
+function renderGraphic(graphic, onShowExample = null) {
   const area = element("div", `game-rules-graphic ${graphic.kind}`);
   if (graphic.kind !== "ordering") area.setAttribute("aria-hidden", "true");
   if (graphic.kind === "jeopardy") {
@@ -103,44 +103,22 @@ function renderGraphic(graphic) {
       element("span", "rules-tile", formatInteger(graphic.values[1]))
     );
   } else if (graphic.kind === "ordering") {
-    const toggle = element("button", "secondary-button rules-ordering-example-toggle", "Wertungsbeispiel anzeigen");
-    toggle.type = "button";
-    toggle.setAttribute("aria-expanded", "false");
-    if (graphic.scoringMode === "relative") {
-      const example = element("div", "rules-ordering-example");
-      example.hidden = true;
-      const cards = element("div", "rules-ordering-cards");
-      ["1", "3", "2", "5", "4"].forEach((value) => cards.append(element("span", "rules-order-card", value)));
-      example.append(
-        element("strong", "rules-graphic-label", "Richtig wäre: 1 · 2 · 3 · 4 · 5"),
-        cards,
-        element("span", "rules-ordering-explanation", "In 1 · 3 · 2 · 5 · 4 sind nur die Paare 3/2 und 5/4 vertauscht."),
-        element("span", "rules-ordering-calculation", `8 von 10 Paaren richtig × ${formatInteger(graphic.pointsPerCorrect)} = ${formatInteger(graphic.pointsPerCorrect * 8)} Punkte`)
-      );
-      toggle.addEventListener("click", () => {
-        example.hidden = !example.hidden;
-        toggle.setAttribute("aria-expanded", String(!example.hidden));
-        toggle.textContent = example.hidden ? "Wertungsbeispiel anzeigen" : "Wertungsbeispiel ausblenden";
-      });
-      area.append(toggle, example);
-    } else {
-      const example = element("div", "rules-ordering-example");
-      example.hidden = true;
-      const cards = element("div", "rules-ordering-cards");
-      ["1", "3", "2"].forEach((value, index) => cards.append(element("span", `rules-order-card${index === 0 ? " correct" : ""}`, value)));
-      example.append(
-        element("strong", "rules-graphic-label", "Richtig wäre: 1 · 2 · 3"),
-        cards,
-        element("span", "rules-ordering-explanation", "Nur die 1 steht auf der exakten richtigen Position."),
-        element("span", "rules-ordering-calculation", `1 von 3 Positionen richtig × ${formatInteger(graphic.pointsPerCorrect)} = ${formatInteger(graphic.pointsPerCorrect)} Punkte`)
-      );
-      toggle.addEventListener("click", () => {
-        example.hidden = !example.hidden;
-        toggle.setAttribute("aria-expanded", String(!example.hidden));
-        toggle.textContent = example.hidden ? "Wertungsbeispiel anzeigen" : "Wertungsbeispiel ausblenden";
-      });
-      area.append(toggle, example);
-    }
+    const hint = element("span", "rules-ordering-example-hint", "Beispiel: Alter – älteste Person zuerst");
+    const show = element("button", "secondary-button rules-ordering-example-toggle", "Beispiel auf Display zeigen");
+    show.type = "button";
+    show.addEventListener("click", async () => {
+      show.disabled = true;
+      try {
+        await onShowExample?.();
+        show.textContent = "Beispiel wird angezeigt";
+      } catch (error) {
+        show.textContent = "Erneut versuchen";
+        console.error("Wertungsbeispiel konnte nicht angezeigt werden:", error);
+      } finally {
+        show.disabled = false;
+      }
+    });
+    area.append(hint, show);
   } else if (graphic.kind === "podium") {
     area.append(element("strong", "rules-graphic-label", graphic.label));
     const podium = element("div", "rules-podium");
@@ -159,7 +137,7 @@ function renderGraphic(graphic) {
   return area;
 }
 
-export function renderGameRules(model, { actionLabel = null, onAction = null, onBack = null } = {}) {
+export function renderGameRules(model, { actionLabel = null, onAction = null, onBack = null, onShowExample = null } = {}) {
   const screen = element("section", `game-rules-screen game-rules-${model.gameId}`);
   const panel = element("div", "game-rules-panel");
   const eyebrow = element("p", "game-rules-eyebrow", "So wird gespielt");
@@ -167,7 +145,7 @@ export function renderGameRules(model, { actionLabel = null, onAction = null, on
   const summary = element("p", "game-rules-summary", model.summary);
   const steps = element("ol", "game-rules-steps");
   model.steps.forEach((step) => steps.append(element("li", "", step)));
-  panel.append(eyebrow, title, summary, renderGraphic(model.graphic), steps);
+  panel.append(eyebrow, title, summary, renderGraphic(model.graphic, onShowExample), steps);
   if (actionLabel && onAction) {
     const actions = element("div", "game-rules-actions");
     if (onBack) {

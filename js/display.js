@@ -260,7 +260,65 @@ function jeopardyQuestion() {
   return screen;
 }
 
+function orderingScoringExample(example) {
+  const relative = example.scoringMode === "relative";
+  const screen = element("section", "display-screen display-ordering-example");
+  const content = element("div", "display-ordering-example-card");
+  const heading = element("header", "display-ordering-example-heading");
+  heading.append(
+    element("span", "display-ordering-example-kicker", "ORDER UP · WERTUNGSBEISPIEL"),
+    element("h1", "", "Alter – älteste Person zuerst"),
+    element("p", "", relative
+      ? "Jedes Personenpaar wird miteinander verglichen."
+      : "Nur die exakt richtige Position zählt.")
+  );
+
+  const rows = element("div", "display-ordering-example-rows");
+  const row = (label, values, attempt = false) => {
+    const section = element("section", `display-ordering-example-row${attempt ? " attempt" : " correct"}`);
+    section.append(element("h2", "", label));
+    const cards = element("div", "display-ordering-example-cards");
+    values.forEach(({ name, age }, index) => {
+      const card = element("div", "display-ordering-example-person");
+      if (attempt && !relative) card.classList.add(index === 0 ? "match" : "miss");
+      card.append(element("strong", "", name), element("span", "", `${age} Jahre`));
+      cards.append(card);
+    });
+    section.append(cards);
+    return section;
+  };
+  rows.append(
+    row("Richtige Reihenfolge", [
+      { name: "Anna", age: 40 }, { name: "Ben", age: 30 }, { name: "Clara", age: 20 }
+    ]),
+    row("Reihenfolge des Teams", [
+      { name: "Anna", age: 40 }, { name: "Clara", age: 20 }, { name: "Ben", age: 30 }
+    ], true)
+  );
+
+  const evaluation = element("div", "display-ordering-example-evaluation");
+  if (relative) {
+    [["Anna vor Ben", true], ["Anna vor Clara", true], ["Ben vor Clara", false]].forEach(([label, correct]) => {
+      evaluation.append(element("span", `display-ordering-example-check ${correct ? "correct" : "wrong"}`, `${correct ? "✓" : "✕"} ${label}`));
+    });
+  } else {
+    evaluation.append(
+      element("span", "display-ordering-example-check correct", "✓ Anna: Position 1"),
+      element("span", "display-ordering-example-check wrong", "✕ Clara: Position 2"),
+      element("span", "display-ordering-example-check wrong", "✕ Ben: Position 3")
+    );
+  }
+  const correctCount = relative ? 2 : 1;
+  const total = 3;
+  const result = element("strong", "display-ordering-example-result",
+    `${correctCount} von ${total} ${relative ? "Paaren" : "Positionen"} richtig  ×  ${formatInteger(example.pointsPerCorrect)}  =  ${formatInteger(correctCount * example.pointsPerCorrect)} Punkte`);
+  content.append(heading, rows, evaluation, result);
+  screen.append(content);
+  return screen;
+}
+
 function ordering() {
+  if (presentation.scoringExample) return orderingScoringExample(presentation.scoringExample);
   const screen = element("section", "display-screen display-ordering");
   const round = orderingState?.round;
   if (!round) {

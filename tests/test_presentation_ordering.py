@@ -4,6 +4,24 @@ import main
 
 
 class PresentationOrderingTests(unittest.TestCase):
+    def test_accepts_scoring_example(self):
+        clean = main.validate_presentation({
+            "screen": "ordering", "title": "Quizshow", "teams": [],
+            "scoringExample": {"scoringMode": "relative", "pointsPerCorrect": 75},
+        })
+
+        self.assertEqual(
+            {"scoringMode": "relative", "pointsPerCorrect": 75},
+            clean["scoringExample"],
+        )
+
+    def test_rejects_invalid_scoring_example(self):
+        with self.assertRaisesRegex(ValueError, "scoring example"):
+            main.validate_presentation({
+                "screen": "ordering", "title": "Quizshow", "teams": [],
+                "scoringExample": {"scoringMode": "distance", "pointsPerCorrect": 0},
+            })
+
     def test_accepts_ordering_map(self):
         clean = main.validate_presentation({
             "screen": "ordering", "title": "Quizshow", "teams": [],

@@ -10,10 +10,9 @@
 .rules-tile, .rules-order-card { display: grid; min-width: clamp(3.2rem, 8vw, 5.5rem); min-height: clamp(3.2rem, 8vh, 5rem); place-items: center; border: 3px solid #f4d75d; border-radius: .65rem; background: #263cb0; color: #f4d75d; font-size: clamp(1.2rem, 3.8vh, 2.4rem); font-weight: 900; box-shadow: 0 .45rem 1rem #0007; }
 .rules-buzzer { display: grid; width: clamp(4.5rem, 11vh, 7rem); aspect-ratio: 1; place-items: center; border: .45rem solid #f7b4ba; border-radius: 50%; background: #c52f45; font-size: clamp(.8rem, 2.2vh, 1.25rem); font-weight: 900; }
 .rules-order-card.correct { border-color: #6ee4a0; background: #176a4a; color: #fff; }
-.rules-ordering-example { display: grid; justify-items: center; gap: .45rem; }
-.rules-ordering-example[hidden] { display: none; }
 .game-rules-graphic.ordering { flex-direction: column; }
 .rules-ordering-example-toggle { border-color: #aebaff; }
+.rules-ordering-example-hint { color: #dce2ff; font-weight: 800; }
 .rules-ordering-cards { display: flex; gap: .5rem; }
 .rules-ordering-explanation { max-width: 46rem; color: #dce2ff; font-size: clamp(.8rem, 1.9vh, 1.05rem); }
 .rules-ordering-calculation { color: #fff45c; font-size: clamp(.9rem, 2.3vh, 1.3rem); font-weight: 900; }
