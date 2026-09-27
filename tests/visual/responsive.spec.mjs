@@ -105,7 +105,7 @@ test("host can publish an audience example from every game's rules", async ({ pa
   const cases = [
     ["jeopardy", { gameId: "jeopardy", value: 100 }],
     ["ordering", { gameId: "ordering", scoringMode: "relative", pointsPerCorrect: 50 }],
-    ["listing", { gameId: "listing", placementPoints: [300, 200, 100] }],
+    ["listing", { gameId: "listing", placementPoints: [500, 400, 300, 200, 100, 0] }],
     ["sync", { gameId: "sync", pointsPerSync: 100 }]
   ];
   for (const [gameId, example] of cases) {
@@ -135,7 +135,7 @@ test("audience display renders a clear Order Up scoring example", async ({ page 
 
 for (const [gameId, example, expectedText] of [
   ["jeopardy", { gameId: "jeopardy", value: 100 }, "Wie viele Minuten hat eine Stunde?"],
-  ["listing", { gameId: "listing", placementPoints: [300, 200, 100] }, "2 gültige Begriffe"],
+  ["listing", { gameId: "listing", placementPoints: [500, 400, 300, 200, 100, 0] }, "2 gültige Begriffe"],
   ["sync", { gameId: "sync", pointsPerSync: 100 }, "3 von 3 wählen Lea"]
 ]) {
   test(`audience display renders the ${gameId} rules example`, async ({ page }) => {

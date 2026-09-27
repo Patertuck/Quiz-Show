@@ -11,7 +11,6 @@ QUESTION = {
     "title": "Haustiere",
     "prompt": "Nennt Haustiere.",
     "timeLimitSeconds": 60,
-    "placementPoints": [300, 200, 100],
 }
 
 
@@ -26,6 +25,10 @@ def wait_until(state, phase):
 
 
 class ListingStateTests(unittest.TestCase):
+    def test_placement_points_are_derived_from_team_count(self):
+        self.assertEqual([400, 300, 200, 100, 0], ListingState.placement_points(5))
+        self.assertEqual([0], ListingState.placement_points(1))
+
     def make_state(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
@@ -68,7 +71,7 @@ class ListingStateTests(unittest.TestCase):
         self.assertEqual(["Hund", "Katze", "Tiger", "Hund"], queue_items)
         results = state.snapshot("host")["round"]["results"]
         self.assertEqual(
-            [(0, 2, 1, 300), (1, 1, 2, 200)],
+            [(0, 2, 1, 100), (1, 1, 2, 0)],
             [(item["teamIndex"], item["acceptedCount"], item["place"], item["points"]) for item in results],
         )
         self.assertEqual(
@@ -84,7 +87,7 @@ class ListingStateTests(unittest.TestCase):
         self.assertEqual({"text", "status"}, set(public_item))
         awards = state.awards()
         self.assertEqual("listing:", awards["awardId"][:8])
-        self.assertEqual([300, 200], [item["points"] for item in awards["awards"]])
+        self.assertEqual([100, 0], [item["points"] for item in awards["awards"]])
 
     def test_timer_accepts_any_positive_integer(self):
         state = self.make_state()

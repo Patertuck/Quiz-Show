@@ -6,6 +6,7 @@ import { hostFetch } from "../slot-api.js";
 import { confirmAction } from "../confirm-dialog.js";
 import { subscribeHostState } from "../host/live-state.js";
 import { isGameSnapshot } from "./control-state.js";
+import { listingPlacementPoints } from "../listing-points.js";
 
 let root;
 let content;
@@ -145,7 +146,7 @@ function renderPreview() {
   prompt.className = "listing-preview-prompt";
   prompt.textContent = question.prompt;
   const details = document.createElement("p");
-  details.textContent = `Platzierungspunkte ${question.placementPoints.join(" / ")}`;
+  details.textContent = `Platzierungspunkte ${listingPlacementPoints(state.teams.length).join(" / ")}`;
   const timer = timerControl(question.timeLimitSeconds);
   const actions = document.createElement("div");
   actions.className = "listing-actions";

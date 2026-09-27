@@ -175,10 +175,6 @@ export function validateConfig(config) {
     if (!Number.isInteger(question.timeLimitSeconds) || question.timeLimitSeconds <= 0) {
       throw new Error(`${path}.timeLimitSeconds muss eine positive Ganzzahl sein.`);
     }
-    if (!Array.isArray(question.placementPoints) || !question.placementPoints.length
-        || question.placementPoints.some((points) => !Number.isInteger(points) || points < 0)) {
-      throw new Error(`${path}.placementPoints muss nicht-negative Ganzzahlen enthalten.`);
-    }
     });
   }
 

@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 
 import { validateConfig } from "../js/store.js";
 import { configuredGames, gameDefinition } from "../js/game-catalog.js";
+import { listingPlacementPoints } from "../js/listing-points.js";
 
 const team = { name: "Team 1", startingScore: 0 };
 const jeopardy = {
@@ -23,8 +24,7 @@ const ordering = {
 const listing = {
   questions: [{
     id: "list", title: "List", displayCategory: "Kategorie", prompt: "Auflisten",
-    timeLimitSeconds: 30,
-    placementPoints: [100]
+    timeLimitSeconds: 30
   }]
 };
 const sync = {
@@ -49,6 +49,11 @@ test("does not require the retired listing AI rule", () => {
   const legacy = { ...listing, questions: [{ ...listing.questions[0], validationRule: "Obsolete" }] };
   assert.equal(validateConfig(config({ listing })).games.listing, listing);
   assert.equal(validateConfig(config({ listing: legacy })).games.listing, legacy);
+});
+
+test("derives List It placement points from the team count", () => {
+  assert.deepEqual(listingPlacementPoints(5), [400, 300, 200, 100, 0]);
+  assert.deepEqual(listingPlacementPoints(1), [0]);
 });
 
 test("rejects no games, unknown games, and malformed present games", () => {

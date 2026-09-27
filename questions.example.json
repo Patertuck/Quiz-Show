@@ -90,16 +90,14 @@
         "title": "Haustiere",
         "displayCategory": "Tierwelt",
         "prompt": "Nennt verschiedene Haustiere.",
-        "timeLimitSeconds": 60,
-        "placementPoints": [300, 200, 100]
+        "timeLimitSeconds": 60
       },
       {
         "id": "countries-europe",
         "title": "Länder Europas",
         "displayCategory": "Geografie",
         "prompt": "Nennt Länder, die vollständig oder teilweise in Europa liegen.",
-        "timeLimitSeconds": 90,
-        "placementPoints": [300, 200, 100]
+        "timeLimitSeconds": 90
       }
     ]
   },

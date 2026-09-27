@@ -47,6 +47,7 @@ class ListingState:
         if self.round:
             self.round.pop("validationRule", None)
             self.round.pop("maxItems", None)
+            self.round["placementPoints"] = self.placement_points(len(self.teams))
             if self.round.get("phase") == "review" and "reviewTeamIndex" not in self.round:
                 queue = self.round.get("reviewQueue", [])
                 index = self.round.get("reviewIndex", 0)
@@ -111,6 +112,10 @@ class ListingState:
             self._changed_unlocked()
 
     @staticmethod
+    def placement_points(team_count: int) -> list[int]:
+        return [(team_count - place) * 100 for place in range(1, team_count + 1)]
+
+    @staticmethod
     def _validate_question(question: object) -> dict:
         if not isinstance(question, dict):
             raise ValueError("Eine List-It-Frage ist erforderlich.")
@@ -118,12 +123,8 @@ class ListingState:
             if not isinstance(question.get(field), str) or not question[field].strip():
                 raise ValueError(f"Das Fragenfeld {field} ist erforderlich.")
         seconds = question.get("timeLimitSeconds")
-        points = question.get("placementPoints")
         if not isinstance(seconds, int) or isinstance(seconds, bool) or seconds <= 0:
             raise ValueError("timeLimitSeconds muss eine positive Ganzzahl sein.")
-        if (not isinstance(points, list) or not points
-                or any(not isinstance(point, int) or isinstance(point, bool) or point < 0 for point in points)):
-            raise ValueError("placementPoints muss nicht-negative Ganzzahlen enthalten.")
         return question
 
     def start(self, question: object) -> None:
@@ -142,7 +143,7 @@ class ListingState:
                 "title": clean["title"],
                 "prompt": clean["prompt"],
                 "timeLimitSeconds": clean["timeLimitSeconds"],
-                "placementPoints": list(clean["placementPoints"]),
+                "placementPoints": self.placement_points(len(self.teams)),
                 "deadlineAt": int(time.time() * 1000) + clean["timeLimitSeconds"] * 1000,
                 "phase": "active",
                 "drafts": [[] for _ in self.teams],

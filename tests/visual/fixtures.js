@@ -35,8 +35,7 @@ export const config = {
     },
     ordering: { scoringMode: "relative", pointsPerCorrect: 50, questions },
     listing: { questions: questions.map((question, index) => ({
-      ...question, displayCategory: `Kategorie ${index + 1} mit langem Namen`,
-      placementPoints: [300, 200, 100]
+      ...question, displayCategory: `Kategorie ${index + 1} mit langem Namen`
     })) },
     sync: { timeLimitSeconds: 8, pointsPerSync: 100, questions }
   }
@@ -98,7 +97,7 @@ export const listingReview = { ...listingBase, round: {
 } };
 export const listingResults = { ...listingBase, round: {
   ...listingActive.round, phase: "results", resultView: { mode: "ranking", teamPosition: 0 },
-  results: teamNames.map((_, teamIndex) => ({ teamIndex, place: teamIndex + 1, acceptedCount: 18 - teamIndex, points: Math.max(0, 300 - teamIndex * 50), items: listingItems }))
+  results: teamNames.map((_, teamIndex) => ({ teamIndex, place: teamIndex + 1, acceptedCount: 18 - teamIndex, points: (teamNames.length - teamIndex - 1) * 100, items: listingItems }))
 } };
 
 export const syncTeams = teamNames.map((name, teamIndex) => ({

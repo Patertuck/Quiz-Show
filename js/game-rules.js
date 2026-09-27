@@ -1,4 +1,5 @@
 import { formatInteger } from "./format-number.js";
+import { listingPlacementPoints } from "./listing-points.js";
 
 const GAME_TITLES = {
   jeopardy: "Jeopardy",
@@ -48,10 +49,7 @@ export function buildGameRules(gameId, config) {
     };
   }
   if (gameId === "listing") {
-    const example = config.games.listing.questions[0];
-    const distributionsVary = config.games.listing.questions.some((question) => (
-      question.placementPoints.join(",") !== example.placementPoints.join(",")
-    ));
+    const points = listingPlacementPoints(config.teams.length);
     return {
       gameId,
       title: GAME_TITLES[gameId],
@@ -63,9 +61,9 @@ export function buildGameRules(gameId, config) {
       ],
       graphic: {
         kind: "podium",
-        label: distributionsVary ? `Beispiel: ${example.title}` : "Platzierungspunkte",
-        points: example.placementPoints,
-        note: distributionsVary ? "Die Punkteverteilung wird vor jeder Aufgabe angezeigt." : null
+        label: "Platzierungspunkte",
+        points,
+        note: "Pro Platz sinkt die Wertung um 100 Punkte."
       }
     };
   }

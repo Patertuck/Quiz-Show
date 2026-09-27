@@ -39,8 +39,7 @@
           "title": "Farben des Regenbogens",
           "displayCategory": "Allgemeinwissen",
           "prompt": "Nennt möglichst viele Farben des Regenbogens.",
-          "timeLimitSeconds": 45,
-          "placementPoints": [300, 200, 100]
+          "timeLimitSeconds": 45
         }
       ]
     },
