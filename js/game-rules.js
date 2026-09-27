@@ -95,7 +95,7 @@ function element(tag, className = "", text = null) {
 
 function renderGraphic(graphic) {
   const area = element("div", `game-rules-graphic ${graphic.kind}`);
-  area.setAttribute("aria-hidden", "true");
+  if (graphic.kind !== "ordering") area.setAttribute("aria-hidden", "true");
   if (graphic.kind === "jeopardy") {
     area.append(
       element("span", "rules-tile", formatInteger(graphic.values[0])),
@@ -103,8 +103,12 @@ function renderGraphic(graphic) {
       element("span", "rules-tile", formatInteger(graphic.values[1]))
     );
   } else if (graphic.kind === "ordering") {
+    const toggle = element("button", "secondary-button rules-ordering-example-toggle", "Wertungsbeispiel anzeigen");
+    toggle.type = "button";
+    toggle.setAttribute("aria-expanded", "false");
     if (graphic.scoringMode === "relative") {
       const example = element("div", "rules-ordering-example");
+      example.hidden = true;
       const cards = element("div", "rules-ordering-cards");
       ["1", "3", "2", "5", "4"].forEach((value) => cards.append(element("span", "rules-order-card", value)));
       example.append(
@@ -113,11 +117,29 @@ function renderGraphic(graphic) {
         element("span", "rules-ordering-explanation", "In 1 · 3 · 2 · 5 · 4 sind nur die Paare 3/2 und 5/4 vertauscht."),
         element("span", "rules-ordering-calculation", `8 von 10 Paaren richtig × ${formatInteger(graphic.pointsPerCorrect)} = ${formatInteger(graphic.pointsPerCorrect * 8)} Punkte`)
       );
-      area.append(example);
+      toggle.addEventListener("click", () => {
+        example.hidden = !example.hidden;
+        toggle.setAttribute("aria-expanded", String(!example.hidden));
+        toggle.textContent = example.hidden ? "Wertungsbeispiel anzeigen" : "Wertungsbeispiel ausblenden";
+      });
+      area.append(toggle, example);
     } else {
-      ["3", "1", "2"].forEach((value) => area.append(element("span", "rules-order-card", value)));
-      area.append(element("span", "rules-order-arrow", "→"));
-      ["1", "2", "3"].forEach((value) => area.append(element("span", "rules-order-card correct", value)));
+      const example = element("div", "rules-ordering-example");
+      example.hidden = true;
+      const cards = element("div", "rules-ordering-cards");
+      ["1", "3", "2"].forEach((value, index) => cards.append(element("span", `rules-order-card${index === 0 ? " correct" : ""}`, value)));
+      example.append(
+        element("strong", "rules-graphic-label", "Richtig wäre: 1 · 2 · 3"),
+        cards,
+        element("span", "rules-ordering-explanation", "Nur die 1 steht auf der exakten richtigen Position."),
+        element("span", "rules-ordering-calculation", `1 von 3 Positionen richtig × ${formatInteger(graphic.pointsPerCorrect)} = ${formatInteger(graphic.pointsPerCorrect)} Punkte`)
+      );
+      toggle.addEventListener("click", () => {
+        example.hidden = !example.hidden;
+        toggle.setAttribute("aria-expanded", String(!example.hidden));
+        toggle.textContent = example.hidden ? "Wertungsbeispiel anzeigen" : "Wertungsbeispiel ausblenden";
+      });
+      area.append(toggle, example);
     }
   } else if (graphic.kind === "podium") {
     area.append(element("strong", "rules-graphic-label", graphic.label));

@@ -149,6 +149,9 @@ function publishQuestionSelection(highlightedQuestionId) {
 
 function orderingMap() {
   const question = selectedQuestion || state.config.games.ordering.questions.find((item) => item.id === orderingState?.round?.questionId);
+  if (visibleMapItem === "__solution__" && question?.solutionImage) {
+    return { label: "Auswertung", image: question.solutionImage };
+  }
   const image = visibleMapItem && question?.itemMaps?.[visibleMapItem];
   return image ? { label: visibleMapItem, image } : null;
 }
@@ -348,6 +351,13 @@ function renderResults(round) {
     control.setAttribute("aria-pressed", String(active));
     mapActions.append(control);
   });
+  if (mapQuestion?.solutionImage) {
+    const active = visibleMapItem === "__solution__";
+    const control = button(active ? "Bild ausblenden" : "Bild zeigen",
+      active ? "primary-button" : "secondary-button", () => toggleMap("__solution__"));
+    control.setAttribute("aria-pressed", String(active));
+    mapActions.append(control);
+  }
   const actions = document.createElement("div"); actions.className = "ordering-actions";
   if (round.phase === "active") {
     actions.append(
@@ -367,7 +377,7 @@ function renderResults(round) {
     actions.append(button("Runde abbrechen", "danger-button", confirmCancel));
   }
   const footer = document.createElement("div"); footer.className = "ordering-results-footer";
-  if (mapItems.length) footer.append(mapActions);
+  if (mapItems.length || mapQuestion?.solutionImage) footer.append(mapActions);
   if (round.phase !== "active" && !allRevealed) actions.prepend(privateSolutionToggle("Ergebnisse ansehen"));
   footer.append(actions);
   layout.append(board, footer);

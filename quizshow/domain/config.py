@@ -96,6 +96,7 @@ class OrderingQuestion(QuestionWithId):
     time_limit_seconds: int = Field(gt=0, alias="timeLimitSeconds")
     items: list[str] = Field(min_length=3, max_length=7)
     item_maps: dict[str, Image] | None = Field(default=None, alias="itemMaps")
+    solution_image: Image | None = Field(default=None, alias="solutionImage")
 
     @model_validator(mode="after")
     def unique_known_items(self) -> OrderingQuestion:

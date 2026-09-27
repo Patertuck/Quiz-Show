@@ -151,6 +151,7 @@ export function validateConfig(config) {
         validateImage(image, `${path}.itemMaps[${JSON.stringify(item)}]`);
       });
     }
+    validateImage(question.solutionImage, `${path}.solutionImage`);
     });
   }
 

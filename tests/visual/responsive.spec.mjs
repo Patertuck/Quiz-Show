@@ -94,6 +94,20 @@ test("host ordering preview keeps its actions visible at short desktop height", 
   await expectVisibleControlsUsable(page, 30);
 });
 
+test("host can toggle the Order Up scoring example in the rules", async ({ page }) => {
+  await mockHost(page, { ordering: orderingBase });
+  await page.goto("/#/ordering");
+  await page.locator("#ordering-rules-button").click();
+  const toggle = page.locator(".rules-ordering-example-toggle");
+  await expect(toggle).toHaveText("Wertungsbeispiel anzeigen");
+  const example = page.locator(".rules-ordering-example");
+  await expect(example).toBeHidden();
+  await toggle.click();
+  await expect(example).toBeVisible();
+  await expect(toggle).toHaveText("Wertungsbeispiel ausblenden");
+  await expect(example.locator(".rules-ordering-calculation")).toContainText("8 von 10 Paaren richtig");
+});
+
 test("team names save on Enter without separate save buttons", async ({ page }) => {
   const renameRequests = [];
   await mockHost(page);

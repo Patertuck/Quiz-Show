@@ -67,6 +67,17 @@ test("accepts relative and exact ordering scoring modes and rejects unknown mode
   );
 });
 
+test("accepts a question-level ordering solution image", () => {
+  const withImage = {
+    ...ordering,
+    questions: [{
+      ...ordering.questions[0],
+      solutionImage: { src: "assets/results.png", alt: "Results chart" }
+    }]
+  };
+  assert.equal(validateConfig(config({ ordering: withImage })).games.ordering, withImage);
+});
+
 test("accepts unbounded positive timers and rejects invalid durations", () => {
   const large = 1_000_000;
   assert.equal(validateConfig(config({
