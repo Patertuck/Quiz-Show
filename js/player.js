@@ -654,10 +654,9 @@ function renderListing() {
     listingStatus.textContent = listingSaveError;
   } else if (round.teamSubmitted) {
     listingStatus.textContent = "Eure Liste wurde abgegeben.";
-  } else if (listingPendingSaves > 0) {
-    listingStatus.textContent = "Wird gespeichert …";
-  } else if (!listingStatus.classList.contains("feedback-confirmed")) {
-    listingStatus.textContent = "✓ Gespeichert";
+  } else {
+    listingStatus.textContent = "";
+    listingStatus.classList.remove("feedback-confirmed");
   }
   focusListingEntry();
 }
