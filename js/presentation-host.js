@@ -198,6 +198,13 @@ export function publishFinalHighlights(scoreHistory, gameIds) {
   return publishFinalStatisticsScreen("final-highlights", scoreHistory, gameIds);
 }
 
+export function publishHighlightSlide(slide) {
+  return publishPresentation({
+    ...base(slide.id),
+    cards: slide.cards.map(({ title, names, value, detail }) => ({ title, names, value, detail: detail || "" }))
+  });
+}
+
 export function publishGameBreakdown(scoreHistory, gameIds) {
   return publishFinalStatisticsScreen("game-breakdown", scoreHistory, gameIds);
 }

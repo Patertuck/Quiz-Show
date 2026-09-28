@@ -1,5 +1,5 @@
 import { publishOrdering } from "../presentation-host.js";
-import { state, applyAward, saveState } from "../store.js";
+import { state, applyAward, recordAnalyticsEvent, saveState } from "../store.js";
 import { renderScoreboard } from "../scoreboard.js";
 import { hostFetch } from "../slot-api.js";
 import { confirmAction } from "../confirm-dialog.js";
@@ -388,6 +388,18 @@ function renderResults(round) {
 async function distribute() {
   const award = await request("awards");
   if (applyAward(award.awardId, award.awards, "ordering")) {
+    const round = orderingState.round;
+    const totalUnits = round.scoringMode === "relative"
+      ? round.correctItems.length * (round.correctItems.length - 1) / 2
+      : round.correctItems.length;
+    recordAnalyticsEvent({
+      id: `ordering:${award.awardId}`, type: "ordering-round", questionId: round.questionId,
+      title: round.title, totalUnits,
+      teams: round.roundPoints.map((points, teamIndex) => ({
+        teamIndex, points, correctUnits: points / round.pointsPerCorrect,
+        accuracy: totalUnits ? points / round.pointsPerCorrect / totalUnits : 0
+      }))
+    });
     renderScoreboard();
   }
   await saveState();

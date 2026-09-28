@@ -132,6 +132,7 @@ class InstanceStateStore:
             used_tiles=set(game.get("usedTiles", [])) if isinstance(game, dict) else set(),
             active_question=copy.deepcopy(game.get("activeQuestion")) if isinstance(game, dict) else None,
             applied_awards=set(game.get("appliedAwards", [])) if isinstance(game, dict) else set(),
+            analytics_events=copy.deepcopy(game.get("analyticsEvents", [])) if isinstance(game, dict) else [],
             games=game_sections,
             timer_deadlines=deadlines,
         )
@@ -166,7 +167,7 @@ class InstanceStateStore:
     @staticmethod
     def _legacy_game(session: QuizSession) -> dict:
         return {
-            "version": 6,
+            "version": 7,
             "updatedAt": session.updated_at.astimezone(UTC).isoformat().replace("+00:00", "Z"),
             "revision": session.revision,
             "gameStarted": session.game_started,
@@ -174,6 +175,7 @@ class InstanceStateStore:
             "usedTiles": sorted(session.used_tiles),
             "activeQuestion": copy.deepcopy(session.active_question),
             "appliedAwards": sorted(session.applied_awards),
+            "analyticsEvents": copy.deepcopy(session.analytics_events),
             "scoreHistory": [entry.model_dump() for entry in session.score_history],
             "scoreHistoryGame": session.active_game,
             "shownRuleGameIds": sorted(session.shown_rule_game_ids),
@@ -263,6 +265,8 @@ class InstanceStateStore:
             if current is not None:
                 candidate.lobby = copy.deepcopy(current.lobby)
                 candidate.buzzer = copy.deepcopy(current.buzzer)
+                if "analyticsEvents" not in value:
+                    candidate.analytics_events = copy.deepcopy(current.analytics_events)
             self.write_session(candidate)
             return True
 

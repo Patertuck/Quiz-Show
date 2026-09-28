@@ -28,8 +28,18 @@ def state():
 def payload():
     return {
         "podiumPng": png(), "scoreHistoryPng": png(),
-        "highlightsPng": png(), "gameBreakdownPng": png(),
+        "teamAwardsPng": png(), "quizRecordsPng": png(), "gameBreakdownPng": png(),
         "gameIds": ["jeopardy", "sync"],
+        "highlightSlides": [
+            {"id": "team-awards", "title": "Team-Awards", "cards": [
+                {"title": f"Team-Award {index}", "names": "Rot", "value": str(index), "detail": "Detail"}
+                for index in range(6)
+            ]},
+            {"id": "quiz-records", "title": "Quiz-Rekorde", "cards": [
+                {"title": f"Quiz-Rekord {index}", "names": "Finale", "value": str(index), "detail": "Detail"}
+                for index in range(6)
+            ]},
+        ],
     }
 
 
@@ -46,7 +56,7 @@ class FinalExportTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "1920 × 1080"):
             final_export._decode_export_png(png(1280, 720), "podiumPng")
 
-    def test_saves_three_files_and_deduplicates_same_result(self):
+    def test_saves_final_files_and_deduplicates_same_result(self):
         export_payload = payload()
         with tempfile.TemporaryDirectory() as temporary:
             output = Path(temporary)
@@ -56,7 +66,7 @@ class FinalExportTests(unittest.TestCase):
             self.assertFalse(created_again)
             self.assertEqual(first, second)
             self.assertTrue(first.name.startswith("quizzy-"))
-            self.assertEqual({"podest.png", "punkteverlauf.png", "highlights.png", "spielvergleich.png", "punkteverlauf.csv", "statistiken.csv"}, {path.name for path in first.iterdir()})
+            self.assertEqual({"podest.png", "punkteverlauf.png", "team-awards.png", "quiz-rekorde.png", "spielvergleich.png", "punkteverlauf.csv", "statistiken.csv"}, {path.name for path in first.iterdir()})
 
     def test_legacy_quizshow_export_is_reused(self):
         export_payload = payload()
@@ -93,7 +103,7 @@ class FinalExportTests(unittest.TestCase):
 
     def test_new_export_images_and_game_ids_are_required(self):
         with tempfile.TemporaryDirectory() as temporary:
-            with self.assertRaisesRegex(ValueError, "highlightsPng"):
+            with self.assertRaisesRegex(ValueError, "teamAwardsPng"):
                 final_export.save_final_export({"podiumPng": png(), "scoreHistoryPng": png()}, state(), Path(temporary))
 
 

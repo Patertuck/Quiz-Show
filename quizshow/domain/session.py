@@ -67,6 +67,7 @@ class QuizSession(BaseModel):
     active_question: dict[str, Any] | None = None
     presentation: dict[str, Any] = Field(default_factory=dict)
     applied_awards: set[str] = Field(default_factory=set)
+    analytics_events: list[dict[str, Any]] = Field(default_factory=list)
     lobby: dict[str, Any] = Field(default_factory=dict)
     buzzer: dict[str, Any] = Field(default_factory=dict)
     games: dict[str, dict[str, Any]] = Field(default_factory=dict)

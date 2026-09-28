@@ -11,7 +11,7 @@ from quiz_library import LOGO_FILENAMES
 from quizshow.team_colors import TEAM_COLOR_IDS, TEAM_COLORS
 
 TILE_ID_PATTERN = re.compile(r"^\d+:\d+$")
-PRESENTATION_SCREENS = {"standby", "team-lobby", "hub", "jeopardy-board", "jeopardy-question", "ordering", "listing", "sync", "rules-example", "victory", "score-history", "final-highlights", "game-breakdown"}
+PRESENTATION_SCREENS = {"standby", "team-lobby", "hub", "jeopardy-board", "jeopardy-question", "ordering", "listing", "sync", "rules-example", "victory", "score-history", "final-highlights", "team-awards", "quiz-records", "game-breakdown"}
 HUB_GAME_IDS = {"jeopardy", "ordering", "listing", "sync"}
 
 def validate_quiz_media_source(value: str, field: str) -> str:
@@ -358,6 +358,16 @@ def validate_presentation(payload: object) -> dict:
             clean_steps.append({"kind": step["kind"], "rank": step["rank"], "names": step["names"], "score": step["score"]})
         clean["steps"] = clean_steps
         clean["revealedCount"] = max(0, min(revealed_count, len(clean_steps)))
+    elif payload["screen"] in {"team-awards", "quiz-records"}:
+        cards = payload.get("cards")
+        if not isinstance(cards, list) or len(cards) != 6:
+            raise ValueError("Highlight cards are invalid.")
+        clean_cards = []
+        for card in cards:
+            if (not isinstance(card, dict) or any(not isinstance(card.get(field), str) for field in ("title", "names", "value", "detail"))):
+                raise ValueError("A highlight card is invalid.")
+            clean_cards.append({field: card[field][:300] for field in ("title", "names", "value", "detail")})
+        clean["cards"] = clean_cards
     elif payload["screen"] in {"score-history", "final-highlights", "game-breakdown"}:
         history = payload.get("scoreHistory")
         if not isinstance(history, list) or not history:

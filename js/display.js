@@ -4,7 +4,7 @@ import { gameDefinition } from "./game-catalog.js";
 import qrcode from "../assets/vendor/qrcode.js";
 import { scheduleTextFit } from "./fit-text.js";
 import { formatInteger } from "./format-number.js";
-import { createGameBreakdownView, createHighlightsView, createScoreHistoryChart } from "./score-history-chart.js";
+import { createGameBreakdownView, createHighlightCardsView, createHighlightsView, createScoreHistoryChart } from "./score-history-chart.js";
 import { element, retryingLogo } from "./display/dom.js";
 import { connectDisplaySession } from "./display/live-session.js";
 import {
@@ -860,6 +860,15 @@ function finalHighlights() {
   return screen;
 }
 
+function highlightSlide() {
+  const screen = element("section", "display-screen display-final-statistics");
+  screen.append(createHighlightCardsView({
+    title: presentation.screen === "team-awards" ? "Team-Awards" : "Quiz-Rekorde",
+    cards: presentation.cards
+  }));
+  return screen;
+}
+
 function gameBreakdown() {
   const screen = element("section", "display-screen display-final-statistics");
   screen.append(createGameBreakdownView(presentation.teams, presentation.scoreHistory, presentation.gameIds));
@@ -910,6 +919,8 @@ function renderImmediately() {
     victory,
     "score-history": scoreHistory,
     "final-highlights": finalHighlights,
+    "team-awards": highlightSlide,
+    "quiz-records": highlightSlide,
     "game-breakdown": gameBreakdown
   };
   root.replaceChildren(renderers[presentation.screen]());

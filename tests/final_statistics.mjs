@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { calculateFinalStatistics } from "../js/score-history-chart.js";
+import { buildHighlightSlides, calculateFinalStatistics } from "../js/score-history-chart.js";
 
 const teams = [
   { name: "Rot", score: 400, color: "sun" },
@@ -45,4 +45,35 @@ test("ties are retained and empty awards stay empty", () => {
   assert.equal(result.teams[0].rank, 1);
   assert.equal(result.teams[1].rank, 1);
   assert.deepEqual(result.gameSummaries.sync, { netPoints: 0, percentage: 0, spread: 0 });
+});
+
+test("rich analytics produce two fun, distinct highlight slides", () => {
+  const events = [
+    { id: "j1", type: "jeopardy-answer", questionId: "0:0", category: "Wissen", teamIndex: 0, points: 100, correct: true, responseMs: 420 },
+    { id: "j2", type: "jeopardy-answer", questionId: "0:0", category: "Wissen", teamIndex: 1, points: -100, correct: false, responseMs: 900 },
+    { id: "o1", type: "ordering-round", title: "Chronologie", teams: [{ teamIndex: 0, accuracy: 1 }, { teamIndex: 1, accuracy: 0.5 }] },
+    { id: "l1", type: "listing-round", title: "Tiere", teams: [{ teamIndex: 0, accepted: 8, rejected: 1, duplicate: 0, penalized: 0 }] },
+    { id: "s1", type: "sync-round", prompt: "Lieblingsessen", teams: [{ teamIndex: 0, synced: true }, { teamIndex: 1, synced: false }] }
+  ];
+  const slides = buildHighlightSlides(teams, history, ["jeopardy", "ordering", "listing", "sync"], events);
+  assert.deepEqual(slides.map(({ id }) => id), ["team-awards", "quiz-records"]);
+  assert.equal(slides[0].cards[0].title, "Schnellster Finger");
+  assert.ok(slides[1].cards.some(({ title }) => title === "Buzzer-Schlacht"));
+  assert.deepEqual(
+    slides[1].cards.find(({ title }) => title === "Teuerster Irrtum"),
+    { title: "Teuerster Irrtum", names: "Blau", value: "−100", detail: "Verlorene Punkte über das ganze Quiz" }
+  );
+  assert.ok(slides.every(({ cards }) => cards.length === 6));
+  assert.ok(slides[0].cards.some(({ title, names, value, detail }) => title === "Ein-Spiel-Wunder" && names === "Rot & Grün" && value === "+100" && detail.includes("Jeopardy & Order Up")));
+  assert.ok(slides[1].cards.some(({ title, names, value }) => title === "Nervenkrimi" && names === "List It" && value === "100"));
+  assert.ok(slides.flatMap(({ cards }) => cards).every(({ title }) => !["Grösster Coup", "Jeopardy-Orakel", "Mut zur Lücke"].includes(title)));
+});
+
+test("highlight pages retain six playful facts when detailed analytics are missing", () => {
+  const quietTeams = [{ name: "A", score: 0 }, { name: "B", score: 0 }];
+  const slides = buildHighlightSlides(quietTeams, [{ scores: [0, 0], game: null }], ["jeopardy"], []);
+  assert.ok(slides.every(({ cards }) => cards.length === 6));
+  assert.equal(slides[0].cards.find(({ title }) => title === "Perfektionist").value, "–");
+  assert.equal(slides[1].cards.find(({ title }) => title === "Teuerster Irrtum").names, "Keine Minuspunkte – erstaunlich");
+  assert.equal(slides[1].cards.find(({ title }) => title === "Nervenkrimi").names, "Noch kein Spiel gewertet");
 });

@@ -1,4 +1,4 @@
-import { state, saveState } from "../store.js";
+import { state, recordAnalyticsEvent, saveState } from "../store.js";
 import { updateScoreControls } from "../scoreboard.js";
 import { connectToBuzzer, controlBuzzer } from "../buzzer-client.js";
 import { commandJeopardyAudio, publishJeopardy } from "../presentation-host.js";
@@ -153,6 +153,21 @@ export async function mount(root, { showRules } = {}) {
     publishJeopardy().catch(() => undefined);
     const round = currentRound();
     if (!round?.open || round.activeTeamIndex !== event.detail.teamIndex) return;
+    const buzz = round.buzzes.find(({ teamIndex }) => teamIndex === event.detail.teamIndex);
+    const { categoryIndex, rowIndex } = state.activeQuestion;
+    recordAnalyticsEvent({
+      id: `jeopardy:${round.id}:${event.detail.teamIndex}:${state.analyticsEvents.length}`,
+      type: "jeopardy-answer",
+      questionId: activeQuestionId(),
+      category: state.config.games.jeopardy.categories[categoryIndex].name,
+      value: state.config.games.jeopardy.values[rowIndex],
+      teamIndex: event.detail.teamIndex,
+      points: event.detail.amount,
+      correct: event.detail.amount > 0,
+      buzzPosition: buzz?.position ?? 1,
+      responseMs: buzz?.responseMs ?? null
+    });
+    saveState().catch(() => undefined);
     try {
       buzzerState = await controlBuzzer("remove", {
         questionId: activeQuestionId(),

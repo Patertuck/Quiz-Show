@@ -1,6 +1,4 @@
-import {
-  calculateFinalStatistics, FINAL_GAME_LABELS, SCORE_HISTORY_COLORS, statisticTeamNames
-} from "./score-history-chart.js";
+import { calculateFinalStatistics, FINAL_GAME_LABELS, SCORE_HISTORY_COLORS } from "./score-history-chart.js";
 import { teamColor } from "./team-colors.js";
 import { formatInteger } from "./format-number.js";
 import { hostFetch } from "./slot-api.js";
@@ -215,31 +213,18 @@ function createHistorySvg(teams, history) {
   return svg;
 }
 
-function createHighlightsSvg(teams, history, gameIds) {
-  const svg = baseSvg("Quiz-Highlights");
-  const statistics = calculateFinalStatistics(teams, history, gameIds);
-  const biggest = statistics.awards.biggestGain;
-  const cards = [
-    ["Grösster Coup", biggest.value ? `+${formatInteger(biggest.value)}` : "–", statisticTeamNames(statistics, biggest.teamIndices) || "Kein Punktgewinn", biggest.games.filter(Boolean).map((game) => FINAL_GAME_LABELS[game]).join(" & ")],
-    ["Stärkstes Comeback", statistics.awards.comeback.value ? formatInteger(statistics.awards.comeback.value) : "–", statisticTeamNames(statistics, statistics.awards.comeback.teamIndices) || "Kein Comeback", statistics.awards.comeback.value ? "Punkte Rückstand aufgeholt" : ""],
-    ["Punktesammler", statistics.awards.collector.value ? formatInteger(statistics.awards.collector.value) : "–", statisticTeamNames(statistics, statistics.awards.collector.teamIndices) || "Keine Punkte gesammelt", "Positive Punkte insgesamt"],
-    ["Meiste Spielsiege", statistics.awards.gameWins.value ? formatInteger(statistics.awards.gameWins.value) : "–", statisticTeamNames(statistics, statistics.awards.gameWins.teamIndices) || "Noch kein Spiel gewertet", statistics.awards.gameWins.value === 1 ? "Spielsieg" : "Spielsiege"],
-    ["Führungswechsel", formatInteger(statistics.leadChanges), "Im gesamten Quiz", ""],
-    ["Siegervorsprung", formatInteger(statistics.winnerMargin), statisticTeamNames(statistics, [...statistics.winnerIndices]), statistics.winnerMargin ? "Punkte" : "Geteilter erster Platz"]
-  ];
-  const cardWidth = 540;
-  const cardHeight = 350;
-  const gapX = 38;
-  const gapY = 34;
+function createHighlightSlideSvg(slide) {
+  const svg = baseSvg(slide.title);
+  const cardWidth = 540, cardHeight = 350, gapX = 38, gapY = 34;
   const startX = (WIDTH - cardWidth * 3 - gapX * 2) / 2;
-  cards.forEach(([label, value, names, detail], index) => {
+  slide.cards.forEach(({ title, value, names, detail }, index) => {
     const x = startX + (index % 3) * (cardWidth + gapX);
     const y = 155 + Math.floor(index / 3) * (cardHeight + gapY);
     svg.append(svgNode("rect", { x, y, width: cardWidth, height: cardHeight, rx: 24, fill: "#080f35", "fill-opacity": 0.76, stroke: "#ffffff", "stroke-opacity": 0.3, "stroke-width": 3 }));
-    svg.append(svgNode("text", { x: x + cardWidth / 2, y: y + 62, fill: "#ffffff", "font-family": "Arial, sans-serif", "font-size": 31, "font-weight": 800, "text-anchor": "middle" }, label));
-    svg.append(svgNode("text", { x: x + cardWidth / 2, y: y + 157, fill: "#fff45c", "font-family": "Arial, sans-serif", "font-size": 76, "font-weight": 900, "text-anchor": "middle" }, value));
+    svg.append(svgNode("text", { x: x + cardWidth / 2, y: y + 62, fill: "#ffffff", "font-family": "Arial, sans-serif", "font-size": 31, "font-weight": 800, "text-anchor": "middle" }, title));
+    svg.append(svgNode("text", { x: x + cardWidth / 2, y: y + 157, fill: "#fff45c", "font-family": "Arial, sans-serif", "font-size": 68, "font-weight": 900, "text-anchor": "middle" }, value));
     appendWrappedText(svg, names, x + cardWidth / 2, y + 218, 31, { fill: "#ffffff", "font-family": "Arial, sans-serif", "font-size": 28, "font-weight": 800, "text-anchor": "middle" });
-    if (detail) svg.append(svgNode("text", { x: x + cardWidth / 2, y: y + 323, fill: "#bdc6ee", "font-family": "Arial, sans-serif", "font-size": 22, "font-weight": 700, "text-anchor": "middle" }, detail));
+    if (detail) appendWrappedText(svg, detail, x + cardWidth / 2, y + 310, 25, { fill: "#bdc6ee", "font-family": "Arial, sans-serif", "font-size": 20, "font-weight": 700, "text-anchor": "middle" });
   });
   return svg;
 }
@@ -338,17 +323,18 @@ async function svgToPngBase64(svg) {
   }
 }
 
-export async function exportFinalResults(teams, scoreHistory, gameIds) {
-  const [podiumPng, scoreHistoryPng, highlightsPng, gameBreakdownPng] = await Promise.all([
+export async function exportFinalResults(teams, scoreHistory, gameIds, highlightSlides) {
+  const [podiumPng, scoreHistoryPng, teamAwardsPng, quizRecordsPng, gameBreakdownPng] = await Promise.all([
     svgToPngBase64(createPodiumSvg(teams)),
     svgToPngBase64(createHistorySvg(teams, scoreHistory)),
-    svgToPngBase64(createHighlightsSvg(teams, scoreHistory, gameIds)),
+    svgToPngBase64(createHighlightSlideSvg(highlightSlides[0])),
+    svgToPngBase64(createHighlightSlideSvg(highlightSlides[1])),
     svgToPngBase64(createGameBreakdownSvg(teams, scoreHistory, gameIds))
   ]);
   const response = await hostFetch("/api/final-export", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ podiumPng, scoreHistoryPng, highlightsPng, gameBreakdownPng, gameIds })
+    body: JSON.stringify({ podiumPng, scoreHistoryPng, teamAwardsPng, quizRecordsPng, gameBreakdownPng, gameIds, highlightSlides })
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);

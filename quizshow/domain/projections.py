@@ -38,6 +38,7 @@ def project_session(session: QuizSession, role: ClientRole) -> dict[str, Any]:
         return snapshot
     snapshot.pop("applied_awards", None)
     snapshot.pop("shown_rule_game_ids", None)
+    snapshot.pop("analytics_events", None)
     if role == ClientRole.PLAYER:
         snapshot.pop("score_history", None)
         snapshot["games"] = _without_keys(snapshot["games"], PLAYER_PRIVATE_KEYS)

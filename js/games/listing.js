@@ -1,5 +1,5 @@
 import { publishListing } from "../presentation-host.js";
-import { state, applyAward, saveState } from "../store.js";
+import { state, applyAward, recordAnalyticsEvent, saveState } from "../store.js";
 import { renderScoreboard } from "../scoreboard.js";
 import { formatInteger } from "../format-number.js";
 import { hostFetch } from "../slot-api.js";
@@ -343,7 +343,21 @@ function renderResults(round) {
 
 async function distribute() {
   const award = await request("awards");
-  if (applyAward(award.awardId, award.awards, "listing")) renderScoreboard();
+  if (applyAward(award.awardId, award.awards, "listing")) {
+    const round = listingState.round;
+    recordAnalyticsEvent({
+      id: `listing:${award.awardId}`, type: "listing-round", questionId: round.questionId,
+      title: round.title,
+      teams: round.results.map((result) => ({
+        teamIndex: result.teamIndex, place: result.place, points: result.points,
+        accepted: result.items.filter(({ status }) => status === "counted").length,
+        rejected: result.items.filter(({ status }) => status === "rejected").length,
+        duplicate: result.items.filter(({ status }) => status === "duplicate").length,
+        penalized: result.items.filter(({ status }) => status === "penalized").length
+      }))
+    });
+    renderScoreboard();
+  }
   await saveState();
   await request("confirm-distribution");
   await publishListing(questionSelection());

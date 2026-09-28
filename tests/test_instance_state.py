@@ -32,6 +32,8 @@ def colored_game_state(revision=1):
     state["teams"] = [
         {**team, "color": color} for team, color in zip(state["teams"], ("sun", "cyan"), strict=True)
     ]
+    state["version"] = 7
+    state["analyticsEvents"] = []
     return state
 
 

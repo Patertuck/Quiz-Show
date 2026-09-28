@@ -1,5 +1,5 @@
 import { publishSync } from "../presentation-host.js";
-import { state, applyAward, saveState } from "../store.js";
+import { state, applyAward, recordAnalyticsEvent, saveState } from "../store.js";
 import { renderScoreboard } from "../scoreboard.js";
 import { hostFetch } from "../slot-api.js";
 import { confirmAction } from "../confirm-dialog.js";
@@ -337,7 +337,20 @@ async function confirmReset(trigger) {
 
 async function distribute() {
   const award = await request("awards");
-  if (applyAward(award.awardId, award.awards, "sync")) renderScoreboard();
+  if (applyAward(award.awardId, award.awards, "sync")) {
+    const round = syncState.round;
+    recordAnalyticsEvent({
+      id: `sync:${award.awardId}`, type: "sync-round", questionId: round.questionId,
+      prompt: round.prompt,
+      teams: round.results.flatMap((result) => {
+        const mapping = syncState.syncTeams.find(({ id }) => id === result.syncTeamId);
+        return (mapping?.quizTeamIndices || []).map((teamIndex) => ({
+          teamIndex, syncTeamId: result.syncTeamId, synced: result.synced, points: result.points
+        }));
+      })
+    });
+    renderScoreboard();
+  }
   await saveState();
   await request("confirm-distribution");
   await publishSync();

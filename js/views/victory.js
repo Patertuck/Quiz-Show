@@ -1,9 +1,9 @@
 import { state, saveState } from "../store.js";
 import { formatInteger } from "../format-number.js";
 import {
-  publishFinalHighlights, publishGameBreakdown, publishScoreHistory, publishVictory
+  publishGameBreakdown, publishHighlightSlide, publishScoreHistory, publishVictory
 } from "../presentation-host.js";
-import { createGameBreakdownView, createHighlightsView, createScoreHistoryChart } from "../score-history-chart.js";
+import { buildHighlightSlides, createGameBreakdownView, createHighlightCardsView, createScoreHistoryChart } from "../score-history-chart.js";
 import { exportFinalResults } from "../final-export.js";
 import { configuredGameIds } from "../game-catalog.js";
 
@@ -20,6 +20,7 @@ export async function mount(root) {
   const nextButton = navigation.querySelector('[data-direction="next"]');
   const pageIndicator = navigation.querySelector("span");
   const gameIds = configuredGameIds(state.config);
+  const highlightSlides = buildHighlightSlides(state.teams, state.scoreHistory, gameIds, state.analyticsEvents);
   const sorted = [...state.teams]
     .map((team, originalIndex) => ({ ...team, originalIndex }))
     .sort((a, b) => b.score - a.score || a.originalIndex - b.originalIndex);
@@ -80,8 +81,8 @@ export async function mount(root) {
   const slideNodes = [
     null,
     createScoreHistoryChart(state.teams, state.scoreHistory),
-    createHighlightsView(state.teams, state.scoreHistory, gameIds),
-    createGameBreakdownView(state.teams, state.scoreHistory, gameIds)
+    createGameBreakdownView(state.teams, state.scoreHistory, gameIds),
+    ...highlightSlides.map(createHighlightCardsView)
   ];
   slideNodes.slice(1).forEach((node) => { node.hidden = true; view.append(node); });
   let stepIndex = 0;
@@ -96,7 +97,7 @@ export async function mount(root) {
     exportRetry.hidden = true;
     exportStatusText.textContent = "Endspiel-Export wird gespeichert …";
     try {
-      const result = await exportFinalResults(state.teams, state.scoreHistory, gameIds);
+      const result = await exportFinalResults(state.teams, state.scoreHistory, gameIds, highlightSlides);
       exportStatusText.textContent = `${result.created ? "Export gespeichert" : "Export bereits vorhanden"}: ${result.directory}`;
       statusTimer = setTimeout(() => { exportStatus.hidden = true; }, 9000);
     } catch (error) {
@@ -114,8 +115,8 @@ export async function mount(root) {
   function publishSlide() {
     if (slideIndex === 0) return publishVictory(presentationSteps, stepIndex);
     if (slideIndex === 1) return publishScoreHistory(state.scoreHistory);
-    if (slideIndex === 2) return publishFinalHighlights(state.scoreHistory, gameIds);
-    return publishGameBreakdown(state.scoreHistory, gameIds);
+    if (slideIndex === 2) return publishGameBreakdown(state.scoreHistory, gameIds);
+    return publishHighlightSlide(highlightSlides[slideIndex - 3]);
   }
   function renderSlide() {
     const onPodium = slideIndex === 0;
@@ -125,8 +126,8 @@ export async function mount(root) {
     podium.hidden = !onPodium;
     view.querySelector(":scope > h1").hidden = !onPodium;
     slideNodes.slice(1).forEach((node, index) => { node.hidden = slideIndex !== index + 1; });
-    pageIndicator.textContent = `${slideIndex + 1} / ${slideNodes.length}`;
-    previousButton.disabled = slideIndex === 0;
+    pageIndicator.textContent = onPodium ? "Statistiken" : `${slideIndex} / ${slideNodes.length - 1}`;
+    previousButton.disabled = slideIndex <= 1;
     nextButton.disabled = slideIndex === slideNodes.length - 1;
   }
   function next() {
@@ -140,7 +141,7 @@ export async function mount(root) {
     publishSlide().catch(() => undefined);
   }
   function previous() {
-    if (slideIndex > 0) slideIndex -= 1;
+    if (slideIndex > 1) slideIndex -= 1;
     renderSlide();
     publishSlide().catch(() => undefined);
   }

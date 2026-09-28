@@ -97,7 +97,7 @@ def validate_state(state: object) -> dict:
     """Validate the stable portion of the browser-to-server state contract."""
     if not isinstance(state, dict):
         raise ValueError("State must be a JSON object.")
-    if state.get("version") not in {1, 2, 3, 4, 5, 6}:
+    if state.get("version") not in {1, 2, 3, 4, 5, 6, 7}:
         raise ValueError("Unsupported state version.")
     if not isinstance(state.get("updatedAt"), str) or not state["updatedAt"]:
         raise ValueError("updatedAt must be a non-empty string.")
@@ -174,6 +174,15 @@ def validate_state(state: object) -> dict:
         colors = [team.get("color") for team in teams]
         if any(color not in {item["id"] for item in TEAM_COLORS} for color in colors) or len(colors) != len(set(colors)):
             raise ValueError("Team colors must be unique palette colors.")
+    if state["version"] == 6:
+        state = {**state, "version": 7, "analyticsEvents": []}
+    if state["version"] >= 7:
+        analytics = state.get("analyticsEvents")
+        if (not isinstance(analytics, list) or len(analytics) > 5000
+                or any(not isinstance(event, dict) or not isinstance(event.get("id"), str)
+                       or not event["id"] or not isinstance(event.get("type"), str) or not event["type"]
+                       for event in analytics)):
+            raise ValueError("analyticsEvents must contain valid events.")
     if any(score != teams[index]["score"] for index, score in enumerate(history[-1]["scores"])):
         raise ValueError("The final scoreHistory entry must match the current team scores.")
     return state
@@ -189,6 +198,8 @@ class BuzzerState:
         self.question_id: str | None = None
         self.is_open = False
         self.buzzes: list[int] = []
+        self.opened_at_ms: int | None = None
+        self.buzz_times: dict[int, int] = {}
 
     @staticmethod
     def team_revision(teams: list[str]) -> str:
@@ -211,6 +222,8 @@ class BuzzerState:
             self.question_id = None
             self.is_open = False
             self.buzzes = []
+            self.opened_at_ms = None
+            self.buzz_times = {}
             self._changed()
 
     def control(self, action: str, question_id: str | None = None, team_index: int | None = None) -> dict:
@@ -224,6 +237,8 @@ class BuzzerState:
                 self.question_id = question_id
                 self.is_open = True
                 self.buzzes = []
+                self.opened_at_ms = int(time.time() * 1000)
+                self.buzz_times = {}
                 self._changed()
             elif action == "close":
                 self.is_open = False
@@ -257,6 +272,7 @@ class BuzzerState:
             if team_index in self.buzzes:
                 return 409, {"error": "Euer Team hat in dieser Runde bereits gebuzzert.", "state": self._snapshot_unlocked()}
             self.buzzes.append(team_index)
+            self.buzz_times[team_index] = int(time.time() * 1000)
             position = len(self.buzzes)
             self._changed()
             return 201, {"accepted": True, "position": position, "state": self._snapshot_unlocked()}
@@ -271,7 +287,12 @@ class BuzzerState:
                 "id": self.round_id,
                 "questionId": self.question_id,
                 "open": self.is_open,
-                "buzzes": [{"teamIndex": index, "teamName": self.teams[index]} for index in self.buzzes],
+                "buzzes": [{
+                    "teamIndex": index,
+                    "teamName": self.teams[index],
+                    "position": position + 1,
+                    "responseMs": max(0, self.buzz_times.get(index, self.opened_at_ms or 0) - (self.opened_at_ms or 0)),
+                } for position, index in enumerate(self.buzzes)],
                 "activeTeamIndex": active,
             },
         }

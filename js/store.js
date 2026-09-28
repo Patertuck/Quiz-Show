@@ -16,7 +16,8 @@ export const state = {
   appliedAwards: new Set(),
   scoreHistory: [],
   scoreHistoryGame: null,
-  shownRuleGameIds: new Set()
+  shownRuleGameIds: new Set(),
+  analyticsEvents: []
 };
 
 const SCORE_HISTORY_GAMES = new Set(["jeopardy", "ordering", "listing", "sync"]);
@@ -205,7 +206,7 @@ export function validateConfig(config) {
 }
 
 function validateSavedState(saved) {
-  if (!saved || typeof saved !== "object" || ![1, 2, 3, 4, 5, 6].includes(saved.version)) throw new Error("Das gespeicherte Spiel hat ein nicht unterstütztes Format.");
+  if (!saved || typeof saved !== "object" || ![1, 2, 3, 4, 5, 6, 7].includes(saved.version)) throw new Error("Das gespeicherte Spiel hat ein nicht unterstütztes Format.");
   if (typeof saved.gameStarted !== "boolean") throw new Error("Im gespeicherten Spiel fehlen erforderliche Felder.");
   if (!Number.isInteger(saved.revision) || saved.revision < 1) throw new Error("Das gespeicherte Spiel hat eine ungültige Revision.");
   if (!Array.isArray(saved.teams) || !saved.teams.length) throw new Error("Das gespeicherte Spiel muss mindestens ein Team enthalten.");
@@ -247,6 +248,12 @@ function validateSavedState(saved) {
   if (saved.version === 5) saved = { ...saved, version: 6, teams: saved.teams.map((team, index) => ({
     ...team, color: TEAM_COLORS[index].id
   })) };
+  if (saved.version === 6) saved = { ...saved, version: 7, analyticsEvents: [] };
+  if (!Array.isArray(saved.analyticsEvents) || saved.analyticsEvents.length > 5000
+      || saved.analyticsEvents.some((event) => !event || typeof event !== "object"
+        || typeof event.id !== "string" || !event.id || typeof event.type !== "string" || !event.type)) {
+    throw new Error("Das gespeicherte Spiel enthält ungültige Analysedaten.");
+  }
   const savedColors = saved.teams.map(({ color }) => color);
   if (savedColors.some((color) => !TEAM_COLORS.some(({ id }) => id === color))
       || savedColors.length !== new Set(savedColors).size) {
@@ -317,7 +324,7 @@ export async function loadApplicationData(configUrl) {
 
 export function stateSnapshot() {
   return {
-    version: 6,
+    version: 7,
     updatedAt: new Date().toISOString(),
     revision: ++state.revision,
     gameStarted: state.gameStarted,
@@ -327,7 +334,8 @@ export function stateSnapshot() {
     appliedAwards: Array.from(state.appliedAwards).sort(),
     scoreHistory: state.scoreHistory.map(({ scores, game }) => ({ scores: [...scores], game })),
     scoreHistoryGame: state.scoreHistoryGame,
-    shownRuleGameIds: Array.from(state.shownRuleGameIds).sort()
+    shownRuleGameIds: Array.from(state.shownRuleGameIds).sort(),
+    analyticsEvents: state.analyticsEvents.map((event) => structuredClone(event))
   };
 }
 
@@ -367,6 +375,7 @@ export function startRuntime(teams) {
   state.scoreHistory = [{ scores: state.teams.map(({ score }) => score), game: null }];
   state.scoreHistoryGame = null;
   state.shownRuleGameIds = new Set();
+  state.analyticsEvents = [];
 }
 
 export function resumeRuntime(teams) {
@@ -381,6 +390,16 @@ export function resumeRuntime(teams) {
   state.scoreHistory = saved.scoreHistory.map(({ scores, game }) => ({ scores: [...scores], game }));
   state.scoreHistoryGame = saved.scoreHistoryGame;
   state.shownRuleGameIds = new Set(saved.shownRuleGameIds);
+  state.analyticsEvents = saved.analyticsEvents.map((event) => structuredClone(event));
+}
+
+export function recordAnalyticsEvent(event) {
+  if (!event || typeof event.id !== "string" || !event.id || typeof event.type !== "string" || !event.type) {
+    throw new Error("Das Analyse-Ereignis ist ungültig.");
+  }
+  if (state.analyticsEvents.some(({ id }) => id === event.id)) return false;
+  state.analyticsEvents.push(structuredClone(event));
+  return true;
 }
 
 export function hasShownGameRules(gameId) {

@@ -54,9 +54,10 @@ def _export_game_ids(payload: dict) -> list[str]:
 
 def final_export_key(state: dict, game_ids: list[str] | None = None) -> str:
     identity = {
-        "formatVersion": 3,
+        "formatVersion": 4,
         "teams": state["teams"],
         "scoreHistory": state["scoreHistory"],
+        "analyticsEvents": state.get("analyticsEvents", []),
         "gameIds": game_ids or [],
     }
     encoded = json.dumps(identity, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
@@ -160,7 +161,7 @@ def final_statistics(state: dict, game_ids: list[str]) -> dict:
     }
 
 
-def final_statistics_csv(state: dict, game_ids: list[str]) -> bytes:
+def final_statistics_csv(state: dict, game_ids: list[str], highlight_slides: list[dict] | None = None) -> bytes:
     stats = final_statistics(state, game_ids)
     teams = state["teams"]
     output = io.StringIO(newline="")
@@ -175,13 +176,12 @@ def final_statistics_csv(state: dict, game_ids: list[str]) -> bytes:
         writer.writerow(["Spielübersicht", "Anteil Prozent", "", label, f"{summary['percentage']:.1f}"])
         writer.writerow(["Spielübersicht", "Spanne", "", label, summary["spread"]])
     maximums = {
-        "Grösster Coup": max(stats["biggest"], default=0),
         "Stärkstes Comeback": max(stats["comebacks"], default=0),
         "Punktesammler": max(stats["gross"], default=0),
         "Meiste Spielsiege": max(stats["gameWins"], default=0),
     }
     sources = {
-        "Grösster Coup": stats["biggest"], "Stärkstes Comeback": stats["comebacks"],
+        "Stärkstes Comeback": stats["comebacks"],
         "Punktesammler": stats["gross"], "Meiste Spielsiege": stats["gameWins"],
     }
     for label, maximum in maximums.items():
@@ -194,7 +194,7 @@ def final_statistics_csv(state: dict, game_ids: list[str]) -> bytes:
         for label, value in (
             ("Platz", stats["ranks"][index]), ("Endstand", team["score"]),
             ("Gesamtveränderung", team["score"] - start_scores[index]),
-            ("Positive Punkte", stats["gross"][index]), ("Grösster Coup", stats["biggest"][index]),
+            ("Positive Punkte", stats["gross"][index]),
             ("Stärkstes Comeback", stats["comebacks"][index]), ("Spielsiege", stats["gameWins"][index]),
         ):
             writer.writerow(["Team", label, team["name"], "", value])
@@ -202,18 +202,46 @@ def final_statistics_csv(state: dict, game_ids: list[str]) -> bytes:
             writer.writerow(["Spiel", "Netto-Punkte", team["name"], FINAL_EXPORT_GAME_LABELS[game], stats["gameTotals"][game][index]])
         if stats["other"][index]:
             writer.writerow(["Spiel", "Netto-Punkte", team["name"], "Sonstiges", stats["other"][index]])
+    for slide in highlight_slides or []:
+        for card in slide["cards"]:
+            writer.writerow(["Highlight", slide["title"], card["names"], card["title"], card["value"]])
     return output.getvalue().encode("utf-8-sig")
+
+
+def _highlight_slides(payload: dict) -> list[dict]:
+    slides = payload.get("highlightSlides")
+    if not isinstance(slides, list) or len(slides) != 2:
+        raise ValueError("highlightSlides ist ungültig.")
+    clean = []
+    for slide in slides:
+        if not isinstance(slide, dict) or slide.get("id") not in {"team-awards", "quiz-records"} or not isinstance(slide.get("title"), str):
+            raise ValueError("highlightSlides ist ungültig.")
+        cards = slide.get("cards")
+        if not isinstance(cards, list) or len(cards) != 6:
+            raise ValueError("highlightSlides ist ungültig.")
+        clean_cards = []
+        for card in cards:
+            fields = ("title", "names", "value", "detail")
+            if not isinstance(card, dict) or any(not isinstance(card.get(field, ""), str) for field in fields):
+                raise ValueError("highlightSlides ist ungültig.")
+            clean_cards.append({field: card.get(field, "")[:300] for field in fields})
+        clean.append({"id": slide["id"], "title": slide["title"][:100], "cards": clean_cards})
+    if {slide["id"] for slide in clean} != {"team-awards", "quiz-records"}:
+        raise ValueError("highlightSlides ist ungültig.")
+    return clean
 
 
 def save_final_export(payload: dict, state: dict, directory: Path) -> tuple[Path, bool]:
     podium = _decode_export_png(payload.get("podiumPng"), "podiumPng")
     score_history = _decode_export_png(payload.get("scoreHistoryPng"), "scoreHistoryPng")
-    highlights = _decode_export_png(payload.get("highlightsPng"), "highlightsPng")
+    team_awards = _decode_export_png(payload.get("teamAwardsPng"), "teamAwardsPng")
+    quiz_records = _decode_export_png(payload.get("quizRecordsPng"), "quizRecordsPng")
     game_breakdown = _decode_export_png(payload.get("gameBreakdownPng"), "gameBreakdownPng")
     game_ids = _export_game_ids(payload)
+    highlight_slides = _highlight_slides(payload)
     export_key = final_export_key(state, game_ids)
     csv_bytes = final_export_csv(state)
-    statistics_csv_bytes = final_statistics_csv(state, game_ids)
+    statistics_csv_bytes = final_statistics_csv(state, game_ids, highlight_slides)
     with FINAL_EXPORT_LOCK:
         directory.mkdir(parents=True, exist_ok=True)
         existing = next((candidate
@@ -228,7 +256,8 @@ def save_final_export(payload: dict, state: dict, directory: Path) -> tuple[Path
             temporary.mkdir()
             (temporary / "podest.png").write_bytes(podium)
             (temporary / "punkteverlauf.png").write_bytes(score_history)
-            (temporary / "highlights.png").write_bytes(highlights)
+            (temporary / "team-awards.png").write_bytes(team_awards)
+            (temporary / "quiz-rekorde.png").write_bytes(quiz_records)
             (temporary / "spielvergleich.png").write_bytes(game_breakdown)
             (temporary / "punkteverlauf.csv").write_bytes(csv_bytes)
             (temporary / "statistiken.csv").write_bytes(statistics_csv_bytes)

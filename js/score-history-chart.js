@@ -64,7 +64,9 @@ export function calculateFinalStatistics(teams, history, configuredGameIds = [])
     if (game) activeGames.add(game);
     entry.scores.forEach((score, teamIndex) => {
       const change = score - previous.scores[teamIndex];
-      if (change > 0) grossPoints[teamIndex] += change;
+      if (change > 0) {
+        grossPoints[teamIndex] += change;
+      }
       if (change > biggestGains[teamIndex]) {
         biggestGains[teamIndex] = change;
         biggestGainGames[teamIndex] = game;
@@ -118,7 +120,7 @@ export function calculateFinalStatistics(teams, history, configuredGameIds = [])
     }];
   }));
   return {
-    gameIds, gameSummaries, hasOther, leadChanges,
+    gameIds, activeGameIds: [...activeGames], gameSummaries, hasOther, leadChanges,
     winnerMargin: orderedScores.length > 1 ? orderedScores[0] - orderedScores[1] : 0,
     winnerIndices: leaders(teams.map(({ score }) => score)),
     awards: {
@@ -298,21 +300,111 @@ function awardCard(label, names, value, detail = "") {
 }
 
 export function createHighlightsView(teams, history, gameIds) {
+  return createHighlightCardsView(buildHighlightSlides(teams, history, gameIds)[0]);
+}
+
+function bestTeamMetric(teams, values, { minimum = 0, lower = false } = {}) {
+  const eligible = values.map((value, teamIndex) => ({ value, teamIndex }))
+    .filter(({ value }) => Number.isFinite(value) && value >= minimum);
+  if (!eligible.length) return null;
+  eligible.sort((a, b) => (lower ? a.value - b.value : b.value - a.value) || a.teamIndex - b.teamIndex);
+  const best = eligible[0].value;
+  return { value: best, names: eligible.filter(({ value }) => value === best).map(({ teamIndex }) => teams[teamIndex].name).join(" & ") };
+}
+
+function highlightCard(title, metric, detail, placeholder) {
+  return metric
+    ? { title, names: metric.names || "Im ganzen Quiz", value: metric.label ?? formatInteger(metric.value), detail }
+    : { title, names: placeholder, value: "–", detail };
+}
+
+export function buildHighlightSlides(teams, history, gameIds, analyticsEvents = []) {
   const statistics = calculateFinalStatistics(teams, history, gameIds);
+  const events = Array.isArray(analyticsEvents) ? analyticsEvents : [];
+  const answers = events.filter(({ type }) => type === "jeopardy-answer");
+  const ordering = events.filter(({ type }) => type === "ordering-round");
+  const listing = events.filter(({ type }) => type === "listing-round");
+  const sync = events.filter(({ type }) => type === "sync-round");
+  const count = () => Array(teams.length).fill(0);
+  const response = Array.from({ length: teams.length }, () => []);
+  answers.forEach((item) => {
+    if (!teams[item.teamIndex]) return;
+    if (Number.isFinite(item.responseMs)) response[item.teamIndex].push(item.responseMs);
+  });
+  const perfect = count();
+  ordering.forEach((round) => round.teams?.forEach((item) => {
+    if (!teams[item.teamIndex]) return;
+    perfect[item.teamIndex] += item.accuracy === 1 ? 1 : 0;
+  }));
+  const accepted = count(), wild = count();
+  listing.forEach((round) => round.teams?.forEach((item) => {
+    if (!teams[item.teamIndex]) return;
+    accepted[item.teamIndex] += item.accepted || 0;
+    wild[item.teamIndex] += (item.rejected || 0) + (item.duplicate || 0) + (item.penalized || 0);
+  }));
+  const fastest = bestTeamMetric(teams, response.map((items) => items.length ? Math.min(...items) : NaN), { lower: true });
+  if (fastest) fastest.label = `${(fastest.value / 1000).toFixed(2)} s`;
+  const comeback = bestTeamMetric(teams, statistics.teams.map(({ comeback: value }) => value), { minimum: 1 });
+  const gameDominance = statistics.activeGameIds.map((game) => {
+    const scores = statistics.teams.map((team) => team.games[game]);
+    const ordered = [...scores].sort((left, right) => right - left);
+    const best = ordered[0];
+    const margin = teams.length > 1 ? best - (ordered[1] ?? best) : best;
+    return { game, margin, teamIndices: scores.flatMap((score, index) => score === best ? [index] : []) };
+  });
+  const maximumDominance = Math.max(0, ...gameDominance.map(({ margin }) => margin));
+  const dominantGames = gameDominance.filter(({ margin }) => margin === maximumDominance && margin > 0);
+  const dependency = dominantGames.length ? {
+    names: [...new Set(dominantGames.flatMap(({ teamIndices }) => teamIndices))].map((index) => teams[index].name).join(" & "),
+    label: `+${formatInteger(maximumDominance)}`,
+    games: dominantGames.map(({ game }) => game)
+  } : null;
+  const teamCards = [
+    highlightCard("Schnellster Finger", fastest, "Vom Öffnen bis zum Buzzer", "Heute war niemand messbar schnell"),
+    highlightCard("Perfektionist", bestTeamMetric(teams, perfect, { minimum: 1 }), "Perfekte Reihenfolgen", "Perfektion blieb heute zuhause"),
+    highlightCard("Wörterbuch auf Beinen", bestTeamMetric(teams, accepted, { minimum: 1 }), "Akzeptierte Begriffe bei List It", "Das Wörterbuch blieb geschlossen"),
+    highlightCard("Kreativ daneben", bestTeamMetric(teams, wild, { minimum: 1 }), "Abgelehnte, doppelte oder bestrafte Ideen", "Verdächtig sauber gespielt"),
+    highlightCard("Stärkstes Comeback", comeback, "Aufgeholter Rückstand", "Niemand musste ein Comeback starten"),
+    highlightCard("Ein-Spiel-Wunder", dependency, dependency ? `Grösster Vorsprung in ${dependency.games.map((game) => FINAL_GAME_LABELS[game]).join(" & ")}` : "Grösster Vorsprung innerhalb eines Spiels", "Noch kein überlegenes Lieblingsspiel")
+  ];
+  const maxBy = (items, value) => items.map((item) => ({ item, value: value(item) })).filter(({ value }) => Number.isFinite(value)).sort((a, b) => b.value - a.value)[0];
+  const answerGroups = answers.reduce((groups, item) => ((groups[item.questionId] ||= []).push(item), groups), {});
+  const buzzBattle = maxBy(Object.values(answerGroups), (items) => items.length);
+  const minusPoints = count();
+  const trackedHistory = history?.length ? history : [{ scores: teams.map(({ score }) => score), game: null }];
+  for (let index = 1; index < trackedHistory.length; index += 1) {
+    trackedHistory[index].scores.forEach((score, teamIndex) => {
+      const change = score - trackedHistory[index - 1].scores[teamIndex];
+      if (change < 0) minusPoints[teamIndex] += -change;
+    });
+  }
+  const expensive = bestTeamMetric(teams, minusPoints, { minimum: 1 });
+  if (expensive) expensive.label = `−${formatInteger(expensive.value)}`;
+  const wordFlood = maxBy(listing, (round) => round.teams?.reduce((sum, item) => sum + (item.accepted || 0), 0));
+  const syncRound = maxBy(sync, (round) => round.teams?.filter(({ synced }) => synced).length);
+  const closestSpread = statistics.activeGameIds.length
+    ? Math.min(...statistics.activeGameIds.map((game) => statistics.gameSummaries[game].spread)) : null;
+  const closeGames = closestSpread === null ? [] : statistics.activeGameIds.filter((game) => statistics.gameSummaries[game].spread === closestSpread);
+  const quizCards = [
+    highlightCard("Buzzer-Schlacht", buzzBattle?.value > 1 ? { names: buzzBattle.item[0].category, label: `${buzzBattle.value} Versuche` } : null, "Meiste Versuche bei einer Frage", "Alles beim ersten Versuch erledigt"),
+    highlightCard("Teuerster Irrtum", expensive, "Verlorene Punkte über das ganze Quiz", "Keine Minuspunkte – erstaunlich"),
+    highlightCard("Wortlawine", wordFlood?.value ? { names: wordFlood.item.title, value: wordFlood.value } : null, "Akzeptierte Begriffe in einer Runde", "Die Wortlawine blieb aus"),
+    highlightCard("Kollektive Telepathie", syncRound ? { names: syncRound.item.prompt, label: `${syncRound.value}/${teams.length}` } : null, "Teams im Gleichklang", "Telepathie offline"),
+    { title: "Führungswechsel", names: "Im gesamten Quiz", value: formatInteger(statistics.leadChanges), detail: "So oft wechselte die Spitze" },
+    highlightCard("Nervenkrimi", closeGames.length ? { names: closeGames.map((game) => FINAL_GAME_LABELS[game]).join(" & "), label: formatInteger(closestSpread) } : null, "Kleinste Punktespanne eines Spiels", "Noch kein Spiel gewertet")
+  ];
+  return [
+    { id: "team-awards", title: "Team-Awards", cards: teamCards },
+    { id: "quiz-records", title: "Quiz-Rekorde", cards: quizCards }
+  ];
+}
+
+export function createHighlightCardsView(slide) {
   const section = htmlElement("section", "final-statistics final-highlights");
-  section.append(htmlElement("h1", "", "Quiz-Highlights"));
-  const cards = htmlElement("div", "final-highlight-grid");
-  const biggest = statistics.awards.biggestGain;
-  const biggestGames = biggest.games.filter(Boolean).map((game) => FINAL_GAME_LABELS[game]).join(" & ");
-  cards.append(
-    awardCard("Grösster Coup", statisticTeamNames(statistics, biggest.teamIndices) || "Kein Punktgewinn", biggest.value ? `+${formatInteger(biggest.value)}` : "–", biggestGames),
-    awardCard("Stärkstes Comeback", statisticTeamNames(statistics, statistics.awards.comeback.teamIndices) || "Kein Comeback", statistics.awards.comeback.value ? formatInteger(statistics.awards.comeback.value) : "–", statistics.awards.comeback.value ? "Punkte Rückstand aufgeholt" : ""),
-    awardCard("Punktesammler", statisticTeamNames(statistics, statistics.awards.collector.teamIndices) || "Keine Punkte gesammelt", statistics.awards.collector.value ? formatInteger(statistics.awards.collector.value) : "–", "Positive Punkte insgesamt"),
-    awardCard("Meiste Spielsiege", statisticTeamNames(statistics, statistics.awards.gameWins.teamIndices) || "Noch kein Spiel gewertet", statistics.awards.gameWins.value ? formatInteger(statistics.awards.gameWins.value) : "–", statistics.awards.gameWins.value === 1 ? "Spielsieg" : "Spielsiege"),
-    awardCard("Führungswechsel", "Im gesamten Quiz", formatInteger(statistics.leadChanges)),
-    awardCard("Siegervorsprung", statisticTeamNames(statistics, [...statistics.winnerIndices]), formatInteger(statistics.winnerMargin), statistics.winnerMargin ? "Punkte" : "Geteilter erster Platz")
-  );
-  section.append(cards);
+  section.append(htmlElement("h1", "", slide.title));
+  const grid = htmlElement("div", "final-highlight-grid");
+  slide.cards.forEach(({ title, names, value, detail }) => grid.append(awardCard(title, names, value, detail)));
+  section.append(grid);
   return section;
 }
 
