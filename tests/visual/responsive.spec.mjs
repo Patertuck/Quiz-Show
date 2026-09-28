@@ -1,9 +1,9 @@
 import { test, expect } from "@playwright/test";
 import { expectNoViewportOverflow, expectVisibleControlsUsable } from "./layout.js";
 import {
-  basePresentation, buzzer, config, listingActive, listingBase, listingResults, listingReview, liveSnapshot,
+  basePresentation, buzzer, colorPalette, config, listingActive, listingBase, listingResults, listingReview, liveSnapshot,
   orderingActive, orderingBase, orderingResults, participants, selection, syncActive, syncLobby, syncResults,
-  teamLobby, teamNames
+  teamLobby, teamNames, teams
 } from "./fixtures.js";
 import { displayPresentation, mockHost, mockLiveSocket, mockPlayer, playerSnapshot } from "./mock-app.js";
 
@@ -344,6 +344,76 @@ const displayCases = [
   ["sync-results", displayPresentation("sync"), { sync: syncResults }],
   ["victory", displayPresentation("victory", { steps: teamNames.map((name, index) => ({ kind: index < 3 ? "podium" : "standing", rank: index + 1, names: name, score: 600 - index * 100 })), revealedCount: 6 })]
 ];
+
+const finalHistory = [
+  { scores: teamNames.map(() => 0), game: null },
+  { scores: [300, 200, 100, 0, -100, -200], game: "jeopardy" },
+  { scores: [300, 450, 250, 100, 0, -200], game: "ordering" },
+  { scores: [500, 450, 350, 200, 100, -100], game: "listing" },
+  { scores: teams.map(({ score }) => score), game: "sync" }
+];
+
+for (const screen of ["final-highlights", "game-breakdown"]) {
+  test(`display ${screen} stays usable with six long team names`, async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    const presentation = displayPresentation(screen, { scoreHistory: finalHistory, gameIds: gameList });
+    await mockLiveSocket(page, liveSnapshot(presentation));
+    await page.goto("/display.html");
+    await expect(page.locator(".display-final-statistics")).toBeVisible();
+    if (screen === "game-breakdown") {
+      await expect(page.locator(".final-game-summary")).toHaveCount(4);
+      await expect(page.locator(".final-game-summary").first()).toContainText("Netto");
+      await expect(page.locator(".final-game-summary").first()).toContainText("Anteil");
+      await expect(page.locator(".final-game-summary").first()).toContainText("Spanne");
+    }
+    await expectNoViewportOverflow(page);
+  });
+}
+
+test("display game breakdown fits all twelve teams", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const manyTeams = Array.from({ length: 12 }, (_, index) => ({
+    name: `Team ${index + 1} mit langem Namen`, score: (11 - index) * 100, color: colorPalette[index].id
+  }));
+  const scoreHistory = [
+    { scores: manyTeams.map(() => 0), game: null },
+    { scores: manyTeams.map(({ score }) => score), game: "jeopardy" }
+  ];
+  const presentation = displayPresentation("game-breakdown", { teams: manyTeams, scoreHistory, gameIds: gameList });
+  await mockLiveSocket(page, liveSnapshot(presentation));
+  await page.goto("/display.html");
+  await expect(page.locator(".final-game-chart")).toHaveCount(4);
+  await expect(page.locator(".final-game-chart").first().locator(".final-game-bar-row")).toHaveCount(12);
+  await expectNoViewportOverflow(page);
+});
+
+test("host can navigate backward and forward through every final screen", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  let finalExportPayload = null;
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/api/final-export") finalExportPayload = request.postDataJSON();
+  });
+  await mockHost(page);
+  await page.goto("/#/victory");
+  const navigation = page.locator("#final-navigation");
+  const next = page.getByRole("button", { name: "Weiter" });
+  await expect(navigation).toBeHidden();
+  for (let index = 0; index < 6; index += 1) await page.locator("#victory-view").click({ position: { x: 640, y: 100 } });
+  await expect(navigation).toBeVisible();
+  await next.click();
+  await expect(page.getByRole("heading", { name: "Punkteverlauf" })).toBeVisible();
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByRole("heading", { name: "Quiz-Highlights" })).toBeVisible();
+  await next.click();
+  await expect(page.getByRole("heading", { name: "Spielvergleich" })).toBeVisible();
+  await expect(next).toBeDisabled();
+  await page.keyboard.press("ArrowLeft");
+  await expect(page.getByRole("heading", { name: "Quiz-Highlights" })).toBeVisible();
+  await expect.poll(() => finalExportPayload && Object.keys(finalExportPayload).sort(), { timeout: 20_000 }).toEqual([
+    "gameBreakdownPng", "gameIds", "highlightsPng", "podiumPng", "scoreHistoryPng"
+  ]);
+  await expectNoViewportOverflow(page);
+});
 
 test("display standby keeps the transparent logo still over the animated background", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });

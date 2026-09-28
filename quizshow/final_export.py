@@ -24,6 +24,7 @@ FINAL_EXPORT_GAME_LABELS = {
     "listing": "List It",
     "sync": "Sync Up",
 }
+FINAL_EXPORT_GAME_IDS = frozenset(FINAL_EXPORT_GAME_LABELS)
 
 
 def _decode_export_png(value: object, field: str) -> bytes:
@@ -43,11 +44,20 @@ def _decode_export_png(value: object, field: str) -> bytes:
     return image
 
 
-def final_export_key(state: dict) -> str:
+def _export_game_ids(payload: dict) -> list[str]:
+    game_ids = payload.get("gameIds")
+    if (not isinstance(game_ids, list) or not game_ids or len(game_ids) != len(set(game_ids))
+            or any(game not in FINAL_EXPORT_GAME_IDS for game in game_ids)):
+        raise ValueError("gameIds ist ungültig.")
+    return game_ids
+
+
+def final_export_key(state: dict, game_ids: list[str] | None = None) -> str:
     identity = {
-        "formatVersion": 2,
+        "formatVersion": 3,
         "teams": state["teams"],
         "scoreHistory": state["scoreHistory"],
+        "gameIds": game_ids or [],
     }
     encoded = json.dumps(identity, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()[:12]
@@ -73,11 +83,137 @@ def final_export_csv(state: dict) -> bytes:
     return output.getvalue().encode("utf-8-sig")
 
 
+def _leaders(scores: list[int]) -> set[int]:
+    maximum = max(scores)
+    return {index for index, score in enumerate(scores) if score == maximum}
+
+
+def final_statistics(state: dict, game_ids: list[str]) -> dict:
+    teams = state["teams"]
+    history = state["scoreHistory"]
+    team_count = len(teams)
+    gross = [0] * team_count
+    biggest = [0] * team_count
+    biggest_games: list[str | None] = [None] * team_count
+    game_totals = {game: [0] * team_count for game in game_ids}
+    active_games: set[str] = set()
+    other = [0] * team_count
+    lead_changes = 0
+    previous_leaders = _leaders(history[0]["scores"])
+    for previous, entry in zip(history, history[1:]):
+        game = entry.get("game") if entry.get("game") in FINAL_EXPORT_GAME_IDS else None
+        if game:
+            game_totals.setdefault(game, [0] * team_count)
+            active_games.add(game)
+        for index, (old_score, score) in enumerate(zip(previous["scores"], entry["scores"])):
+            change = score - old_score
+            if change > 0:
+                gross[index] += change
+            if change > biggest[index]:
+                biggest[index] = change
+                biggest_games[index] = game
+            (game_totals[game] if game else other)[index] += change
+        current_leaders = _leaders(entry["scores"])
+        if current_leaders != previous_leaders:
+            lead_changes += 1
+        previous_leaders = current_leaders
+
+    start_scores = history[0]["scores"]
+    maximum_deficits = [max(start_scores) - score for score in start_scores]
+    comebacks = [0] * team_count
+    for entry in history[1:]:
+        leader = max(entry["scores"])
+        for index, score in enumerate(entry["scores"]):
+            deficit = leader - score
+            comebacks[index] = max(comebacks[index], maximum_deficits[index] - deficit)
+            maximum_deficits[index] = max(maximum_deficits[index], deficit)
+    game_wins = [0] * team_count
+    for game in active_games:
+        maximum = max(game_totals[game])
+        for index, value in enumerate(game_totals[game]):
+            if value == maximum:
+                game_wins[index] += 1
+
+    final_scores = [team["score"] for team in teams]
+    distinct_scores = sorted(set(final_scores), reverse=True)
+    ranks = [1 + sum(1 for candidate in final_scores if candidate > score) for score in final_scores]
+    summary_values = {game: game_totals[game] for game in game_ids}
+    if any(other):
+        summary_values["other"] = other
+    summary_nets = {game: sum(values) for game, values in summary_values.items()}
+    total_magnitude = sum(abs(value) for value in summary_nets.values())
+    game_summaries = {
+        game: {
+            "netPoints": summary_nets[game],
+            "percentage": abs(summary_nets[game]) / total_magnitude * 100 if total_magnitude else 0.0,
+            "spread": max(values) - min(values) if values else 0,
+        }
+        for game, values in summary_values.items()
+    }
+    return {
+        "leadChanges": lead_changes,
+        "winnerMargin": distinct_scores[0] - distinct_scores[1] if len(distinct_scores) > 1 else 0,
+        "winnerIndices": sorted(_leaders(final_scores)),
+        "gross": gross, "biggest": biggest, "biggestGames": biggest_games,
+        "comebacks": comebacks, "gameWins": game_wins, "gameTotals": game_totals,
+        "other": other, "ranks": ranks, "gameSummaries": game_summaries,
+    }
+
+
+def final_statistics_csv(state: dict, game_ids: list[str]) -> bytes:
+    stats = final_statistics(state, game_ids)
+    teams = state["teams"]
+    output = io.StringIO(newline="")
+    writer = csv.writer(output, delimiter=";", lineterminator="\n")
+    writer.writerow(["Typ", "Kennzahl", "Team", "Spiel", "Wert"])
+    winners = " & ".join(teams[index]["name"] for index in stats["winnerIndices"])
+    writer.writerow(["Quiz", "Führungswechsel", "", "", stats["leadChanges"]])
+    writer.writerow(["Quiz", "Siegervorsprung", winners, "", stats["winnerMargin"]])
+    for game, summary in stats["gameSummaries"].items():
+        label = FINAL_EXPORT_GAME_LABELS.get(game, "Sonstiges")
+        writer.writerow(["Spielübersicht", "Nettopunkte", "", label, summary["netPoints"]])
+        writer.writerow(["Spielübersicht", "Anteil Prozent", "", label, f"{summary['percentage']:.1f}"])
+        writer.writerow(["Spielübersicht", "Spanne", "", label, summary["spread"]])
+    maximums = {
+        "Grösster Coup": max(stats["biggest"], default=0),
+        "Stärkstes Comeback": max(stats["comebacks"], default=0),
+        "Punktesammler": max(stats["gross"], default=0),
+        "Meiste Spielsiege": max(stats["gameWins"], default=0),
+    }
+    sources = {
+        "Grösster Coup": stats["biggest"], "Stärkstes Comeback": stats["comebacks"],
+        "Punktesammler": stats["gross"], "Meiste Spielsiege": stats["gameWins"],
+    }
+    for label, maximum in maximums.items():
+        if maximum <= 0:
+            continue
+        names = " & ".join(teams[index]["name"] for index, value in enumerate(sources[label]) if value == maximum)
+        writer.writerow(["Auszeichnung", label, names, "", maximum])
+    start_scores = state["scoreHistory"][0]["scores"]
+    for index, team in enumerate(teams):
+        for label, value in (
+            ("Platz", stats["ranks"][index]), ("Endstand", team["score"]),
+            ("Gesamtveränderung", team["score"] - start_scores[index]),
+            ("Positive Punkte", stats["gross"][index]), ("Grösster Coup", stats["biggest"][index]),
+            ("Stärkstes Comeback", stats["comebacks"][index]), ("Spielsiege", stats["gameWins"][index]),
+        ):
+            writer.writerow(["Team", label, team["name"], "", value])
+        for game in game_ids:
+            writer.writerow(["Spiel", "Netto-Punkte", team["name"], FINAL_EXPORT_GAME_LABELS[game], stats["gameTotals"][game][index]])
+        if stats["other"][index]:
+            writer.writerow(["Spiel", "Netto-Punkte", team["name"], "Sonstiges", stats["other"][index]])
+    return output.getvalue().encode("utf-8-sig")
+
+
 def save_final_export(payload: dict, state: dict, directory: Path) -> tuple[Path, bool]:
     podium = _decode_export_png(payload.get("podiumPng"), "podiumPng")
     score_history = _decode_export_png(payload.get("scoreHistoryPng"), "scoreHistoryPng")
-    export_key = final_export_key(state)
+    highlights = _decode_export_png(payload.get("highlightsPng"), "highlightsPng")
+    game_breakdown = _decode_export_png(payload.get("gameBreakdownPng"), "gameBreakdownPng")
+    game_ids = _export_game_ids(payload)
+    export_key = final_export_key(state, game_ids)
     csv_bytes = final_export_csv(state)
+    statistics_csv_bytes = final_statistics_csv(state, game_ids)
     with FINAL_EXPORT_LOCK:
         directory.mkdir(parents=True, exist_ok=True)
         existing = next((candidate
@@ -92,7 +228,10 @@ def save_final_export(payload: dict, state: dict, directory: Path) -> tuple[Path
             temporary.mkdir()
             (temporary / "podest.png").write_bytes(podium)
             (temporary / "punkteverlauf.png").write_bytes(score_history)
+            (temporary / "highlights.png").write_bytes(highlights)
+            (temporary / "spielvergleich.png").write_bytes(game_breakdown)
             (temporary / "punkteverlauf.csv").write_bytes(csv_bytes)
+            (temporary / "statistiken.csv").write_bytes(statistics_csv_bytes)
             os.replace(temporary, target)
         except Exception:
             shutil.rmtree(temporary, ignore_errors=True)

@@ -11,7 +11,7 @@ from quiz_library import LOGO_FILENAMES
 from quizshow.team_colors import TEAM_COLOR_IDS, TEAM_COLORS
 
 TILE_ID_PATTERN = re.compile(r"^\d+:\d+$")
-PRESENTATION_SCREENS = {"standby", "team-lobby", "hub", "jeopardy-board", "jeopardy-question", "ordering", "listing", "sync", "rules-example", "victory", "score-history"}
+PRESENTATION_SCREENS = {"standby", "team-lobby", "hub", "jeopardy-board", "jeopardy-question", "ordering", "listing", "sync", "rules-example", "victory", "score-history", "final-highlights", "game-breakdown"}
 HUB_GAME_IDS = {"jeopardy", "ordering", "listing", "sync"}
 
 def validate_quiz_media_source(value: str, field: str) -> str:
@@ -358,7 +358,7 @@ def validate_presentation(payload: object) -> dict:
             clean_steps.append({"kind": step["kind"], "rank": step["rank"], "names": step["names"], "score": step["score"]})
         clean["steps"] = clean_steps
         clean["revealedCount"] = max(0, min(revealed_count, len(clean_steps)))
-    elif payload["screen"] == "score-history":
+    elif payload["screen"] in {"score-history", "final-highlights", "game-breakdown"}:
         history = payload.get("scoreHistory")
         if not isinstance(history, list) or not history:
             raise ValueError("Score history presentation data is invalid.")
@@ -373,6 +373,13 @@ def validate_presentation(payload: object) -> dict:
                 raise ValueError("Each score history step needs a valid game.")
             clean_history.append({"scores": scores, "game": game})
         clean["scoreHistory"] = clean_history
+        if payload["screen"] in {"final-highlights", "game-breakdown"}:
+            game_ids = payload.get("gameIds")
+            if (not isinstance(game_ids, list) or not game_ids
+                    or any(game not in HUB_GAME_IDS for game in game_ids)
+                    or len(game_ids) != len(set(game_ids))):
+                raise ValueError("Final statistics game ids are invalid.")
+            clean["gameIds"] = game_ids
     return clean
 
 

@@ -185,3 +185,19 @@ export function publishScoreHistory(scoreHistory) {
     scoreHistory: scoreHistory.map(({ scores, game }) => ({ scores: [...scores], game }))
   });
 }
+
+function publishFinalStatisticsScreen(screen, scoreHistory, gameIds) {
+  return publishPresentation({
+    ...base(screen),
+    scoreHistory: scoreHistory.map(({ scores, game }) => ({ scores: [...scores], game })),
+    gameIds: [...gameIds]
+  });
+}
+
+export function publishFinalHighlights(scoreHistory, gameIds) {
+  return publishFinalStatisticsScreen("final-highlights", scoreHistory, gameIds);
+}
+
+export function publishGameBreakdown(scoreHistory, gameIds) {
+  return publishFinalStatisticsScreen("game-breakdown", scoreHistory, gameIds);
+}

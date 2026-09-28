@@ -4,7 +4,7 @@ import { gameDefinition } from "./game-catalog.js";
 import qrcode from "../assets/vendor/qrcode.js";
 import { scheduleTextFit } from "./fit-text.js";
 import { formatInteger } from "./format-number.js";
-import { createScoreHistoryChart } from "./score-history-chart.js";
+import { createGameBreakdownView, createHighlightsView, createScoreHistoryChart } from "./score-history-chart.js";
 import { element, retryingLogo } from "./display/dom.js";
 import { connectDisplaySession } from "./display/live-session.js";
 import {
@@ -854,6 +854,18 @@ function scoreHistory() {
   return screen;
 }
 
+function finalHighlights() {
+  const screen = element("section", "display-screen display-final-statistics");
+  screen.append(createHighlightsView(presentation.teams, presentation.scoreHistory, presentation.gameIds));
+  return screen;
+}
+
+function gameBreakdown() {
+  const screen = element("section", "display-screen display-final-statistics");
+  screen.append(createGameBreakdownView(presentation.teams, presentation.scoreHistory, presentation.gameIds));
+  return screen;
+}
+
 function syncVictorySounds(previousPresentation, nextPresentation, initial = false) {
   if (nextPresentation?.screen !== "victory") {
     if (previousPresentation?.screen === "victory") stopVictorySounds();
@@ -896,7 +908,9 @@ function renderImmediately() {
     sync,
     "rules-example": rulesExample,
     victory,
-    "score-history": scoreHistory
+    "score-history": scoreHistory,
+    "final-highlights": finalHighlights,
+    "game-breakdown": gameBreakdown
   };
   root.replaceChildren(renderers[presentation.screen]());
   if (document.body.classList.contains("with-scoreboard")) root.append(scoreboard(presentation.teams));

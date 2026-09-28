@@ -90,6 +90,30 @@ class ScoreHistoryPresentationTests(unittest.TestCase):
                 "scoreHistory": [{"scores": [300]}],
             })
 
+    def test_accepts_both_final_statistics_presentations(self):
+        for screen in ("final-highlights", "game-breakdown"):
+            with self.subTest(screen=screen):
+                clean = main.validate_presentation({
+                    "screen": screen,
+                    "title": "Quizshow",
+                    "teams": [{"name": "Rot", "score": 300}, {"name": "Blau", "score": -100}],
+                    "scoreHistory": [
+                        {"scores": [0, 0], "game": None},
+                        {"scores": [300, -100], "game": "jeopardy"},
+                    ],
+                    "gameIds": ["jeopardy", "sync"],
+                })
+                self.assertEqual(["jeopardy", "sync"], clean["gameIds"])
+
+    def test_final_statistics_reject_invalid_game_ids(self):
+        with self.assertRaisesRegex(ValueError, "game ids"):
+            main.validate_presentation({
+                "screen": "final-highlights", "title": "Quizshow",
+                "teams": [{"name": "Rot", "score": 0}],
+                "scoreHistory": [{"scores": [0], "game": None}],
+                "gameIds": ["unknown"],
+            })
+
 
 if __name__ == "__main__":
     unittest.main()

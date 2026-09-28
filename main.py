@@ -44,8 +44,8 @@ MAX_STATE_BYTES = 1_000_000
 TILE_ID_PATTERN = re.compile(r"^\d+:\d+$")
 MAX_BUZZER_BODY_BYTES = 16_384
 MAX_PRESENTATION_BODY_BYTES = 262_144
-MAX_FINAL_EXPORT_BODY_BYTES = 25_000_000
-PRESENTATION_SCREENS = {"standby", "team-lobby", "hub", "jeopardy-board", "jeopardy-question", "ordering", "listing", "sync", "victory", "score-history"}
+MAX_FINAL_EXPORT_BODY_BYTES = 45_000_000
+PRESENTATION_SCREENS = {"standby", "team-lobby", "hub", "jeopardy-board", "jeopardy-question", "ordering", "listing", "sync", "victory", "score-history", "final-highlights", "game-breakdown"}
 HUB_GAME_IDS = {"jeopardy", "ordering", "listing", "sync"}
 
 def find_lan_address() -> str:

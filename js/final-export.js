@@ -1,4 +1,6 @@
-import { SCORE_HISTORY_COLORS } from "./score-history-chart.js";
+import {
+  calculateFinalStatistics, FINAL_GAME_LABELS, SCORE_HISTORY_COLORS, statisticTeamNames
+} from "./score-history-chart.js";
 import { teamColor } from "./team-colors.js";
 import { formatInteger } from "./format-number.js";
 import { hostFetch } from "./slot-api.js";
@@ -213,6 +215,108 @@ function createHistorySvg(teams, history) {
   return svg;
 }
 
+function createHighlightsSvg(teams, history, gameIds) {
+  const svg = baseSvg("Quiz-Highlights");
+  const statistics = calculateFinalStatistics(teams, history, gameIds);
+  const biggest = statistics.awards.biggestGain;
+  const cards = [
+    ["Grösster Coup", biggest.value ? `+${formatInteger(biggest.value)}` : "–", statisticTeamNames(statistics, biggest.teamIndices) || "Kein Punktgewinn", biggest.games.filter(Boolean).map((game) => FINAL_GAME_LABELS[game]).join(" & ")],
+    ["Stärkstes Comeback", statistics.awards.comeback.value ? formatInteger(statistics.awards.comeback.value) : "–", statisticTeamNames(statistics, statistics.awards.comeback.teamIndices) || "Kein Comeback", statistics.awards.comeback.value ? "Punkte Rückstand aufgeholt" : ""],
+    ["Punktesammler", statistics.awards.collector.value ? formatInteger(statistics.awards.collector.value) : "–", statisticTeamNames(statistics, statistics.awards.collector.teamIndices) || "Keine Punkte gesammelt", "Positive Punkte insgesamt"],
+    ["Meiste Spielsiege", statistics.awards.gameWins.value ? formatInteger(statistics.awards.gameWins.value) : "–", statisticTeamNames(statistics, statistics.awards.gameWins.teamIndices) || "Noch kein Spiel gewertet", statistics.awards.gameWins.value === 1 ? "Spielsieg" : "Spielsiege"],
+    ["Führungswechsel", formatInteger(statistics.leadChanges), "Im gesamten Quiz", ""],
+    ["Siegervorsprung", formatInteger(statistics.winnerMargin), statisticTeamNames(statistics, [...statistics.winnerIndices]), statistics.winnerMargin ? "Punkte" : "Geteilter erster Platz"]
+  ];
+  const cardWidth = 540;
+  const cardHeight = 350;
+  const gapX = 38;
+  const gapY = 34;
+  const startX = (WIDTH - cardWidth * 3 - gapX * 2) / 2;
+  cards.forEach(([label, value, names, detail], index) => {
+    const x = startX + (index % 3) * (cardWidth + gapX);
+    const y = 155 + Math.floor(index / 3) * (cardHeight + gapY);
+    svg.append(svgNode("rect", { x, y, width: cardWidth, height: cardHeight, rx: 24, fill: "#080f35", "fill-opacity": 0.76, stroke: "#ffffff", "stroke-opacity": 0.3, "stroke-width": 3 }));
+    svg.append(svgNode("text", { x: x + cardWidth / 2, y: y + 62, fill: "#ffffff", "font-family": "Arial, sans-serif", "font-size": 31, "font-weight": 800, "text-anchor": "middle" }, label));
+    svg.append(svgNode("text", { x: x + cardWidth / 2, y: y + 157, fill: "#fff45c", "font-family": "Arial, sans-serif", "font-size": 76, "font-weight": 900, "text-anchor": "middle" }, value));
+    appendWrappedText(svg, names, x + cardWidth / 2, y + 218, 31, { fill: "#ffffff", "font-family": "Arial, sans-serif", "font-size": 28, "font-weight": 800, "text-anchor": "middle" });
+    if (detail) svg.append(svgNode("text", { x: x + cardWidth / 2, y: y + 323, fill: "#bdc6ee", "font-family": "Arial, sans-serif", "font-size": 22, "font-weight": 700, "text-anchor": "middle" }, detail));
+  });
+  return svg;
+}
+
+function createGameBreakdownTableSvg(teams, history, gameIds) {
+  const svg = baseSvg("Spielvergleich");
+  const statistics = calculateFinalStatistics(teams, history, gameIds);
+  const columns = [...statistics.gameIds.map((game) => ({ label: FINAL_GAME_LABELS[game], value: (team) => team.games[game] }))];
+  if (statistics.hasOther) columns.push({ label: FINAL_GAME_LABELS.other, value: (team) => team.other });
+  columns.push({ label: "Gesamt", value: (team) => team.netChange }, { label: "Endstand", value: (team) => team.finalScore });
+  const left = 70;
+  const top = 145;
+  const tableWidth = WIDTH - left * 2;
+  const teamWidth = 410;
+  const columnWidth = (tableWidth - teamWidth) / columns.length;
+  const orderedTeams = statistics.teams.slice().sort((leftTeam, rightTeam) => leftTeam.rank - rightTeam.rank || leftTeam.index - rightTeam.index);
+  const rowHeight = Math.min(70, 830 / Math.max(1, orderedTeams.length + 1));
+  svg.append(svgNode("rect", { x: left, y: top, width: tableWidth, height: rowHeight * (orderedTeams.length + 1), rx: 20, fill: "#080f35", "fill-opacity": 0.76, stroke: "#ffffff", "stroke-opacity": 0.3, "stroke-width": 3 }));
+  svg.append(svgNode("text", { x: left + 22, y: top + rowHeight * 0.66, fill: "#fff45c", "font-family": "Arial, sans-serif", "font-size": 25, "font-weight": 900 }, "Team"));
+  columns.forEach((column, index) => svg.append(svgNode("text", { x: left + teamWidth + (index + 0.5) * columnWidth, y: top + rowHeight * 0.66, fill: "#fff45c", "font-family": "Arial, sans-serif", "font-size": Math.min(25, columnWidth / 6), "font-weight": 900, "text-anchor": "middle" }, column.label)));
+  orderedTeams.forEach((team, rowIndex) => {
+    const y = top + (rowIndex + 1) * rowHeight;
+    svg.append(svgNode("line", { x1: left, x2: left + tableWidth, y1: y, y2: y, stroke: "#ffffff", "stroke-opacity": 0.15, "stroke-width": 2 }));
+    svg.append(svgNode("circle", { cx: left + 24, cy: y + rowHeight / 2, r: 10, fill: teamColor(team.color, team.index).value, stroke: "#ffffff", "stroke-width": 2 }));
+    svg.append(svgNode("text", { x: left + 47, y: y + rowHeight * 0.64, fill: "#ffffff", "font-family": "Arial, sans-serif", "font-size": Math.min(27, rowHeight * 0.42), "font-weight": 800 }, team.name.length > 26 ? `${team.name.slice(0, 25)}…` : team.name));
+    columns.forEach((column, index) => {
+      const value = column.value(team);
+      const text = value > 0 && column.label !== "Endstand" ? `+${formatInteger(value)}` : formatInteger(value);
+      svg.append(svgNode("text", { x: left + teamWidth + (index + 0.5) * columnWidth, y: y + rowHeight * 0.64, fill: ["Gesamt", "Endstand"].includes(column.label) ? "#fff45c" : "#ffffff", "font-family": "Arial, sans-serif", "font-size": Math.min(26, rowHeight * 0.4), "font-weight": ["Gesamt", "Endstand"].includes(column.label) ? 900 : 700, "text-anchor": "middle" }, text));
+    });
+  });
+  return svg;
+}
+
+function createGameBreakdownSvg(teams, history, gameIds) {
+  const svg = baseSvg("Spielvergleich");
+  const statistics = calculateFinalStatistics(teams, history, gameIds);
+  const games = statistics.gameIds.map((id) => ({ id, label: FINAL_GAME_LABELS[id] }));
+  if (statistics.hasOther) games.push({ id: "other", label: FINAL_GAME_LABELS.other });
+  const left = 70;
+  const top = 145;
+  const gap = 20;
+  const panelWidth = (WIDTH - left * 2 - gap * (games.length - 1)) / games.length;
+  const headerHeight = 98;
+  const rowHeight = Math.min(60, 755 / Math.max(1, statistics.teams.length));
+  const panelHeight = headerHeight + rowHeight * statistics.teams.length;
+  const maximum = Math.max(1, ...statistics.teams.flatMap((team) => games.map(({ id }) => Math.abs(id === "other" ? team.other : team.games[id]))));
+  games.forEach(({ id, label }, gameIndex) => {
+    const x = left + gameIndex * (panelWidth + gap);
+    svg.append(svgNode("rect", { x, y: top, width: panelWidth, height: panelHeight, rx: 20, fill: "#080f35", "fill-opacity": 0.76, stroke: "#ffffff", "stroke-opacity": 0.3, "stroke-width": 3 }));
+    svg.append(svgNode("text", { x: x + panelWidth / 2, y: top + 34, fill: "#fff45c", "font-family": "Arial, sans-serif", "font-size": Math.min(27, panelWidth / 7), "font-weight": 900, "text-anchor": "middle" }, label));
+    const summary = statistics.gameSummaries[id];
+    svg.append(svgNode("text", { x: x + panelWidth / 2, y: top + 66, fill: "#bdc6ee", "font-family": "Arial, sans-serif", "font-size": Math.min(17, panelWidth / 13), "font-weight": 800, "text-anchor": "middle" }, `Netto ${summary.netPoints > 0 ? "+" : ""}${formatInteger(summary.netPoints)} · Anteil ${summary.percentage.toFixed(1)}%`));
+    svg.append(svgNode("text", { x: x + panelWidth / 2, y: top + 88, fill: "#bdc6ee", "font-family": "Arial, sans-serif", "font-size": Math.min(17, panelWidth / 13), "font-weight": 800, "text-anchor": "middle" }, `Spanne ${formatInteger(summary.spread)}`));
+    const orderedTeams = statistics.teams.slice().sort((leftTeam, rightTeam) => {
+      const leftValue = id === "other" ? leftTeam.other : leftTeam.games[id];
+      const rightValue = id === "other" ? rightTeam.other : rightTeam.games[id];
+      return rightValue - leftValue || leftTeam.rank - rightTeam.rank || leftTeam.index - rightTeam.index;
+    });
+    orderedTeams.forEach((team, rowIndex) => {
+      const value = id === "other" ? team.other : team.games[id];
+      const y = top + headerHeight + rowIndex * rowHeight;
+      const barLeft = x + 14;
+      const barWidth = panelWidth - 28;
+      const center = barLeft + barWidth / 2;
+      const valueWidth = Math.abs(value) / maximum * (barWidth / 2);
+      svg.append(svgNode("line", { x1: x, x2: x + panelWidth, y1: y, y2: y, stroke: "#ffffff", "stroke-opacity": 0.12, "stroke-width": 1 }));
+      const shortName = team.name.length > 18 ? `${team.name.slice(0, 17)}…` : team.name;
+      svg.append(svgNode("text", { x: barLeft, y: y + rowHeight * 0.38, fill: "#ffffff", "font-family": "Arial, sans-serif", "font-size": Math.min(19, rowHeight * 0.31), "font-weight": 700 }, shortName));
+      svg.append(svgNode("text", { x: x + panelWidth - 14, y: y + rowHeight * 0.38, fill: "#ffffff", "font-family": "Arial, sans-serif", "font-size": Math.min(19, rowHeight * 0.31), "font-weight": 800, "text-anchor": "end" }, value > 0 ? `+${formatInteger(value)}` : formatInteger(value)));
+      svg.append(svgNode("line", { x1: center, x2: center, y1: y + rowHeight * 0.5, y2: y + rowHeight * 0.88, stroke: "#ffffff", "stroke-opacity": 0.55, "stroke-width": 2 }));
+      if (valueWidth > 0) svg.append(svgNode("rect", { x: value < 0 ? center - valueWidth : center, y: y + rowHeight * 0.58, width: valueWidth, height: rowHeight * 0.22, rx: rowHeight * 0.11, fill: teamColor(team.color, team.index).value, "fill-opacity": value < 0 ? 0.72 : 1 }));
+    });
+  });
+  return svg;
+}
+
 async function svgToPngBase64(svg) {
   const source = new XMLSerializer().serializeToString(svg);
   const url = URL.createObjectURL(new Blob([source], { type: "image/svg+xml;charset=utf-8" }));
@@ -234,15 +338,17 @@ async function svgToPngBase64(svg) {
   }
 }
 
-export async function exportFinalResults(teams, scoreHistory) {
-  const [podiumPng, scoreHistoryPng] = await Promise.all([
+export async function exportFinalResults(teams, scoreHistory, gameIds) {
+  const [podiumPng, scoreHistoryPng, highlightsPng, gameBreakdownPng] = await Promise.all([
     svgToPngBase64(createPodiumSvg(teams)),
-    svgToPngBase64(createHistorySvg(teams, scoreHistory))
+    svgToPngBase64(createHistorySvg(teams, scoreHistory)),
+    svgToPngBase64(createHighlightsSvg(teams, scoreHistory, gameIds)),
+    svgToPngBase64(createGameBreakdownSvg(teams, scoreHistory, gameIds))
   ]);
   const response = await hostFetch("/api/final-export", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ podiumPng, scoreHistoryPng })
+    body: JSON.stringify({ podiumPng, scoreHistoryPng, highlightsPng, gameBreakdownPng, gameIds })
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
