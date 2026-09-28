@@ -29,6 +29,15 @@ class ListingStateTests(unittest.TestCase):
         self.assertEqual([400, 300, 200, 100, 0], ListingState.placement_points(5))
         self.assertEqual([0], ListingState.placement_points(1))
 
+    def test_tied_teams_pool_every_occupied_place(self):
+        points = [400, 300, 200, 100, 0]
+        self.assertEqual(350, ListingState.shared_placement_points(points, 1, 2))
+        self.assertEqual(200, ListingState.shared_placement_points(points, 2, 3))
+        self.assertEqual(50, ListingState.shared_placement_points(points, 4, 2))
+
+    def test_shared_placement_points_round_halves_up(self):
+        self.assertEqual(1, ListingState.shared_placement_points([1, 0], 1, 2))
+
     def test_player_cannot_submit_list_before_timer_expires(self):
         state = self.make_state()
         state.start(QUESTION)
@@ -134,6 +143,22 @@ class ListingStateTests(unittest.TestCase):
         state.control({"action": "lock"})
         snapshot = wait_until(state, "results")
         self.assertEqual([0, 0], [item["points"] for item in snapshot["round"]["results"]])
+
+    def test_teams_tied_at_a_rank_share_its_points(self):
+        state = self.make_state()
+        state.start(QUESTION)
+        self.submit(state, 0, ["Hund"])
+        self.submit(state, 1, ["Katze"])
+        state.control({"action": "lock"})
+        wait_until(state, "review")
+        for team_index in (0, 1):
+            state.control({"action": "review-team", "teamIndex": team_index})
+            for item in state.snapshot("host")["round"]["review"]["items"]:
+                state.control({"action": "decide", "itemId": item["itemId"], "countImpact": 1})
+        state.control({"action": "finish-review"})
+
+        results = state.snapshot("host")["round"]["results"]
+        self.assertEqual([(1, 50), (1, 50)], [(item["place"], item["points"]) for item in results])
 
     def test_review_decision_can_be_revisited(self):
         state = self.make_state()

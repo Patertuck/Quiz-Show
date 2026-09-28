@@ -116,6 +116,14 @@ class ListingState:
         return [(team_count - place) * 100 for place in range(1, team_count + 1)]
 
     @staticmethod
+    def shared_placement_points(placement_points: list[int], place: int, tied_teams: int) -> int:
+        occupied_points = placement_points[place - 1:place - 1 + tied_teams]
+        if tied_teams <= 0 or len(occupied_points) != tied_teams:
+            return 0
+        total = sum(occupied_points)
+        return (2 * total + tied_teams) // (2 * tied_teams)
+
+    @staticmethod
     def _validate_question(question: object) -> dict:
         if not isinstance(question, dict):
             raise ValueError("Eine List-It-Frage ist erforderlich.")
@@ -295,8 +303,9 @@ class ListingState:
         results = []
         for team_index, count in enumerate(counts):
             place = sorted_counts.index(count) + 1
-            points = (self.round["placementPoints"][place - 1]
-                      if count > 0 and place <= len(self.round["placementPoints"]) else 0)
+            tied_teams = counts.count(count)
+            points = (self.shared_placement_points(self.round["placementPoints"], place, tied_teams)
+                      if count > 0 else 0)
             results.append({
                 "teamIndex": team_index,
                 "acceptedCount": count,

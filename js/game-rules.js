@@ -63,7 +63,7 @@ export function buildGameRules(gameId, config) {
         kind: "podium",
         label: "Platzierungspunkte",
         points,
-        note: "Pro Platz sinkt die Wertung um 100 Punkte."
+        note: "Bei Gleichstand werden die Punkte aller gemeinsam belegten Plätze zusammengezählt und gleichmässig geteilt."
       }
     };
   }
